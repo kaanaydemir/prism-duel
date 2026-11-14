@@ -19,7 +19,12 @@ export function applyAudioSettings(s: Settings, track: 'title' | 'duel' | null =
   else if (track) music.play(track);
 }
 
-type RowKind = 'speed' | 'sound' | 'music' | 'curtain';
+type RowKind = 'speed' | 'sound' | 'music' | 'curtain' | 'arena';
+
+const ARENAS = [
+  { id: 'neon', label: 'NEON' },
+  { id: 'sky', label: 'SKY' },
+] as const;
 
 interface Chip {
   bg: Phaser.GameObjects.Image;
@@ -42,7 +47,7 @@ interface Row {
 
 const ROW_H = 38;
 const W = 400;
-const H = 236;
+const H = 274;
 
 export class SettingsOverlay extends Overlay {
   private readonly settings: Settings;
@@ -67,6 +72,7 @@ export class SettingsOverlay extends Overlay {
       { kind: 'sound', title: 'Sound effects', sub: 'Card, spell and impact sounds.' },
       { kind: 'music', title: 'Music', sub: 'Menu and duel music.' },
       { kind: 'curtain', title: 'Turn curtain', sub: 'Hides the hand between turns in same-screen play.' },
+      { kind: 'arena', title: 'Arena', sub: 'Neon Tower or Sky Temple. The game restarts.' },
     ];
     defs.forEach((d, i) => {
       const y = HEADER_H + 10 + i * ROW_H;
@@ -78,7 +84,14 @@ export class SettingsOverlay extends Overlay {
       this.own(zone);
       const row: Row = { kind: d.kind, y, title, sub, chips: [], zone };
       zone.on(Phaser.Input.Events.POINTER_OVER, () => this.setFocus(i, true));
-      if (d.kind === 'speed') {
+      if (d.kind === 'arena') {
+        ARENAS.forEach((a, j) => {
+          const chip = this.chip(W - 128 + j * 56, y + 8, 52, 18, a.label);
+          chip.zone.on(Phaser.Input.Events.POINTER_OVER, () => this.setFocus(i, true));
+          chip.zone.on(Phaser.Input.Events.POINTER_DOWN, () => this.setArena(a.id));
+          row.chips.push(chip);
+        });
+      } else if (d.kind === 'speed') {
         ([1, 2, 3] as const).forEach((k, j) => {
           const chip = this.chip(W - 128 + j * 38, y + 8, 34, 18, `${k}×`);
           chip.zone.on(Phaser.Input.Events.POINTER_OVER, () => this.setFocus(i, true));
@@ -137,6 +150,10 @@ export class SettingsOverlay extends Overlay {
         r.chips.forEach((c, j) => this.chipStyle(c, 'gold', st.speed === j + 1));
         continue;
       }
+      if (r.kind === 'arena') {
+        r.chips.forEach((c, j) => this.chipStyle(c, 'gold', (st.arena ?? 'neon') === ARENAS[j].id));
+        continue;
+      }
       const on = r.kind === 'sound' ? st.sound : r.kind === 'music' ? st.music : st.curtain;
       const c = r.chips[0];
       this.chipStyle(c, on ? 'leaf' : 'stone', true);
@@ -167,9 +184,29 @@ export class SettingsOverlay extends Overlay {
     this.rows.forEach((row, k) => row.title.setTint(k === i ? UI_RAMP.gold[4] : PAL.white));
   }
 
+  /** Pick the arena: saved, then the game reloads (the canvas resolution depends on it). */
+  private setArena(id: Settings['arena']): void {
+    const st = this.settings;
+    if ((st.arena ?? 'neon') === id) {
+      sfx.play('uiClick', { volume: 0.5 });
+      return;
+    }
+    st.arena = id;
+    saveSettings(st);
+    this.onChange?.(st);
+    sfx.play('uiConfirm', { volume: 0.7 });
+    this.refresh();
+    this.scene.time.delayedCall(350, () => location.reload());
+  }
+
   /** Change a row: toggles flip; speed takes an explicit value or cycles by `dir`. */
   private change(kind: RowKind, value?: 1 | 2 | 3, dir = 1): void {
     const st = this.settings;
+    if (kind === 'arena') {
+      const i = ARENAS.findIndex((a) => a.id === (st.arena ?? 'neon'));
+      this.setArena(ARENAS[(i + dir + ARENAS.length) % ARENAS.length].id);
+      return;
+    }
     if (kind === 'speed') {
       const next = value ?? ((((st.speed - 1 + dir + 3) % 3) + 1) as 1 | 2 | 3);
       if (next === st.speed && value !== undefined) {

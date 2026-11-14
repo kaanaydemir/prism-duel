@@ -17,15 +17,23 @@
 //          Full-frame screen-space rectangles (the light dim, cinematic dims, fades to black) end at
 //          the frame, so each gets a twin across the whole canvas, drawn by the bar cameras only.
 //
+//   hires  With HIRES = 2 (the Sky Temple arena, src/view/hires.ts) the canvas is twice as big in both
+//          directions, but nothing above changes: installHires makes WebGL's projection show the same
+//          640-space world on it (and scales the camera scissors), and the pointer is divided back down.
+//
 // Read once at boot (the app is landscape-locked).
 
 import Phaser from 'phaser';
 import { GAME_H, GAME_W } from './layout';
+import { HIRES } from './hires';
 import { WIDE_OX } from './mobile';
 
-export { WIDE_OX };
-/** Canvas width: GAME_W, plus both side bars on a wide phone. */
+export { HIRES, WIDE_OX };
+/** Canvas width in GAME pixels: GAME_W, plus both side bars on a wide phone. */
 export const CANVAS_W: number = GAME_W + WIDE_OX * 2;
+/** The real canvas size (device-independent canvas pixels): the game size × HIRES. */
+export const RENDER_W: number = CANVAS_W * HIRES;
+export const RENDER_H: number = GAME_H * HIRES;
 
 type Cam = Phaser.Cameras.Scene2D.Camera & { __side?: boolean };
 interface Bar {
@@ -49,13 +57,20 @@ const sides = new Map<Phaser.Scene, SideState>();
  * Call once, before `new Phaser.Game`.
  */
 export function installWide(): void {
-  if (!WIDE_OX) return;
+  if (!WIDE_OX && HIRES === 1) return;
   const OX = WIDE_OX;
-  const SM = Phaser.Scale.ScaleManager.prototype as unknown as { transformX(pageX: number): number };
+  const SM = Phaser.Scale.ScaleManager.prototype as unknown as { transformX(pageX: number): number; transformY(pageY: number): number };
   const tx = SM.transformX;
+  const ty = SM.transformY;
   SM.transformX = function (this: unknown, pageX: number) {
-    return tx.call(this, pageX) - OX;
+    return tx.call(this, pageX) / HIRES - OX;
   };
+  if (HIRES !== 1) {
+    SM.transformY = function (this: unknown, pageY: number) {
+      return ty.call(this, pageY) / HIRES;
+    };
+  }
+  if (!WIDE_OX) return;
   const CamP = Phaser.Cameras.Scene2D.Camera.prototype as unknown as {
     getWorldPoint(x: number, y: number, out?: Phaser.Math.Vector2): Phaser.Math.Vector2;
   };
@@ -80,14 +95,16 @@ export function installWide(): void {
 
 /** Every frame, before rendering: keep core cameras centred, glue the side cameras. Call once after `new Phaser.Game`. */
 export function driveWide(game: Phaser.Game): void {
-  if (!WIDE_OX) return;
+  if (!WIDE_OX && HIRES === 1) return;
   const OX = WIDE_OX;
   game.events.on(Phaser.Core.Events.PRE_RENDER, () => {
     for (const scene of game.scene.getScenes(true)) {
       for (const c of scene.cameras.cameras as Cam[]) {
         if (c.__side) continue;
-        // a camera made for the whole canvas (the default main camera) or the 640 frame at x 0
-        if (c.x === 0 && (c.width === CANVAS_W || c.width === GAME_W)) c.setViewport(OX, c.y, GAME_W, c.height);
+        // a camera made for the whole canvas (the default main camera, RENDER_W wide in hi-res) or the
+        // 640 frame at x 0: the 640×360 frame, OX to the right (cameras are in game pixels)
+        const full = c.width === RENDER_W || c.width === CANVAS_W || c.width === GAME_W;
+        if (c.x === 0 && full && (c.x !== OX || c.width !== GAME_W || c.height !== GAME_H)) c.setViewport(OX, c.y, GAME_W, GAME_H);
       }
       const s = sides.get(scene);
       if (s) glue(scene, s);
@@ -261,4 +278,45 @@ function insideFrame(o: Phaser.GameObjects.GameObject, core: Cam): boolean {
   const r = g.getBounds();
   const x0 = r.x - core.scrollX * g.scrollFactorX;
   return x0 >= 8 && x0 + r.width <= GAME_W - 8; // 8 px: a shake never pushes it into a bar
+}
+
+/**
+ * Hi-res render (HIRES = 2): the canvas is RENDER_W × RENDER_H, but WebGL's projection keeps showing the
+ * game-pixel world (CANVAS_W × GAME_H) on it, and camera scissors are scaled to canvas pixels. Render
+ * targets of their own size (render textures, masks) are untouched. Call once after `new Phaser.Game`.
+ */
+export function installHires(game: Phaser.Game): void {
+  if (HIRES === 1) return;
+  const apply = (): void => {
+    const r = game.renderer as unknown as {
+      width: number;
+      height: number;
+      drawingBufferHeight: number;
+      currentFramebuffer: unknown;
+      currentScissor: number[] | null;
+      gl: WebGLRenderingContext;
+      setProjectionMatrix(w: number, h: number): unknown;
+      setScissor(x: number, y: number, w: number, h: number, dbh?: number): void;
+      resetScissor(): void;
+      resetProjectionMatrix(): unknown;
+    };
+    if (!r || !r.gl) return;
+    const proj = r.setProjectionMatrix.bind(r);
+    r.setProjectionMatrix = (w: number, h: number) => (w === r.width && h === r.height ? proj(w / HIRES, h / HIRES) : proj(w, h));
+    const main = (dbh?: number): boolean => !r.currentFramebuffer && (dbh === undefined || dbh === r.drawingBufferHeight);
+    const sc = r.setScissor.bind(r);
+    r.setScissor = (x: number, y: number, w: number, h: number, dbh?: number) =>
+      main(dbh) ? sc(x * HIRES, y * HIRES, w * HIRES, h * HIRES, dbh) : sc(x, y, w, h, dbh);
+    r.resetScissor = () => {
+      const gl = r.gl;
+      gl.enable(gl.SCISSOR_TEST);
+      const c = r.currentScissor;
+      if (!c || !(c[2] > 0 && c[3] > 0)) return;
+      const k = r.currentFramebuffer ? 1 : HIRES;
+      gl.scissor(c[0] * k, r.drawingBufferHeight - (c[1] + c[3]) * k, c[2] * k, c[3] * k);
+    };
+    r.resetProjectionMatrix();
+  };
+  if (game.renderer) apply();
+  else game.events.once(Phaser.Core.Events.READY, apply);
 }
