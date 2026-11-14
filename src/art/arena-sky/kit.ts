@@ -14,7 +14,7 @@ export const SKY = {
   sky: ramp('2a1d55', '3a2668', '4a2f7a', '5c3889', '6f3f93', '864698', '9d4b9a', 'b4529a', 'c95793', 'dd5a86', 'e9617a', 'f0716b', 'f2835c', 'f69655', 'faa954', 'fcbc58', 'fdcd63', 'fddd77', 'fdeb93', 'fcf4a8'),
   sun: ramp('fdde75', 'fdeb93', 'fcf4a8', 'fff9d6', 'ffffff'),
   /** cloud shadow (lavender-blue) → body → peach-lit crest */
-  cloud: ramp('2b2140', '3a2c55', '4a3a68', '5c4a7c', '6f5c92', '8370aa', '9683be', 'a68ec4', 'b89bcb', 'c9a6cd', 'd8afca', 'e6b8c6', 'f1c4c3', 'f9d4c9', 'fde3d6', 'fff0e6'),
+  cloud: ramp('2e2442', '3e3156', '4f3f6a', '62507e', '766293', '8a72a6', '9c80b6', 'ae8cc0', 'c099c6', 'd2a6c6', 'e1b2c4', 'ecbec3', 'f5ccc6', 'fad9cd', 'fde6da', 'fff2ea'),
   /** board top stone: sunset-rosy grey-brown */
   stone: ramp('2a1c26', '3a2733', '4c323f', '5e3d47', '6f4a50', '815659', '93625f', 'a46f66', 'b47e72', 'c49283', 'd6a896'),
   /** board walls: violet-brown, warm lit */

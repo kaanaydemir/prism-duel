@@ -8,7 +8,7 @@ import { SKY_LAYOUT, SKY_X0, paintIsland, paintPillar, paintPrism, paintPrismBea
 import { CLOUD_LAYERS, SKY_X0 as BX0, paintClouds, paintSky } from '../../art/arena-sky/backdrop';
 import { SKY_BOARD2, paintSkyBoard2 } from '../../art/arena-sky/board2';
 import { SKY as SK } from '../../art/arena-sky/kit';
-import { paintBeams, paintCrystal, paintGlow, paintIsland2, paintPillar2 } from '../../art/arena-sky/props';
+import { paintBeams, paintCrystal, paintGlow, paintIsland2, paintPillar2, paintSparkles } from '../../art/arena-sky/props';
 import { skyColorAt } from '../../art/arena-sky/backdrop';
 import { isoToScreen } from '../../view/layout';
 import { wideSides } from '../../view/wide';
@@ -28,29 +28,32 @@ const preview: DevPreview = {
       scene.add.image(BX0, 0, canvasTexture(scene, 'sky2:sky', paintSky)).setOrigin(0).setScale(S).setDepth(0);
       CLOUD_LAYERS.forEach((_, i) => {
         const front = i === CLOUD_LAYERS.length - 1;
-        scene.add.image(BX0, 0, canvasTexture(scene, `sky2:clouds:${i}`, () => paintClouds(i))).setOrigin(0).setScale(S).setDepth(front ? 7 : 1 + i * 0.1);
+        scene.add.image(BX0, 0, canvasTexture(scene, `sky2:clouds:${i}`, () => paintClouds(i))).setOrigin(0).setScale(S).setDepth(front ? 4.9 : 1 + i * 0.1);
       });
       // islands: far ones hazed into the sky, drawn between the cloud layers
       const isl: [number, number, number, number, number][] = [
-        // x, y (top centre), kind, haze, depth
-        [520, 92, 1, 0.55, 0.15],
-        [404, 100, 3, 0.6, 0.15],
-        [110, 76, 0, 0.42, 0.25],
-        [-46, 128, 3, 0.32, 0.25],
-        [680, 140, 2, 0.2, 1.5],
-        [-40, 236, 0, 0.05, 2.6],
+        // x, y (top centre), kind, haze, depth (far → near)
+        [430, 96, 1, 0.55, 0.12],
+        [560, 104, 3, 0.5, 0.12],
+        [250, 80, 0, 0.42, 0.2],
+        [650, 70, 2, 0.35, 0.2],
+        [-20, 92, 3, 0.3, 0.3],
+        [690, 186, 0, 0.12, 1.6],
+        [-40, 196, 2, 0.12, 1.6],
+        [-24, 300, 0, 0, 4.95],
+        [676, 296, 1, 0, 4.95],
       ];
       isl.forEach(([x, y, k, hz, dp], n) => {
         const tex = canvasTexture(scene, `sky2:isl:${n}`, () => paintIsland2(k, hz, skyColorAt(x, Math.min(y + 40, 150))));
-        // far islands smaller (half scale of the art)
-        const sc = dp < 1 ? S * 0.5 : dp < 2 ? S * 0.75 : S;
-        scene.add.image(x, y - 30 * (sc / S), tex).setOrigin(0.5, 0).setScale(sc).setDepth(dp);
+        const sc = dp < 0.25 ? S * 0.45 : dp < 1 ? S * 0.6 : dp < 2 ? S * 0.8 : S;
+        scene.add.image(x, y - 56 * (sc / S), tex).setOrigin(0.5, 0).setScale(sc).setDepth(dp);
       });
-      // the prism, its halo and the two beams
-      const PR = { x: 226, y: 14 };
-      scene.add.image(-80, 0, canvasTexture(scene, 'sky2:beams', () => paintBeams(PR.x, PR.y + 34, { x: 110, y: 250 }, { x: 560, y: 250 }))).setOrigin(0).setScale(S).setDepth(3).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.6);
-      scene.add.image(PR.x, PR.y + 24, canvasTexture(scene, 'sky2:prismglow', () => paintGlow(34, SK.crystalViolet))).setScale(S).setDepth(3.1).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.6);
-      scene.add.image(PR.x, PR.y, canvasTexture(scene, 'sky2:prism', () => paintCrystal(15, 52, SK.crystalViolet))).setOrigin(0.5, 0).setScale(S).setDepth(3.2);
+      scene.add.image(-80, 0, canvasTexture(scene, 'sky2:sparkles', paintSparkles)).setOrigin(0).setScale(S).setDepth(1.9);
+      // the prism, its halo and the two beams (cyan to the near side, crimson to the far side)
+      const PR = { x: 318, y: 2 };
+      scene.add.image(-80, 0, canvasTexture(scene, 'sky2:beams', () => paintBeams(PR.x, PR.y + 30, { x: 120, y: -40 }, { x: 520, y: -40 }))).setOrigin(0).setScale(S).setDepth(1.95).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.5);
+      scene.add.image(PR.x, PR.y + 34, canvasTexture(scene, 'sky2:prismglow', () => paintGlow(52, SK.crystalViolet))).setScale(S).setDepth(5.6).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.75);
+      scene.add.image(PR.x, PR.y, canvasTexture(scene, 'sky2:prism', () => paintCrystal(22, 74, SK.crystalViolet))).setOrigin(0.5, 0).setScale(S).setDepth(5.7);
       // banner pillars
       ([[34, -10, 0], [606, -10, 1]] as const).forEach(([x, y, sd]) => {
         scene.add.image(x, y, canvasTexture(scene, `sky2:pillar:${sd}`, () => paintPillar2(sd))).setOrigin(0.5, 0).setScale(S).setDepth(5);

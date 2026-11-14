@@ -81,12 +81,13 @@ interface CloudLayer {
 }
 
 export const CLOUD_LAYERS: readonly CloudLayer[] = [
-  { base: 152, rMin: 7, rMax: 14, step: 13, seed: 101, haze: 0.55, lift: 0.12 },
-  { base: 182, rMin: 11, rMax: 20, step: 18, seed: 202, haze: 0.36, lift: 0.06 },
-  { base: 224, rMin: 15, rMax: 28, step: 24, seed: 303, haze: 0.18, lift: 0.02 },
-  { base: 278, rMin: 20, rMax: 36, step: 30, seed: 404, haze: 0.06, lift: 0.02 },
-  { base: 346, rMin: 26, rMax: 46, step: 38, seed: 505, haze: 0, lift: 0.06 },
-];
+  { base: 150, rMin: 5, rMax: 10, step: 9, seed: 101, haze: 0.5, lift: 0.14 },
+  { base: 172, rMin: 7, rMax: 13, step: 11, seed: 202, haze: 0.36, lift: 0.08 },
+  { base: 200, rMin: 9, rMax: 17, step: 14, seed: 303, haze: 0.22, lift: 0.03 },
+  { base: 236, rMin: 11, rMax: 21, step: 17, seed: 404, haze: 0.12, lift: 0 },
+  { base: 282, rMin: 13, rMax: 25, step: 20, seed: 505, haze: 0.05, lift: -0.02 },
+  { base: 336, rMin: 16, rMax: 30, step: 24, seed: 606, haze: 0, lift: -0.04 },
+]
 
 interface Puff {
   x: number;
@@ -202,7 +203,8 @@ export function paintClouds(i: number): PixelCanvas {
       if (s.ny > 0.35) light -= 0.1;
       if (gy > L.base + 6) light = Math.min(light, 0.36 + L.lift);
       light += smooth(-60, 260, gx - SUN.x + 220) * 0.08;
-      let c = tone(SKY.cloud, clamp01(light), ax, ay, 0.6);
+      // keep the sea in the pink-lavender mids: only sun-facing crests reach the palest tones
+      let c = tone(SKY.cloud, clamp01(0.06 + light * 0.84), ax, ay, 0.6);
       if (L.haze > 0) c = mix(c, skyColorAt(gx, Math.min(gy, HORIZON + 10)), L.haze);
       p.set(ax, ay, c);
     }
