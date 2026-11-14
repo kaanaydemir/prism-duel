@@ -10,7 +10,8 @@ import { installSwipeWheel } from './view/swipeWheel';
 import { CANVAS_W, HIRES, RENDER_H, RENDER_W, driveWide, installHires, installWide } from './view/wide';
 
 const params = new URLSearchParams(location.search);
-const dev = params.get('dev');
+// a page that embeds the game may name a dev preview before boot (window.__PRISM_DEV), like ?dev=
+const dev = params.get('dev') ?? ((window as unknown as { __PRISM_DEV?: string }).__PRISM_DEV || null);
 
 // Wide phones: the canvas grows past 640 and the arena fills the side bars (src/view/wide.ts).
 installWide();

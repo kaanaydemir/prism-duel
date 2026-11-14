@@ -13,6 +13,9 @@ const SETTINGS_KEY = 'neon-duello:settings';
 
 function detect(): 1 | 2 {
   try {
+    // a page that embeds the game can ask for it before boot (e.g. a shareable preview build)
+    const g = (globalThis as { __PRISM_HIRES?: unknown }).__PRISM_HIRES;
+    if (g === 2 || g === 1) return g;
     if (typeof location !== 'undefined' && typeof URLSearchParams !== 'undefined') {
       const q = new URLSearchParams(location.search).get('hires');
       if (q === '2') return 2;

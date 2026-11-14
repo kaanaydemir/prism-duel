@@ -15,7 +15,7 @@ export class DevScene extends Phaser.Scene {
 
   async create(): Promise<void> {
     const params = (this.registry.get('params') as URLSearchParams) ?? new URLSearchParams(location.search);
-    const name = params.get('dev') ?? '';
+    const name = params.get('dev') ?? ((this.registry.get('dev') as string | null) || '');
     const preview = previews.get(name);
     this.cameras.main.setBackgroundColor(PAL.night0);
     if (!preview) {
