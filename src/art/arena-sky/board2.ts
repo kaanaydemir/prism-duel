@@ -7,7 +7,7 @@
 // sigil niches) and the faceted rock mass with hanging crystals.
 
 import { type Color, PixelCanvas, mix } from '../pixel';
-import { SKY, bayer8, clamp01, fbm, noise, tone } from './kit';
+import { SKY, bayer8, clamp01, fbm, noise } from './kit';
 
 export const K = 2;
 export const SKY_BOARD2 = { x: 36, y: 10, w: 568 * K, h: 350 * K } as const;
@@ -28,14 +28,41 @@ const ROW_V = [-72, -36, 0, 36, 72] as const;
 const ZONE_R = 16;
 
 const hx = (s: string): Color => parseInt(s, 16);
-const FLOOR = ['4a3138', '5a3b40', '6b4749', '7c5352', '8c5f5e', '986863', 'a47268', 'b07e70', 'bc8c7c', 'c89c8a'].map(hx);
-const BLOCK = ['1c1420', '2a1e2a', '3a2a34', '4b3640', '5d434b', '705157', '856062', '9a706a', 'b08273', 'c69a7e', 'dcb58c'].map(hx);
+const FLOOR = ['1c1228', '2c1c38', '402a48', '553852', '6c4a5a', '83605f', '987266', 'ad8670', 'c09a7c', 'd2b08c', 'e4c8a0'].map(hx);
+const BLOCK = ['160c1c', '241430', '33203f', '452c49', '5a3a50', '734a54', '8f5c55', 'ab7055', 'c88a58', 'e0a866', 'f2c784', 'fbe0a6'].map(hx);
 const ROCKW = ['2a1a1e', '3c2526', '523230', '6b4238', '87543f', 'a56a48', 'c38452'].map(hx);
 const ROCKV = ['140c1c', '1e1428', '2a1c36', '382645', '473155', '573d66', '684a78'].map(hx);
-const GOLD = ['3e2610', '6b4a1e', '93672a', 'bf8a35', 'e2ac45', 'f5c94f', 'fde29a', 'fff4cf'].map(hx);
-const WARM = hx('e09a52');
+const GOLD = ['4a2408', '7a4210', 'a8621a', 'd08a24', 'eeb03a', 'fcd058', 'ffe894', 'fff8d8'].map(hx);
+const WARM = hx('ffa850');
 const INK = hx('140c18');
 type Owner = 0 | 1;
+
+/**
+ * Smooth shading: a colour along a ramp for t ∈ 0..1, linearly blended between stops and lightly
+ * posterised (48 steps) — painterly gradients instead of flat dithered bands.
+ */
+function tone(r: readonly Color[], t: number, _x?: number, _y?: number, _soft?: number): Color {
+  const n = r.length - 1;
+  const f = Math.round(Math.max(0, Math.min(1, t)) * 48) / 48 * n;
+  const i = Math.min(n - 1, Math.floor(f));
+  return mix(r[i], r[i + 1], f - i);
+}
+const SUN = hx('ffb060');
+const SHADE = hx('2a1c5a');
+const SKYFILL = hx('3a2c80');
+const BOUNCE = hx('a888dc');
+/** Light on the top: sun-warm toward the far right (the sunset), violet shade toward the near left. */
+function gradeTop(c: Color, u: number, v: number): Color {
+  const s = (v * 0.8 - u * 0.25) / 130;
+  return s < 0 ? mix(c, SUN, Math.min(1, -s) * 0.24) : mix(c, SHADE, Math.min(1, s) * 0.3);
+}
+/** Light on a wall: the right faces catch the sun at the top, the left faces sit in violet sky light; lilac bounce at the foot. */
+function gradeWall(c: Color, d: number, face: 'L' | 'R' | 'C'): Color {
+  const f = clamp01(d / WALL);
+  let o = face === 'L' ? mix(c, SKYFILL, 0.2 + f * 0.22) : mix(mix(c, SUN, (1 - f) * (face === 'R' ? 0.2 : 0.1)), SHADE, f * 0.34);
+  if (f > 0.8) o = mix(o, BOUNCE, (f - 0.8) * 0.9);
+  return o;
+}
 const NEON: Record<Owner, readonly Color[]> = {
   0: ['0b1a2c', '0f3150', '125a80', '1d8cb3', '3fc8e6', '7fe9f6', 'c8fbff', 'ffffff'].map(hx),
   1: ['26081a', '4d0c26', '82122f', 'b81d3b', 'ea3a4f', 'ff6f78', 'ffb2b6', 'ffffff'].map(hx),
@@ -108,7 +135,8 @@ const CELLS = cells();
 function blockColor(ramp: readonly Color[], base: number, fa: number, fk: number, id: number, jointA: number, jointK: number, ax: number, ay: number, grain: number): Color {
   if (fa > 1 - jointA || fk > 1 - jointK) return ramp[0]; // joints (right / bottom of each block)
   let t = base + (id - 0.5) * 0.16 + grain;
-  if (fk < jointK * 1.3) return mix(tone(ramp, clamp01(t + 0.14), ax, ay), WARM, 0.3); // sun-warmed top edge
+  if (fk < jointK * 1.3) return mix(tone(ramp, clamp01(t + 0.2), ax, ay), WARM, 0.55); // sun-warmed top edge
+  t += (0.5 - fk) * 0.16; // each block: lit top, shaded foot
   if (fa < jointA * 1.4) t += 0.1; // lit leading edge
   if (fk > 1 - jointK * 2.6) t -= 0.12; // shaded foot
   return tone(ramp, clamp01(t), ax, ay, 0.5);
@@ -125,8 +153,8 @@ function floorTile(u: number, v: number, ax: number, ay: number, lit: number): C
   const cv = Math.floor((v + 660) / T);
   const fu = (u + 660) / T - cu;
   const fv = (v + 660) / T - cv;
-  if (fu < 0.08 || fv < 0.08) return FLOOR[0];
-  let t = 0.52 + (noise(cu * 1.7, cv * 2.3, 5) - 0.5) * 0.3 + lit;
+  if (fu < 0.08 || fv < 0.08) return FLOOR[2];
+  let t = 0.6 + (noise(cu * 1.7, cv * 2.3, 5) - 0.5) * 0.26 + lit;
   if (fu < 0.17 || fv < 0.17) t += 0.1;
   else if (fu > 0.9 || fv > 0.9) t -= 0.07;
   t += (fbm(u / 26, v / 26, 3, 11) - 0.5) * 0.18 + (noise(u * 1.6, v * 1.6, 12) - 0.5) * 0.05;
@@ -406,6 +434,54 @@ function rockColor(gx: number, gy: number, f: number, face: 'L' | 'R' | 'C', ax:
   return k <= 0 ? warm : k >= 1 ? cold : bayer8(ax, ay) < k ? cold : warm;
 }
 
+/** Emissive colours (neon, bright gold): never graded, and they bloom. */
+const EMIT = new Set<Color>([...NEON[0].slice(3), ...NEON[1].slice(3), ...GOLD.slice(4)]);
+const BLOOM = new Set<Color>([...NEON[0].slice(5), ...NEON[1].slice(5), GOLD[7]]);
+
+/** Soft glow: blur the emissive pixels and screen them back over everything (light spilling on stone). */
+function bloom(p: PixelCanvas, radius: number, gain: number): void {
+  const W = p.w;
+  const H = p.h;
+  const d = p.data;
+  const n = W * H;
+  let src: Float32Array[] = [new Float32Array(n), new Float32Array(n), new Float32Array(n)];
+  for (let i = 0; i < n; i++) {
+    if (!d[i * 4 + 3]) continue;
+    const c = (d[i * 4] << 16) | (d[i * 4 + 1] << 8) | d[i * 4 + 2];
+    if (!BLOOM.has(c)) continue;
+    src[0][i] = d[i * 4];
+    src[1][i] = d[i * 4 + 1];
+    src[2][i] = d[i * 4 + 2];
+  }
+  const blur = (a: Float32Array, horiz: boolean): Float32Array => {
+    const o = new Float32Array(n);
+    const len = horiz ? W : H;
+    const lines = horiz ? H : W;
+    const win = radius * 2 + 1;
+    for (let l = 0; l < lines; l++) {
+      let sum = 0;
+      const at = (k: number) => (horiz ? l * W + k : k * W + l);
+      for (let k = -radius; k < len; k++) {
+        const add = k + radius;
+        if (add < len) sum += a[at(add)];
+        const sub = k - radius - 1;
+        if (sub >= 0) sum -= a[at(sub)];
+        if (k >= 0) o[at(k)] = sum / win;
+      }
+    }
+    return o;
+  };
+  for (let pass = 0; pass < 2; pass++) src = src.map((a) => blur(blur(a, true), false));
+  for (let i = 0; i < n; i++) {
+    if (!d[i * 4 + 3]) continue;
+    for (let ch = 0; ch < 3; ch++) {
+      const g = Math.min(255, src[ch][i] * gain);
+      const v = d[i * 4 + ch];
+      d[i * 4 + ch] = 255 - ((255 - v) * (255 - g)) / 255; // screen
+    }
+  }
+}
+
 // ---------------------------------------------------------------- paint
 
 export function paintSkyBoard2(): PixelCanvas {
@@ -437,6 +513,7 @@ export function paintSkyBoard2(): PixelCanvas {
           else if (Hp === RH) c = rimTop(u, v, ax, ay);
           else c = floorAt(u, v, ax, ay);
         } else c = sideColor(u, v, h, Hp, ax, ay);
+        if (!EMIT.has(c)) c = gradeTop(c, u, v);
         const i = ay * W + ax;
         mask[i] = 1;
         hu[i] = u;
@@ -469,7 +546,10 @@ export function paintSkyBoard2(): PixelCanvas {
         if (mask[y * W + ax]) break;
         const d = k / K - h0;
         let c: Color;
-        if (d <= WALL) c = wallColor(Math.max(0, d), along, face, owner, ax, y);
+        if (d <= WALL) {
+          c = wallColor(Math.max(0, d), along, face, owner, ax, y);
+          if (!EMIT.has(c)) c = gradeWall(c, d, face);
+        }
         else {
           const rd = d - WALL;
           if (rd > depth) break;
@@ -520,5 +600,6 @@ export function paintSkyBoard2(): PixelCanvas {
       }
     }
   }
+  bloom(p, 4, 1.15);
   return p;
 }
