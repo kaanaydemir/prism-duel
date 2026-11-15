@@ -28,11 +28,11 @@ const ROW_V = [-72, -36, 0, 36, 72] as const;
 const ZONE_R = 16;
 
 const hx = (s: string): Color => parseInt(s, 16);
-const FLOOR = ['1c1228', '2c1c38', '402a48', '553852', '6c4a5a', '83605f', '987266', 'ad8670', 'c09a7c', 'd2b08c', 'e4c8a0'].map(hx);
-const BLOCK = ['160c1c', '241430', '33203f', '452c49', '5a3a50', '734a54', '8f5c55', 'ab7055', 'c88a58', 'e0a866', 'f2c784', 'fbe0a6'].map(hx);
-const ROCKW = ['2a1a1e', '3c2526', '523230', '6b4238', '87543f', 'a56a48', 'c38452'].map(hx);
+const FLOOR = ['1a1220', '2a1c2c', '3e2a38', '523844', '664850', '7a5a5c', '8c6a66', '9c7a72', 'ac8a7e', 'bc9c8c', 'ccb09c'].map(hx);
+const BLOCK = ['120a14', '1e1420', '2c1e2c', '3c2a36', '4d3640', '5f444a', '725354', '866460', '9a766c', 'ae8a7a', 'c2a08a'].map(hx);
+const ROCKW = ['1c1220', '2a1c2c', '3a2838', '4e3644', '644650', '7a5858', '90695e'].map(hx);
 const ROCKV = ['140c1c', '1e1428', '2a1c36', '382645', '473155', '573d66', '684a78'].map(hx);
-const GOLD = ['4a2408', '7a4210', 'a8621a', 'd08a24', 'eeb03a', 'fcd058', 'ffe894', 'fff8d8'].map(hx);
+const GOLD = ['3a1c08', '6a3a0c', '9a5a14', 'c87e1e', 'e89a2a', 'f8b840', 'ffd870', 'fff0b8'].map(hx);
 const WARM = hx('ffa850');
 const INK = hx('140c18');
 type Owner = 0 | 1;
@@ -54,18 +54,18 @@ const BOUNCE = hx('a888dc');
 /** Light on the top: sun-warm toward the far right (the sunset), violet shade toward the near left. */
 function gradeTop(c: Color, u: number, v: number): Color {
   const s = (v * 0.8 - u * 0.25) / 130;
-  return s < 0 ? mix(c, SUN, Math.min(1, -s) * 0.24) : mix(c, SHADE, Math.min(1, s) * 0.3);
+  return s < 0 ? mix(c, SUN, Math.min(1, -s) * 0.08) : mix(c, SHADE, Math.min(1, s) * 0.26);
 }
 /** Light on a wall: the right faces catch the sun at the top, the left faces sit in violet sky light; lilac bounce at the foot. */
 function gradeWall(c: Color, d: number, face: 'L' | 'R' | 'C'): Color {
   const f = clamp01(d / WALL);
-  let o = face === 'L' ? mix(c, SKYFILL, 0.2 + f * 0.22) : mix(mix(c, SUN, (1 - f) * (face === 'R' ? 0.2 : 0.1)), SHADE, f * 0.34);
+  let o = face === 'L' ? mix(c, SKYFILL, 0.1 + f * 0.16) : mix(mix(c, SUN, (1 - f) * (face === 'R' ? 0.1 : 0.05)), SHADE, f * 0.2);
   if (f > 0.8) o = mix(o, BOUNCE, (f - 0.8) * 0.9);
   return o;
 }
 const NEON: Record<Owner, readonly Color[]> = {
   0: ['0b1a2c', '0f3150', '125a80', '1d8cb3', '3fc8e6', '7fe9f6', 'c8fbff', 'ffffff'].map(hx),
-  1: ['26081a', '4d0c26', '82122f', 'b81d3b', 'ea3a4f', 'ff6f78', 'ffb2b6', 'ffffff'].map(hx),
+  1: ['26081a', '4d0c26', '82122f', 'c01a38', 'f02a48', 'ff4a5c', 'ff8a90', 'ffd0d0'].map(hx),
 };
 const ZONE_FILL = hx('0e1122');
 const ZONE_FILL2 = hx('171c36');
@@ -132,19 +132,25 @@ const CELLS = cells();
 // ---------------------------------------------------------------- materials
 
 /** One stone block of a course: fa / fk = position inside the block (0..1 along / down), id = its hash. */
-function blockColor(ramp: readonly Color[], base: number, fa: number, fk: number, id: number, jointA: number, jointK: number, ax: number, ay: number, grain: number): Color {
-  if (fa > 1 - jointA || fk > 1 - jointK) return ramp[0]; // joints (right / bottom of each block)
-  let t = base + (id - 0.5) * 0.16 + grain;
-  if (fk < jointK * 1.3) return mix(tone(ramp, clamp01(t + 0.2), ax, ay), WARM, 0.55); // sun-warmed top edge
-  t += (0.5 - fk) * 0.16; // each block: lit top, shaded foot
-  if (fa < jointA * 1.4) t += 0.1; // lit leading edge
-  if (fk > 1 - jointK * 2.6) t -= 0.12; // shaded foot
+function blockColor(ramp: readonly Color[], base: number, fa: number, fk: number, id: number, jointA: number, jointK: number, ax: number, ay: number, grain: number, rimLight = 0.3): Color {
+  if (fa > 1 - jointA || fk > 1 - jointK) return INK; // dark joints (right / bottom of each block)
+  // weathering: blotches + fine grit
+  const w = (fbm(ax / 14, ay / 10, 3, 83) - 0.5) * 0.2 + (noise(ax / 2.2, ay / 2.2, 84) - 0.5) * 0.08;
+  let t = base + (id - 0.5) * 0.16 + grain + w;
+  // the sun's rim light: a thin, chipped orange line along the top edge
+  if (fk < jointK) return noise(ax / 7, ay / 2, 77) > 1 - rimLight ? (noise(ax / 3, 5, 78) > 0.8 ? GOLD[6] : GOLD[4]) : tone(ramp, clamp01(t + 0.16));
+  if (fk < jointK * 2 && noise(ax / 4, ay / 2, 79) > 1.05 - rimLight * 0.5) return mix(tone(ramp, clamp01(t + 0.1)), WARM, 0.35);
+  t += (0.45 - fk) * 0.2; // each block: lit top, shaded foot
+  if (fa < jointA * 1.2) t += 0.12; // lit leading edge
+  if (fk > 1 - jointK * 2.4) t -= 0.14;
   return tone(ramp, clamp01(t), ax, ay, 0.5);
 }
 
 function goldBand(f: number, ax: number, ay: number): Color {
-  // f: 0 top … 1 bottom of the band
-  return f < 0.3 ? (bayer8(ax * 3, ay) < 0.2 ? GOLD[7] : GOLD[6]) : f < 0.7 ? GOLD[4] : GOLD[2];
+  // f: 0 top … 1 bottom of the band; worn: darker chips along it
+  const chip = noise(ax / 9, ay / 3, 87);
+  if (chip > 0.78) return f < 0.5 ? GOLD[3] : GOLD[1];
+  return f < 0.3 ? (noise(ax / 4, 3, 88) > 0.75 ? GOLD[6] : GOLD[5]) : f < 0.7 ? GOLD[4] : GOLD[2];
 }
 
 function floorTile(u: number, v: number, ax: number, ay: number, lit: number): Color {
@@ -153,11 +159,11 @@ function floorTile(u: number, v: number, ax: number, ay: number, lit: number): C
   const cv = Math.floor((v + 660) / T);
   const fu = (u + 660) / T - cu;
   const fv = (v + 660) / T - cv;
-  if (fu < 0.08 || fv < 0.08) return FLOOR[2];
-  let t = 0.6 + (noise(cu * 1.7, cv * 2.3, 5) - 0.5) * 0.26 + lit;
-  if (fu < 0.17 || fv < 0.17) t += 0.1;
-  else if (fu > 0.9 || fv > 0.9) t -= 0.07;
-  t += (fbm(u / 26, v / 26, 3, 11) - 0.5) * 0.18 + (noise(u * 1.6, v * 1.6, 12) - 0.5) * 0.05;
+  let t = 0.56 + (noise(cu * 1.7, cv * 2.3, 5) - 0.5) * 0.16 + lit;
+  t += (fbm(u / 30, v / 30, 3, 11) - 0.5) * 0.22 + (fbm(ax / 9, ay / 7, 2, 13) - 0.5) * 0.1 + (noise(ax / 2.2, ay / 2.2, 12) - 0.5) * 0.06;
+  if (fu < 0.08 || fv < 0.08) t -= 0.2; // soft grout
+  else if (fu < 0.17 || fv < 0.17) t += 0.07;
+  else if (fu > 0.9 || fv > 0.9) t -= 0.05;
   return tone(FLOOR, clamp01(t), ax, ay, 0.5);
 }
 
@@ -198,7 +204,7 @@ function slot(u: number, v: number, c: Cell, ax: number, ay: number): Color | nu
   if (c.kind === 'zone') {
     if (d > ZONE_R) return null;
     if (d > ZONE_R - 0.8) return N[5];
-    if (d > ZONE_R - 1.7) return N[7];
+    if (d > ZONE_R - 1.7) return N[6];
     if (d > ZONE_R - 2.5) return N[5];
     if (d > ZONE_R - 3.3) return N[3];
     if (d > ZONE_R - 4.2) return N[1];
@@ -302,8 +308,8 @@ function rimTop(u: number, v: number, ax: number, ay: number): Color {
   const fa = (along + 600) / L - blk;
   const fk = (ins - 3.4) / (RIMW - 5.6);
   const g = (fbm(u / 9, v / 9, 2, 33) - 0.5) * 0.12;
-  if (fa > 0.955) return BLOCK[1];
-  let t = 0.66 + (noise(blk * 3.1, du < dv ? 1 : 2, 31) - 0.5) * 0.14 + g + (far ? 0.05 : 0);
+  if (fa > 0.955) return INK;
+  let t = 0.68 + (fbm(ax / 14, ay / 10, 3, 85) - 0.5) * 0.2 + (noise(blk * 3.1, du < dv ? 1 : 2, 31) - 0.5) * 0.14 + g + (far ? 0.05 : 0);
   if (fa < 0.06) t += 0.12;
   if (fk < 0.16) t += far ? -0.1 : 0.12;
   if (fk > 0.84) t += far ? 0.12 : -0.1;
@@ -346,18 +352,18 @@ function wallColor(d: number, along: number, face: 'L' | 'R' | 'C', owner: Owner
   if (d < 2.6) return goldBand(d / 2.6, ax, ay);
   if (d >= WALL - 0.8) return INK;
   if (d >= WALL - 3.4) return goldBand((d - (WALL - 3.4)) / 2.6, ax, ay);
-  if (d > 20.4 && d < 22.2) return d < 21 ? GOLD[5] : d < 21.6 ? GOLD[3] : GOLD[1];
+  if (d > 20.6 && d < 21.6) return INK;
   const grain = (fbm(along / 7, d / 5, 2, 47) - 0.5) * 0.1;
   // buttresses: a proud pier every 72 units
   const B = 72;
   const ba = mod(along + 618, B);
   if (ba < 15) {
     if (ba > 14.2) return INK;
-    if (ba < 1.2) return mix(BLOCK[10], WARM, 0.4);
+    if (ba < 1.2) return noise(ax / 3, ay / 6, 89) > 0.3 ? GOLD[4] : BLOCK[8];
     if (d < 6) return goldBand((d - 2.6) / 3.4, ax, ay); // the pier's gold capital
     const crs = Math.floor((d - 2.6) / 8.7);
     const fk = (d - 2.6) / 8.7 - crs;
-    return blockColor(BLOCK, 0.76 + lit, 0.5, fk, noise(crs * 2.3, Math.floor((along + 618) / B), 43), 0, 0.1, ax, ay, grain);
+    return blockColor(BLOCK, 0.74 + lit, 0.5, fk, noise(crs * 2.3, Math.floor((along + 618) / B), 43), 0, 0.1, ax, ay, grain);
   }
   if (ba < 18.5) return tone(BLOCK, 0.22 + lit * 0.5, ax, ay); // the pier's cast shadow
   if (d < 20) {
@@ -369,7 +375,7 @@ function wallColor(d: number, along: number, face: 'L' | 'R' | 'C', owner: Owner
     const off = crs % 2 ? L / 2 : 0;
     const blk = Math.floor((along + 600 + off) / L);
     const fa = (along + 600 + off) / L - blk;
-    return blockColor(BLOCK, 0.6 + lit, fa, fk, noise(blk * 2.7, crs * 1.9 + (face === 'L' ? 7 : 0), 41) * 1.6 - 0.3, 0.045, 0.13, ax, ay, grain);
+    return blockColor(BLOCK, 0.64 + lit, fa, fk, noise(blk * 2.7, crs * 1.9 + (face === 'L' ? 7 : 0), 41) * 1.4 - 0.2, 0.04, 0.1, ax, ay, grain, crs === 0 ? 0.8 : 0.35);
   }
   // the lower band: a sigil niche between the piers, smaller blocks round it
   const nd0 = 24.5;
@@ -397,7 +403,7 @@ function wallColor(d: number, along: number, face: 'L' | 'R' | 'C', owner: Owner
   const off = crs % 2 ? L / 2 : 0;
   const blk = Math.floor((along + 600 + off) / L);
   const fa = (along + 600 + off) / L - blk;
-  return blockColor(BLOCK, 0.5 + lit, fa, fk, noise(blk * 2.7, crs * 1.9 + 11, 49) * 1.6 - 0.3, 0.06, 0.15, ax, ay, grain);
+  return blockColor(BLOCK, 0.54 + lit, fa, fk, noise(blk * 2.7, crs * 1.9 + 11, 49) * 1.4 - 0.2, 0.05, 0.12, ax, ay, grain, 0.2);
 }
 
 /** Faceted rock: flat-shaded Voronoi facets, sun-warm near the wall, violet toward the tips. */
@@ -600,6 +606,6 @@ export function paintSkyBoard2(): PixelCanvas {
       }
     }
   }
-  bloom(p, 4, 1.15);
+  bloom(p, 3, 0.8);
   return p;
 }
