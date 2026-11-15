@@ -28,7 +28,7 @@ const ROW_V = [-72, -36, 0, 36, 72] as const;
 const ZONE_R = 16;
 
 const hx = (s: string): Color => parseInt(s, 16);
-const FLOOR = ['1a1220', '2a1c2c', '3e2a38', '523844', '664850', '7a5a5c', '8c6a66', '9c7a72', 'ac8a7e', 'bc9c8c', 'ccb09c'].map(hx);
+const FLOOR = ['3a2430', '4f323a', '664344', '7d5450', '92625a', 'a26d5e', 'b07a64', 'bd896c', 'c99a78', 'd6ae8a'].map(hx);
 const BLOCK = ['120a14', '1e1420', '2c1e2c', '3c2a36', '4d3640', '5f444a', '725354', '866460', '9a766c', 'ae8a7a', 'c2a08a'].map(hx);
 const ROCKW = ['1c1220', '2a1c2c', '3a2838', '4e3644', '644650', '7a5858', '90695e'].map(hx);
 const ROCKV = ['140c1c', '1e1428', '2a1c36', '382645', '473155', '573d66', '684a78'].map(hx);
@@ -54,7 +54,7 @@ const BOUNCE = hx('a888dc');
 /** Light on the top: sun-warm toward the far right (the sunset), violet shade toward the near left. */
 function gradeTop(c: Color, u: number, v: number): Color {
   const s = (v * 0.8 - u * 0.25) / 130;
-  return s < 0 ? mix(c, SUN, Math.min(1, -s) * 0.08) : mix(c, SHADE, Math.min(1, s) * 0.26);
+  return s < 0 ? mix(c, SUN, Math.min(1, -s) * 0.1) : mix(c, SHADE, Math.min(1, s) * 0.14);
 }
 /** Light on a wall: the right faces catch the sun at the top, the left faces sit in violet sky light; lilac bounce at the foot. */
 function gradeWall(c: Color, d: number, face: 'L' | 'R' | 'C'): Color {
@@ -153,47 +153,67 @@ function goldBand(f: number, ax: number, ay: number): Color {
   return f < 0.3 ? (noise(ax / 4, 3, 88) > 0.75 ? GOLD[6] : GOLD[5]) : f < 0.7 ? GOLD[4] : GOLD[2];
 }
 
-function floorTile(u: number, v: number, ax: number, ay: number, lit: number): Color {
-  const T = 11;
-  const cu = Math.floor((u + 660) / T);
-  const cv = Math.floor((v + 660) / T);
-  const fu = (u + 660) / T - cu;
-  const fv = (v + 660) / T - cv;
-  let t = 0.56 + (noise(cu * 1.7, cv * 2.3, 5) - 0.5) * 0.16 + lit;
-  t += (fbm(u / 30, v / 30, 3, 11) - 0.5) * 0.22 + (fbm(ax / 9, ay / 7, 2, 13) - 0.5) * 0.1 + (noise(ax / 2.2, ay / 2.2, 12) - 0.5) * 0.06;
-  if (fu < 0.08 || fv < 0.08) t -= 0.2; // soft grout
-  else if (fu < 0.17 || fv < 0.17) t += 0.07;
-  else if (fu > 0.9 || fv > 0.9) t -= 0.05;
-  return tone(FLOOR, clamp01(t), ax, ay, 0.5);
+/**
+ * Floor flags: courses 12 units deep running along the lanes, flags 22 long in a running bond (joints
+ * line up with the zone edges). Crisp dark joints, a thin lit edge on the far side of every flag, a
+ * faint per-flag tone, soft mottling, a few hairline cracks. No dithering: clean painted stone.
+ */
+function floorTile(u: number, v: number, lit: number): Color {
+  const CV = 12;
+  const CU = 22;
+  const row = Math.floor((v + 592) / CV);
+  const fv = (v + 592) / CV - row;
+  const off = noise(row, 3, 5) < 0.5 ? 0 : CU / 2;
+  const col = Math.floor((u + 594 + off) / CU);
+  const fu = (u + 594 + off) / CU - col;
+  const jv = 0.6 / CV;
+  const ju = 0.6 / CU;
+  if (fv < jv || fu < ju) return FLOOR[1]; // joint
+  const id = noise(col * 1.7 + 0.3, row * 2.3, 6);
+  let t = 0.6 + (id - 0.5) * 0.14 + lit + (fbm(u / 34, v / 34, 3, 11) - 0.5) * 0.14 + (fbm(u / 7, v / 7, 2, 13) - 0.5) * 0.05;
+  if (fv < jv * 2.6 || fu < ju * 2.6) t += 0.1; // the lit far edge of the flag
+  else if (fv > 1 - jv * 1.6 || fu > 1 - ju * 1.6) t -= 0.07; // the shaded near edge
+  // a hairline crack across a few flags
+  if (id > 0.84) {
+    const cx = 0.25 + noise(col, row, 7) * 0.5;
+    if (Math.abs(fu - cx - (fv - 0.5) * 0.35 + Math.sin(fv * 9) * 0.02) < 0.012 && fv > 0.12) return FLOOR[2];
+  }
+  return tone(FLOOR, clamp01(t));
 }
 
-function inlay(u: number, v: number, base: Color, ax: number, ay: number): Color {
+/** Gold inlay: each half's frame and the centre line. Crisp line, dark lower edge, a soft warm glow. */
+function inlay(u: number, v: number, base: Color): Color {
   const au = Math.abs(u);
   const av = Math.abs(v);
   let d = 99;
-  if (au <= 143 && av >= 15 && av <= 91) d = Math.min(Math.abs(av - 15), Math.abs(av - 91), Math.abs(au - 143));
+  if (au <= 143 && av >= 14 && av <= 92) d = Math.min(Math.abs(av - 14), Math.abs(av - 92), Math.abs(au - 143));
   if (au > 24 && au < 143) d = Math.min(d, Math.abs(v));
-  if (d < 0.6) return GOLD[7];
-  if (d < 1.4) return GOLD[5];
-  if (d < 2) return GOLD[2];
-  if (d < 4.5 && bayer8(ax, ay) < (4.5 - d) / 4) return mix(base, GOLD[5], 0.4);
-  return base;
+  if (d < 0.45) return GOLD[6];
+  if (d < 1) return GOLD[4];
+  if (d < 1.5) return GOLD[1];
+  return d < 5 ? mix(base, GOLD[4], 0.2 * (1 - d / 5) ** 2) : base;
 }
 
-function emblem(u: number, v: number, ax: number, ay: number): Color | null {
+/** The centre emblem's gold line art (rings, eight rays, a bright heart); null between the lines. */
+function emblem(u: number, v: number): Color | null {
   const s = scr(u, v);
   const d = Math.abs(s.x) / 2 + Math.abs(s.y);
-  if (d > 20) return null;
-  if (d > 18.2) return null;
-  if (d > 17) return GOLD[6];
-  if (d > 16) return GOLD[3];
-  const ang = Math.atan2(s.y * 2, s.x);
-  const ray = Math.abs(Math.cos(ang * 4)) ** 10;
-  const r = Math.hypot(s.x / 2, s.y);
-  if (r < 2.6) return GOLD[7];
-  if (r < 13 * ray + 1.3) return tone(GOLD, 0.6 + ray * 0.4, ax, ay);
-  if (d > 9.6 && d < 10.8) return GOLD[5];
-  return mix(FLOOR[2], GOLD[2], 0.35);
+  if (d > 17) return null;
+  const x = s.x / 2;
+  const y = s.y;
+  const r = Math.hypot(x, y);
+  if (r < 1.3) return GOLD[7];
+  if (r < 2.2) return GOLD[6];
+  if (d > 15.6) return GOLD[5];
+  if (d > 15) return GOLD[2];
+  if (d > 10.4 && d < 11.6) return GOLD[5];
+  // eight rays: thin lines through the centre
+  const ang = Math.atan2(y, x);
+  if (Math.abs(Math.sin(ang * 4)) * r < 0.75 && r < 15) return r < 7 ? GOLD[6] : GOLD[5];
+  // a hexagonal web between the rings
+  const hex = Math.max(Math.abs(x) * 0.866 + Math.abs(y) * 0.5, Math.abs(y));
+  if (Math.abs(hex - 6.2) < 0.55) return GOLD[4];
+  return null;
 }
 
 function slot(u: number, v: number, c: Cell, ax: number, ay: number): Color | null {
@@ -202,23 +222,24 @@ function slot(u: number, v: number, c: Cell, ax: number, ay: number): Color | nu
   const d = Math.max(Math.abs(du), Math.abs(dv));
   const N = NEON[c.owner];
   if (c.kind === 'zone') {
-    if (d > ZONE_R) return null;
-    if (d > ZONE_R - 0.8) return N[5];
-    if (d > ZONE_R - 1.7) return N[6];
-    if (d > ZONE_R - 2.5) return N[5];
-    if (d > ZONE_R - 3.3) return N[3];
-    if (d > ZONE_R - 4.2) return N[1];
-    const g = clamp01(1 - (ZONE_R - 4.2 - d) / 3.5);
-    if (g > 0 && bayer8(ax, ay) < g * 0.55) return N[1];
-    return du + dv < -ZONE_R * 0.9 ? ZONE_FILL2 : ZONE_FILL;
+    if (d > ZONE_R + 2.2) return null;
+    // a dark stone frame round the recess, faintly lit by the rim
+    if (d > ZONE_R + 0.5) return mix(FLOOR[1], N[3], 0.3 * (1 - (d - ZONE_R - 0.5) / 1.7));
+    if (d > ZONE_R) return N[4];
+    if (d > ZONE_R - 1.1) return N[6]; // the bright crystal line
+    if (d > ZONE_R - 1.7) return N[4];
+    // the recess: deep navy, the rim's light fading smoothly into it
+    const g = clamp01(1 - (ZONE_R - 1.7 - d) / 5);
+    const fill = du + dv < -ZONE_R * 0.8 ? ZONE_FILL2 : ZONE_FILL;
+    return mix(fill, N[2], g * g * 0.85);
   }
-  // pads: octagonal stone plinths (a gold rim, the owner's glyph), a short lit side toward the viewer
+  // pads: octagonal stone plinths (a gold rim, the owner's glyph), a short side toward the viewer
   const s = scr(du, dv);
   const oct = (x: number, y: number) => Math.max(Math.abs(x) / 2 + Math.abs(y), Math.abs(y) * 1.32, (Math.abs(x) / 2) * 1.1);
   const r = 13;
-  const top = oct(s.x, s.y + 1.5); // the top face, lifted 1.5 px
+  const top = oct(s.x, s.y + 1.5);
   if (top > r) {
-    if (oct(s.x, s.y) <= r) return s.y > 0 ? BLOCK[2] : null; // the side under the top
+    if (oct(s.x, s.y) <= r) return s.y > 0 ? BLOCK[2] : null;
     return null;
   }
   if (top > r - 0.9) return INK;
@@ -227,7 +248,7 @@ function slot(u: number, v: number, c: Cell, ax: number, ay: number): Color | nu
   const sy = s.y + 1.5;
   const ax2 = Math.abs(s.x);
   const ay2 = Math.abs(sy);
-  let base = tone(BLOCK, 0.6 - sy * 0.012 + (noise(u * 1.2, v * 1.2, 23) - 0.5) * 0.08, ax, ay);
+  let base = tone(FLOOR, 0.62 - sy * 0.012 + (fbm(u / 6, v / 6, 2, 23) - 0.5) * 0.08, ax, ay);
   const ring = Math.hypot(s.x / 2, sy);
   if (c.kind === 'field') {
     const dm = ax2 / 2 + ay2;
@@ -248,39 +269,35 @@ function slot(u: number, v: number, c: Cell, ax: number, ay: number): Color | nu
   return base;
 }
 
+/** Distance (units) outside the nearest zone's frame, for the neon light on the stone. */
 function nearestZoneOut(u: number, v: number): { d: number; o: Owner } | null {
   let best: { d: number; o: Owner } | null = null;
   for (const c of CELLS) {
     if (c.kind !== 'zone') continue;
-    const d = Math.max(Math.abs(u - c.u), Math.abs(v - c.v)) - ZONE_R;
-    if (d < 3.6 && (!best || d < best.d)) best = { d, o: c.owner };
+    const d = Math.max(Math.abs(u - c.u), Math.abs(v - c.v)) - ZONE_R - 2.2;
+    if (d < 5 && (!best || d < best.d)) best = { d, o: c.owner };
   }
   return best;
 }
 
 function floorAt(u: number, v: number, ax: number, ay: number): Color {
   for (const c of CELLS) {
-    if (Math.abs(u - c.u) > 18 || Math.abs(v - c.v) > 18) continue;
+    if (Math.abs(u - c.u) > 18.5 || Math.abs(v - c.v) > 18.5) continue;
     const sc = slot(u, v, c, ax, ay);
     if (sc !== null) return sc;
   }
-  const em = emblem(u, v, ax, ay);
+  const em = emblem(u, v);
   if (em !== null) return em;
-  // light: a warm pool round the emblem; shade under the far rims (the sun is behind them)
-  const ins = insetOf(u, v) - RIMW;
+  // light: a warm pool round the emblem; a soft shadow under the far rims (the sun is behind them)
   const farShade = Math.min(u + SLAB_U - RIMW, v + SLAB_V - RIMW);
-  let lit = Math.max(0, 1 - Math.hypot(u, v) / 60) * 0.1;
-  if (farShade < 7) lit -= (1 - farShade / 7) * 0.26;
-  else if (ins < 2) lit -= 0.06;
-  let f = floorTile(u, v, ax, ay, lit);
+  let lit = Math.max(0, 1 - Math.hypot(u, v) / 70) * 0.08;
+  if (farShade < 8) lit -= (1 - farShade / 8) ** 1.5 * 0.3;
+  let f = floorTile(u, v, lit);
   const sd = Math.abs(scr(u, v).x) / 2 + Math.abs(scr(u, v).y);
-  if (sd < 26 && bayer8(ax, ay) < (26 - sd) / 22) f = mix(f, GOLD[5], 0.3);
+  if (sd < 30) f = mix(f, GOLD[4], 0.34 * (1 - sd / 30) ** 2); // the emblem's glow on the stone
   const nz = nearestZoneOut(u, v);
-  if (nz) {
-    const k = 1 - nz.d / 3.6;
-    if (bayer8(ax, ay) < k * 1.1) f = mix(f, NEON[nz.o][4], 0.25 + k * 0.35);
-  }
-  return inlay(u, v, f, ax, ay);
+  if (nz) f = mix(f, NEON[nz.o][4], 0.2 * (1 - Math.max(0, nz.d) / 5) ** 2);
+  return inlay(u, v, f);
 }
 
 function rimTop(u: number, v: number, ax: number, ay: number): Color {
@@ -606,6 +623,6 @@ export function paintSkyBoard2(): PixelCanvas {
       }
     }
   }
-  bloom(p, 3, 0.8);
+  bloom(p, 2, 0.6);
   return p;
 }
