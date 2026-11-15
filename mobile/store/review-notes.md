@@ -10,10 +10,10 @@ Prism Duel is a single-purchase, offline, turn-based fantasy card game for playe
 
 3. HOW TO ACCESS THE MAIN FEATURES
 No login, account, setup or sample files are needed.
-- Duel the CPU: tap the title screen > VERSUS CPU > choose a deck (e.g. "Classic Deck") > START DUEL. Tap a card in your hand to Summon or Set it, tap BATTLE and then one of your monsters to attack, tap END TURN to pass.
-- Two players on one device: tap 2 PLAYERS instead; players take turns on the same phone.
+- Duel the CPU: tap the title screen > VERSUS CPU > choose any deck > START DUEL. Tap a card in your hand to Summon or Set it, tap BATTLE and then one of your monsters to attack, tap END TURN to pass.
+- Two players on one device: choose 2 PLAYERS (SAME SCREEN) instead; players take turns on the same phone.
 - Deck Builder: title screen > DECK BUILDER. Tap a card to see it, use + / - or drag cards in and out, then SAVE DECK.
-- Settings (speed, sound, music): the gear on the title screen.
+- Settings (animation speed, sound, music): the SETTINGS entry in the title menu. HOW TO PLAY explains the rules; CARD GALLERY shows every card.
 
 4. EXTERNAL SERVICES
 None. The app makes no network connections and uses no third-party services (no analytics, advertising, authentication, payment, data or AI services). All game logic, art and sound are generated on the device.
