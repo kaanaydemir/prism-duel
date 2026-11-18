@@ -14,7 +14,6 @@ import type { MonsterId } from '../../data/cards';
 import type { PlayerId } from '../../engine/types';
 import type { AnyMonsterAnim } from '../../art/types';
 import { monsterSheetKey, warmMonsterSheet } from '../../art/textures';
-import { LOOK_V3 } from '../../view/layout';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import { unitSheetKey } from '../../duel/unit-variant';
 
@@ -23,7 +22,6 @@ export const REACTION_POSES: readonly AnyMonsterAnim[] = ['hitMagic', 'hitHeavy'
 
 /** Paint these poses of a monster's sheet (as `player` would show it) first, in the background. */
 export function warmPoses(id: MonsterId, player: PlayerId, anims: readonly AnyMonsterAnim[]): void {
-  if (!LOOK_V3) return;
   try {
     warmMonsterSheet(monsterSheetKey(id, player), anims);
   } catch (e) {
@@ -33,7 +31,6 @@ export function warmPoses(id: MonsterId, player: PlayerId, anims: readonly AnyMo
 
 /** warmPoses for a unit on the field: the sheet it really shows (a variant's, src/duel/unit-variant.ts; else warmPoses' own). */
 export function warmUnitPoses(u: MonsterUnit, anims: readonly AnyMonsterAnim[]): void {
-  if (!LOOK_V3) return;
   try {
     warmMonsterSheet(unitSheetKey(u), anims);
   } catch (e) {

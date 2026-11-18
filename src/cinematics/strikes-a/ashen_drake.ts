@@ -28,7 +28,7 @@ import { PAL, RAMPS } from '../../art/palette';
 import type { AnyMonsterAnim } from '../../art/types';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import { PixelCanvas } from '../../art/pixel';
-import { DEPTH, LOOK_V3, TILE_W, type XY, unitDepth } from '../../view/layout';
+import { DEPTH, TILE_W, type XY, unitDepth } from '../../view/layout';
 import { lightDim, lightFlash, lightPool } from '../../view/light';
 import type { StrikeArgs } from '../_core/types';
 import { registerCardHook, registerStrike } from '../api';
@@ -1272,9 +1272,7 @@ async function ashenDeathV3(ctx: Ctx<'destroy'>): Promise<void> {
   });
 }
 
-if (LOOK_V3) {
-  registerStrike('ashen_drake', ashStormV3, { name: 'strikes-a:ashen_drake' });
-  registerCardHook('ashen_drake', 'destroyed', ashenDeathV3, { name: 'strikes-a:ashen_drake:death' });
-}
+registerStrike('ashen_drake', ashStormV3, { name: 'strikes-a:ashen_drake' });
+registerCardHook('ashen_drake', 'destroyed', ashenDeathV3, { name: 'strikes-a:ashen_drake:death' });
 
 export { RAMPS };

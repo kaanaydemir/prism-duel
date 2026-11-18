@@ -21,7 +21,7 @@ import { mix } from '../art/pixel';
 import { measureText, pixelText, textMetrics, type TextSize } from '../ui/text';
 import { TEX, tween } from '../vfx/core';
 import { CardSprite } from './CardSprite';
-import { ARENA_V2, DEPTH, UI } from './layout';
+import { DEPTH, UI } from './layout';
 import type { PlayerId } from '../engine/types';
 import { V3_A6_A } from './v3flags';
 import { InspectPanelV3, type PileKind } from './v3/inspectV3';
@@ -890,7 +890,7 @@ export class InspectPanel {
 
   constructor(scene: Phaser.Scene) {
     // v3 lane A6-A (K12): the crisp panel; the v3 look always runs on the v1 geometry
-    this.impl = V3_A6_A ? new InspectPanelV3(scene) : ARENA_V2 ? new InspectPanelV2(scene) : new InspectPanelV1(scene);
+    this.impl = V3_A6_A ? new InspectPanelV3(scene) : new InspectPanelV1(scene);
   }
 
   get visible(): boolean {

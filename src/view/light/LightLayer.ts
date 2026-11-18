@@ -37,7 +37,7 @@ import { PixelCanvas } from '../../art/pixel';
 import { monsterFrame, monsterTextureKey } from '../../art/textures';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import type { ZoneEntry } from '../../duel/FieldView';
-import { BOARD_V4, DEPTH, duelistXY, GAME_H, GAME_W, LOOK_V3, type XY } from '../layout';
+import { BOARD_V4, DEPTH, duelistXY, GAME_H, GAME_W, type XY } from '../layout';
 import { NT_DEPTH, ntIso, PLATE_POLY, PLATE_X0, PLATE_X1, PLATE_Y0, PLATE_Y1 } from '../board-nt/layout-nt';
 import { onDuelStart } from '../../duel/seeds';
 import { type Stamp, StepPatch, quantize, stepImgRev } from './stepped';
@@ -1349,7 +1349,7 @@ function ensureRimTex(scene: Phaser.Scene, s: Phaser.GameObjects.Sprite): string
 //   - a light POOL on its tile in its OWNER's colour (the seat, two steps in the core): the board reads as two lit camps, the
 //     colour ties each monster to its side even for a mirrored P2 sprite, and an attribute pool would repeat the colour the
 //     monster already carries in its own palette and summon FX (a FIRE monster on an orange pool loses its silhouette).
-export const UNIT_LIGHT_V4 = BOARD_V4 && LOOK_V3;
+export const UNIT_LIGHT_V4 = BOARD_V4;
 const OWNER_LIGHT: readonly [number, number] = [PAL.cyan3, PAL.crim3];
 const OWNER_RIM: readonly [number, number] = [PAL.cyan3, PAL.crim3];
 /** Multiply factors (0xRRGGBB) of the contact shadow bands: core, contact ring, cast tail. */
@@ -1838,7 +1838,7 @@ export class LightLayer {
 
   constructor(scene: Phaser.Scene, o: LightLayerOpts = {}) {
     this.scene = scene;
-    this.stepped = o.stepped ?? LOOK_V3;
+    this.stepped = o.stepped ?? true;
     // the soft glow textures exist only for the soft mode
     if (!this.stepped) ensureLightTextures(scene);
     this.on = o.enabled ?? true;

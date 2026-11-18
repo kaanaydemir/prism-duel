@@ -18,7 +18,6 @@ import type Phaser from 'phaser';
 import type { MonsterId } from '../data/cards';
 import type { MonsterSlot, PlayerId } from '../engine/types';
 import type { SfxName } from '../audio/sfx';
-import { LOOK_V3 } from '../view/layout';
 import type { AnyMonsterAnim, MonsterArt } from './types';
 import { animList } from './animtime';
 import { prepareMonsterSheet, relightsP2, warmMonsterSheet } from './textures';
@@ -64,7 +63,6 @@ function variantOfName(id: MonsterId, name: string): MonsterVariant | null {
 
 /** The variant a field slot of monster `id` shows (the first registered one whose `when` holds), or null. Always null in the v1 look. */
 export function slotVariant(id: MonsterId, slot: MonsterSlot): string | null {
-  if (!LOOK_V3) return null;
   const list = VARIANTS.get(id);
   if (!list) return null;
   for (const v of list) if (v.when(slot)) return v.name;

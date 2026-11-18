@@ -38,7 +38,7 @@ import type { AnyMonsterAnim } from '../../art/types';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import type { GameEvent } from '../../engine/types';
 import { battleNumbers, currentAtk, currentDef } from '../../engine';
-import { DEPTH, LOOK_V3, TILE_H, TILE_W, type XY, unitDepth } from '../../view/layout';
+import { DEPTH, TILE_H, TILE_W, type XY, unitDepth } from '../../view/layout';
 import { lightFlash, lightPool, type LightHandle } from '../../view/light';
 import { Raster } from '../../vfx/setpieces';
 import { Sparks, animate, onFrame, setCombatSfx, sleep } from '../../vfx/combat';
@@ -1571,36 +1571,34 @@ function positionLayer(ctx: Ctx<'positionChange'>): Promise<void> {
 
 // ================================================================ registrations (v3 only)
 
-if (LOOK_V3) {
-  registerCardHook(
-    ID,
-    'summon',
-    async (ctx) => {
-      if (ctx.ev.from !== 'hand') return ctx.base();
-      await runSummon(ctx, async () => undefined, drawbridgeV3);
-    },
-    { priority: 20, name: N('summon') },
-  );
-  registerEvent('attackDeclare', declareLayer, { priority: 20, name: N('declare') });
-  // priority 5: below lane B's block wrapper (a6:block p10 must run first on `damage`, §6.4 / a6-flow B4), above
-  // tb:damage (p0) which pops the number — the layer only moves hints.at before base(), so its place is safe
-  registerEvent('damage', recoilNumberLayer, { priority: 5, name: N('recoilNumber') });
-  registerCardHook(ID, 'effect', (ctx) => wardV3(ctx), { priority: 20, name: N('effect') });
-  registerCardHook(ID, 'defend', (ctx) => defendV3(ctx), { priority: 20, name: N('defend') });
-  registerStrike(ID, (s) => gateFallV3(s), { priority: 20, name: N('strike') });
-  registerCardHook(
-    ID,
-    'destroyed',
-    (ctx) => {
-      if (ctx.ev.location !== 'monster' || sourceOwnsDeath(ctx)) return ctx.base();
-      return deathLayers(ctx);
-    },
-    { priority: 20, name: N('death') },
-  );
-  registerEvent('positionChange', positionLayer, { priority: 20, name: N('position') });
-  // the ward never outlives its battle (a negated attack, the phase / turn moving on, the titan gone, the duel over)
-  registerObserver((ev) => {
-    if (ev.type !== 'attackNegated' && ev.type !== 'phaseChange' && ev.type !== 'turnStart' && ev.type !== 'gameOver' && ev.type !== 'destroy') return;
-    for (const w of [...wards.values()]) if (ev.type !== 'destroy' || ev.uid === w.titan.uid) endWard(w, 120);
-  });
-}
+registerCardHook(
+  ID,
+  'summon',
+  async (ctx) => {
+    if (ctx.ev.from !== 'hand') return ctx.base();
+    await runSummon(ctx, async () => undefined, drawbridgeV3);
+  },
+  { priority: 20, name: N('summon') },
+);
+registerEvent('attackDeclare', declareLayer, { priority: 20, name: N('declare') });
+// priority 5: below lane B's block wrapper (a6:block p10 must run first on `damage`, §6.4 / a6-flow B4), above
+// tb:damage (p0) which pops the number — the layer only moves hints.at before base(), so its place is safe
+registerEvent('damage', recoilNumberLayer, { priority: 5, name: N('recoilNumber') });
+registerCardHook(ID, 'effect', (ctx) => wardV3(ctx), { priority: 20, name: N('effect') });
+registerCardHook(ID, 'defend', (ctx) => defendV3(ctx), { priority: 20, name: N('defend') });
+registerStrike(ID, (s) => gateFallV3(s), { priority: 20, name: N('strike') });
+registerCardHook(
+  ID,
+  'destroyed',
+  (ctx) => {
+    if (ctx.ev.location !== 'monster' || sourceOwnsDeath(ctx)) return ctx.base();
+    return deathLayers(ctx);
+  },
+  { priority: 20, name: N('death') },
+);
+registerEvent('positionChange', positionLayer, { priority: 20, name: N('position') });
+// the ward never outlives its battle (a negated attack, the phase / turn moving on, the titan gone, the duel over)
+registerObserver((ev) => {
+  if (ev.type !== 'attackNegated' && ev.type !== 'phaseChange' && ev.type !== 'turnStart' && ev.type !== 'gameOver' && ev.type !== 'destroy') return;
+  for (const w of [...wards.values()]) if (ev.type !== 'destroy' || ev.uid === w.titan.uid) endWard(w, 120);
+});

@@ -1,4 +1,9 @@
 // src/art/animtime.ts — per-frame hold timing, marks, art lookups (v3 A1 contract).
+// The lookup helpers are pinned on the original (pre-v3) sheets: stable fixtures, independent of
+// which art the game shows (the v1 look was removed 2026-11-17).
+import wyrmV1 from '../../src/art/monsters/crystal_wyrm';
+import sentinelV1 from '../../src/art/monsters/stone_sentinel';
+import magusV1 from '../../src/art/monsters/abyss_magus';
 import { describe, expect, it } from 'vitest';
 import {
   animLengthMs,
@@ -24,7 +29,6 @@ import {
   progressAtMs,
   rangeMs,
 } from '../../src/art/animtime';
-import { monsterArt } from '../../src/art/monsters';
 import type { AnimSpec, MonsterArt } from '../../src/art/types';
 import { MONSTER_ANIMS, MONSTER_ANIMS_EXTRA } from '../../src/art/types';
 import { MONSTER_IDS } from '../../src/data/cards';
@@ -199,26 +203,8 @@ function withExtras(base: MonsterArt): MonsterArt {
 }
 
 describe('art lookups', () => {
-  it('the old monsters have exactly the five base anims and the old impact timing', () => {
-    for (const id of MONSTER_IDS) {
-      const art = monsterArt(id);
-      expect(animList(art)).toEqual(MONSTER_ANIMS);
-      for (const a of MONSTER_ANIMS_EXTRA) expect(hasAnim(art, a)).toBe(false);
-      expect(impactFrame(art)).toBe(art.attackImpactFrame);
-      // MonsterUnit.impactMs today: (attackImpactFrame / anims.attack.fps) * 1000
-      expect(impactMs(art)).toBe((art.attackImpactFrame / art.anims.attack.fps) * 1000);
-      for (const a of MONSTER_ANIMS) {
-        const s = art.anims[a];
-        expect(s.holds).toBeUndefined();
-        // MonsterUnit.play safety net: (frames / fps) * 1000
-        expect(animLengthMs(s)).toBe((s.frames / s.fps) * 1000);
-        expect(artAnimMs(art, a)).toBe((s.frames / s.fps) * 1000);
-      }
-    }
-  });
-
   it('extras: canonical order, need drawExtra, empty specs are skipped', () => {
-    const art = withExtras(monsterArt('crystal_wyrm'));
+    const art = withExtras(wyrmV1);
     expect(animList(art)).toEqual([...MONSTER_ANIMS, 'summon', 'victory']);
     expect(hasAnim(art, 'summon')).toBe(true);
     expect(hasAnim(art, 'death')).toBe(false);
@@ -230,19 +216,19 @@ describe('art lookups', () => {
   });
 
   it('impact mark overrides attackImpactFrame; other marks fall back', () => {
-    const art = withExtras(monsterArt('crystal_wyrm'));
+    const art = withExtras(wyrmV1);
     expect(impactFrame(art)).toBe(2);
     expect(impactMs(art)).toBe((2 / art.anims.attack.fps) * 1000);
     expect(artMarkFrame(art, 'summon', 'land')).toBe(1);
     expect(artMarkMs(art, 'summon', 'land')).toBe(500);
     expect(artMarkFrame(art, 'victory', 'land', 2)).toBe(2);
     expect(artMarkMs(art, 'death', 'dissolve')).toBe(0);
-    const old = monsterArt('stone_sentinel');
+    const old = sentinelV1;
     expect(artMarkFrame(old, 'attack', 'impact')).toBe(old.attackImpactFrame);
   });
 
   it('framePoint: points() first, then muzzle / anchor / core', () => {
-    const base = monsterArt('abyss_magus');
+    const base = magusV1;
     const art = withExtras(base);
     expect(framePoint(art, 'summon', 3, 'head')).toEqual({ x: 13, y: 4 });
     expect(framePoint(art, 'summon', 3, 'muzzle')).toEqual({ x: 1, y: 2 });

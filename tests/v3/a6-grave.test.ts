@@ -182,7 +182,7 @@ describe('A6-A A6 — graveyard panel (K11), sounds and source scan', { timeout:
   it('lane A6-A off: the stub (nothing opens, closed at once)', async () => {
     vi.resetModules();
     const G = globalThis as Record<string, unknown>;
-    G.__NEON_LOOK = 'v1';
+    G.__NEON_V3FLAGS = { a6: 'b' }; // lane A6-A off
     try {
       const m = await import('../../src/view/v3/GravePanel');
       const scene = {} as never;
@@ -192,7 +192,7 @@ describe('A6-A A6 — graveyard panel (K11), sounds and source scan', { timeout:
       expect(m.gravePanelOpen(scene)).toBe(false);
       await m.whenGravePanelClosed(scene);
     } finally {
-      delete G.__NEON_LOOK;
+      delete G.__NEON_V3FLAGS;
     }
   }, 120_000);
 });

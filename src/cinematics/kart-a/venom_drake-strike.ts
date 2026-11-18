@@ -25,7 +25,7 @@ import type Phaser from 'phaser';
 import { PAL } from '../../art/palette';
 import type { AnyMonsterAnim, MonsterPointName } from '../../art/types';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
-import { DEPTH, LOOK_V3, type XY } from '../../view/layout';
+import { DEPTH, type XY } from '../../view/layout';
 import { lightFlash, lightPool } from '../../view/light';
 import { shake } from '../../vfx/core';
 import type { StrikeArgs } from '../_core/types';
@@ -351,4 +351,4 @@ async function venomSprayV3(s: StrikeArgs): Promise<void> {
   void anim;
 }
 
-if (LOOK_V3) registerStrike('venom_drake', venomMortarV3, { name: 'kart-a:venom_drake:strike' });
+registerStrike('venom_drake', venomMortarV3, { name: 'kart-a:venom_drake:strike' });

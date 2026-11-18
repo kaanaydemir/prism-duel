@@ -71,7 +71,7 @@ function opaqueWidth(p: Canvas): number {
 
 describe('A6-A A1 — the v3 back is the one back source (S-2)', { timeout: 60_000 }, () => {
   it('lane on: cardBackCanvas / cardMip / isoCanvas all come from cardBackV3 / cardBackMipV3, one per player', async () => {
-    const v1 = await load('v1');
+    const v1 = await load('v3', { a6: 'b' }) /* today's back: lane A6-A off (v1 look removed 2026-11-17) */;
     const today = v1.cards.cardBackCanvas(0).data.slice();
     const todayIso = v1.cards.isoCanvas('back', 'up', 0).data.slice();
     const { cards, back, flags } = await load('v3');
@@ -99,13 +99,11 @@ describe('A6-A A1 — the v3 back is the one back source (S-2)', { timeout: 60_0
     expect(cards.cardBackKey(1)).toBe('card:back:p2');
   });
 
-  it('lane off (v3 &a6=b) and v1: today\'s back, byte for byte', async () => {
-    const v1 = await load('v1');
+  it('lane off (v3 &a6=b) today\'s back, byte for byte', async () => {
+    const v1 = await load('v3', { a6: 'b' }) /* today's back: lane A6-A off (v1 look removed 2026-11-17) */;
     const today = v1.cards.cardBackCanvas(0).data.slice();
     const todayMip = v1.cards.cardMip('back', 1).levels.map((l) => l.data.slice());
     const todayIso = ([0, 1] as const).map((p) => (['up', 'side'] as const).map((o) => v1.cards.isoCanvas('back', o, p).data.slice()));
-    expect(v1.flags.V3_A6_A).toBe(false);
-    expect(v1.cards.cardBackCanvas(1)).toBe(v1.cards.cardBackCanvas(0));
     const off = await load('v3', { a6: 'b' });
     expect(off.flags.V3_A6_A).toBe(false);
     for (const p of [0, 1] as const) {
@@ -116,7 +114,7 @@ describe('A6-A A1 — the v3 back is the one back source (S-2)', { timeout: 60_0
   });
 
   it('keeps today\'s silhouettes: the overlay sources (card:sil / glow / sheen, iso silhouettes) do not change', async () => {
-    const v1 = await load('v1');
+    const v1 = await load('v3', { a6: 'b' }) /* today's back: lane A6-A off (v1 look removed 2026-11-17) */;
     const mask = alphaMask(v1.cards.cardBackCanvas(0));
     const isoSil = (['up', 'side'] as const).map((o) => v1.cards.renderFlat('back', o, 0, { solid: 0xffffff, outline: false }).data.slice());
     const isoSilOut = (['up', 'side'] as const).map((o) => v1.cards.renderFlat('back', o, 0, { solid: 0xffffff }).data.slice());
@@ -940,8 +938,7 @@ describe('A6-A registration audit (§6.4): lane A fills only its own hooks, only
     return filledV3Hooks();
   }
 
-  it('v1: none; v3 lane A on: set (and nothing outside lane A); lane A off: none of A’s', async () => {
-    expect(await filled('v1')).toEqual([]);
+  it('v3 lane A on: set (and nothing outside lane A); lane A off: none of A’s', async () => {
     const a = await filled('v3', 'a');
     expect(a).toEqual(expect.arrayContaining(['set']));
     expect(a.filter((h) => !LANE_A_HOOKS.includes(h))).toEqual([]);

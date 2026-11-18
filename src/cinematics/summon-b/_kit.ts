@@ -24,7 +24,7 @@ import { ATTRIBUTE_RAMP, PAL, PLAYER_COLOR, type Ramp } from '../../art/palette'
 import { monsterAnimKey, monsterFrameName } from '../../art/textures';
 import type { AnyMonsterAnim, MonsterAnim } from '../../art/types';
 import type { SfxName } from '../../audio/sfx';
-import { DEPTH, LOOK_V3, TILE_W, type XY, unitDepth } from '../../view/layout';
+import { DEPTH, TILE_W, type XY, unitDepth } from '../../view/layout';
 import { attributeLightColor, lightBeam, lightDim, lightFlash, lightPool, type BeamHandle, type LightHandle, type PoolOpts } from '../../view/light';
 import { TEX, shake, wait } from '../../vfx/core';
 import { Raster, Sparks, onFrame, run } from '../../vfx/setpieces';
@@ -308,7 +308,7 @@ export async function holoSettle(scene: Phaser.Scene, s: Phaser.GameObjects.Spri
   const pipe = getHologram(s);
   if (!pipe) return;
   // v3: the hologram never lingers (the body is the show)
-  if (LOOK_V3) ms = Math.min(ms, HOLO_SETTLE_V3_MS);
+  ms = Math.min(ms, HOLO_SETTLE_V3_MS);
   const P = pipe.params;
   const tm = P.tintMix;
   const sc = P.scan;
@@ -508,7 +508,7 @@ export async function entrance(ctx: SummonCtx, piece: (e: Entrance) => Promise<v
   // the camera leans in a touch toward the tile while the monster arrives (bible: 1.0 → 1.08)
   void ctx.focus({ x: home.x, y: home.y - 28 }, { zoom: e.big ? 1.06 : 1.04, ms: 420, pan: 0.22 });
   try {
-    if (LOOK_V3 && unit.has('summon')) {
+    if (unit.has('summon')) {
       // v3: the body enters on its own summon pose
       if (opts.v3) await opts.v3(e);
       else

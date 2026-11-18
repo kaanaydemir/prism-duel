@@ -20,7 +20,6 @@ import type Phaser from 'phaser';
 import { ensureVariantSheet, warmVariant } from '../../art/variants';
 import { finishMonsterSheet } from '../../art/textures';
 import { MonsterUnit, UnitSprite } from '../../duel/MonsterUnit';
-import { LOOK_V3 } from '../../view/layout';
 
 const ID = 'scrap_raiders';
 const TIRED = 'tired';
@@ -34,7 +33,7 @@ function setOf(sc: Phaser.Scene): Set<number> {
 }
 
 export function isTired(u: MonsterUnit): boolean {
-  return LOOK_V3 && u.cardId === ID && !!tiredUids.get(u.scene)?.has(u.uid);
+  return (u.cardId === ID) && !!tiredUids.get(u.scene)?.has(u.uid);
 }
 
 let chained = false;
@@ -47,13 +46,12 @@ function chain(): void {
 
 /** Paint the tired sheets in the background (both players): call as the cart takes the field. */
 export function warmTired(sc: Phaser.Scene): void {
-  if (!LOOK_V3) return;
   warmVariant(sc, ID, TIRED);
 }
 
 /** Show (or stop showing) the tired sheet on this unit. */
 export function setTired(u: MonsterUnit, on: boolean): void {
-  if (!LOOK_V3 || u.cardId !== ID) return;
+  if (u.cardId !== ID) return;
   chain();
   const set = setOf(u.scene);
   if (on === set.has(u.uid)) return;
@@ -95,7 +93,7 @@ const held = new WeakSet<MonsterUnit>();
 const patched = new WeakSet<MonsterUnit>();
 
 export function holdPadlock(u: MonsterUnit, on: boolean): void {
-  if (!LOOK_V3 || u.cardId !== ID) return;
+  if (u.cardId !== ID) return;
   const was = held.has(u);
   if (on) held.add(u);
   else held.delete(u);

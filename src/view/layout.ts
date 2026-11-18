@@ -54,47 +54,28 @@
 
 import type { PlayerId, ZoneKind } from '../engine/types';
 
-// ---------------------------------------------------------------- look (additive, v3 plan A1.7)
+// ---------------------------------------------------------------- look
 //
-// The look switch of the v3 visual overhaul (docs/ANIMASYON_PLANI.md, docs/v3/A0_ENVANTER.md
-// §5.5 / §6.1 item 7). It is separate from the arena variant below:
-//   'v1' (default) — the game exactly as it was (v1 board, or the v2 arena with ?arena=v2).
-//   'v3'           — the new look: always the v1 board geometry (so ?arena=v2 / __NEON_ARENA are
-//                    ignored and every board / HUD constant here keeps its v1 value), the calm
-//                    arena and the v1 HUD. A monster with new (v3) art uses it, one without keeps
-//                    its old sheet.
-// Decided once at module init, like the arena variant: `globalThis.__NEON_LOOK` ('v1' | 'v3'),
-// else the URL param `?look=v3`, else 'v1'.
+// OWNER DECISION 2026-11-17: the v3 look is THE look. The legacy v1 look (and the v2 "floodlit" arena
+// that only existed under it) was removed; `?look=` and `__NEON_LOOK` are ignored. The v3 look is built
+// on the v1 board GEOMETRY (ARENA_VARIANT 'v1' below — that name is about the grid, not the old look).
+// A monster without v3 art still draws its original sheet. LOOK / LOOK_V3 / byLook stay exported as
+// constants so in-flight code keeps compiling; new code should not branch on them.
 //
-// ZONES5 (additive): 5 monster + 5 spell/trap zones per player instead of 3 + 3. DEFAULT in a browser
-// with the v3 look (the playable game). Opt out with `?zones=3` / `globalThis.__NEON_ZONES = 3`; force
-// on with `?zones=5` / `__NEON_ZONES = 5`. Read once at module init, and honoured ONLY with the v3 look
-// (with look v1 it is ignored: v1 stays 3+3). Outside a browser (no `location`: vitest, node tools) the
-// default stays 3+3 unless `__NEON_ZONES = 5` is set, so engine / art tests keep the classic board.
+// ZONES5: 5 monster + 5 spell/trap zones per player instead of 3 + 3. DEFAULT in a browser (the
+// playable game). Opt out with `?zones=3` / `globalThis.__NEON_ZONES = 3`; force on with `?zones=5` /
+// `__NEON_ZONES = 5`. Read once at module init. Outside a browser (no `location`: vitest, node tools)
+// the default stays 3+3 unless `__NEON_ZONES = 5` is set, so engine / art tests keep the classic board.
 
 export type Look = 'v1' | 'v3';
 
-/** The active look (decided once at module init). */
-export const LOOK: Look = detectLook();
-/** Shorthand for `LOOK === 'v3'`. */
-export const LOOK_V3: boolean = LOOK === 'v3';
+/** @deprecated The look is always 'v3' (owner decision 2026-11-17). */
+export const LOOK: Look = 'v3';
+/** @deprecated Always true (owner decision 2026-11-17); do not branch on it. */
+export const LOOK_V3: boolean = true;
 
-function detectLook(): Look {
-  try {
-    const g = (globalThis as { __NEON_LOOK?: unknown }).__NEON_LOOK;
-    if (g === 'v1' || g === 'v3') return g;
-    if (typeof location !== 'undefined' && typeof URLSearchParams !== 'undefined') {
-      const p = new URLSearchParams(location.search).get('look');
-      if (p === 'v1' || p === 'v3') return p;
-    }
-  } catch {
-    /* no globals (tests, workers): fall through */
-  }
-  return 'v1';
-}
-
-/** True when the board has 5 + 5 zones per player (v3 look; default in a browser, `?zones=3` opts out). */
-export const ZONES5: boolean = LOOK_V3 && detectZones5();
+/** True when the board has 5 + 5 zones per player (default in a browser, `?zones=3` opts out). */
+export const ZONES5: boolean = detectZones5();
 /** Monster / spell-trap zones per player on this board (3 or 5). */
 export const LANES: number = ZONES5 ? 5 : 3;
 // Published for src/duel/scenario.ts, which must not import this module statically (it would fix LOOK too early for tests that set the look global afterwards).
@@ -127,42 +108,26 @@ function detectZones5(): boolean {
  */
 export const BOARD_V4: boolean = ZONES5 && ntArenaOn();
 
-/** Pick the v1 (today's look) or the v3 value (for module-level constants elsewhere). */
-export function byLook<T>(v1: T, v3: T): T {
-  return LOOK_V3 ? v3 : v1;
+/** @deprecated The look is always v3: returns `v3`. */
+export function byLook<T>(_v1: T, v3: T): T {
+  return v3;
 }
 
-// ---------------------------------------------------------------- arena variant
+// ---------------------------------------------------------------- arena variant (board geometry)
 
 export type ArenaVariant = 'v1' | 'v2';
 
 /**
- * Which arena is active. Decided once at module init from `globalThis.__NEON_ARENA`
- * (demo.html sets it to 'v2' before booting), else the URL param `?arena=v2`, else 'v1'.
- * The v3 look (LOOK_V3) forces 'v1': the new look is built on the v1 board geometry.
+ * @deprecated The board geometry is always 'v1' (the grid the v3 look is built on). The v2 "floodlit"
+ * arena only existed under the removed v1 look.
  */
-export const ARENA_VARIANT: ArenaVariant = detectArenaVariant();
-/** Shorthand for `ARENA_VARIANT === 'v2'`. */
-export const ARENA_V2: boolean = ARENA_VARIANT === 'v2';
+export const ARENA_VARIANT: ArenaVariant = 'v1';
+/** @deprecated Always false (the v2 arena was removed with the v1 look). */
+export const ARENA_V2: boolean = false;
 
-function detectArenaVariant(): ArenaVariant {
-  if (LOOK_V3) return 'v1';
-  try {
-    const g = (globalThis as { __NEON_ARENA?: unknown }).__NEON_ARENA;
-    if (g === 'v1' || g === 'v2') return g;
-    if (typeof location !== 'undefined' && typeof URLSearchParams !== 'undefined') {
-      const p = new URLSearchParams(location.search).get('arena');
-      if (p === 'v1' || p === 'v2') return p;
-    }
-  } catch {
-    /* no globals (tests, workers): fall through */
-  }
-  return 'v1';
-}
-
-/** Pick the v1 or the v2 value (for module-level constants elsewhere). */
-export function byArena<T>(v1: T, v2: T): T {
-  return ARENA_V2 ? v2 : v1;
+/** @deprecated Returns `v1` (the v2 arena was removed). */
+export function byArena<T>(v1: T, _v2: T): T {
+  return v1;
 }
 
 // ---------------------------------------------------------------- grid + projection
@@ -170,18 +135,18 @@ export function byArena<T>(v1: T, v2: T): T {
 export const GAME_W = 640;
 export const GAME_H = 360;
 
-export const TILE_W: number = byArena(64, 80);
-export const TILE_H: number = byArena(32, 40);
-export const BOARD_COLS: number = ZONES5 ? 7 : byArena(5, 7);
-export const BOARD_ROWS: number = byArena(5, 6);
+export const TILE_W: number = 64;
+export const TILE_H: number = 32;
+export const BOARD_COLS: number = ZONES5 ? 7 : 5;
+export const BOARD_ROWS: number = 5;
 /** Screen position of the center of grid cell (0, 0). */
-export const BOARD_OX: number = ZONES5 ? 288 : byArena(320, 300);
-export const BOARD_OY: number = ZONES5 ? 80 : byArena(96, 66);
+export const BOARD_OX: number = ZONES5 ? 288 : 320;
+export const BOARD_OY: number = ZONES5 ? 80 : 96;
 
 /** Grid rows of the no-man's land / energy bridge between the two front rows (v1 [2], v2 [2, 3]). */
-export const BRIDGE_ROWS: readonly number[] = byArena([2], [2, 3]);
+export const BRIDGE_ROWS: readonly number[] = [2];
 /** Grid columns of the lanes (monster / spell-trap index of player 1; v1 [1,2,3], v2 [1,3,5], zones5 [1..5]). */
-export const LANE_COLS: readonly number[] = ZONES5 ? [1, 2, 3, 4, 5] : byArena([1, 2, 3], [1, 3, 5]);
+export const LANE_COLS: readonly number[] = ZONES5 ? [1, 2, 3, 4, 5] : [1, 2, 3];
 /** Zone index of the centre lane (3 lanes: 1, 5 lanes: 2) — the fallback aim / anchor when a zone is unknown. */
 export const LANE_MID: number = LANES >> 1;
 /** Fractional grid coords of the board center (v1 (2, 2), v2 (3, 2.5)). */
@@ -276,7 +241,7 @@ export type BoardSpot = ZoneKind | 'graveyard' | 'deck' | 'banish';
 
 /** Grid cell of a zone. Player 2's board is player 1's rotated 180° around the center. */
 export function zoneCell(player: PlayerId, spot: BoardSpot, index = 0): { col: number; row: number } {
-  const c = ARENA_V2 ? zoneCellV2(spot, index) : zoneCellV1(spot, index);
+  const c = zoneCellV1(spot, index);
   return player === 0 ? c : { col: BOARD_COLS - 1 - c.col, row: BOARD_ROWS - 1 - c.row };
 }
 
@@ -295,24 +260,6 @@ function zoneCellV1(spot: BoardSpot, index: number): { col: number; row: number 
       return { col: BOARD_COLS - 1, row: 4 };
     case 'banish':
       return { col: 0, row: 4 };
-  }
-}
-
-/** Player 1's cell of a zone in the v2 7×6 grid (lanes on cols 1/3/5, gap tiles on 2/4). */
-function zoneCellV2(spot: BoardSpot, index: number): { col: number; row: number } {
-  switch (spot) {
-    case 'monster':
-      return { col: 1 + 2 * index, row: 4 };
-    case 'spellTrap':
-      return { col: 1 + 2 * index, row: 5 };
-    case 'field':
-      return { col: 0, row: 4 };
-    case 'graveyard':
-      return { col: 6, row: 4 };
-    case 'deck':
-      return { col: 6, row: 5 };
-    case 'banish':
-      return { col: 0, row: 5 };
   }
 }
 
@@ -404,7 +351,6 @@ export function facesLeft(player: PlayerId): boolean {
  * v2 P1 isoToScreen(3, 6.25) = (170, 251), P2 isoToScreen(3, -1.25) = (470, 101) — whole pixels.
  */
 export function duelistXY(player: PlayerId): XY {
-  if (ARENA_V2) return player === 0 ? isoToScreen(3, 6.25) : isoToScreen(3, -1.25);
   // arena v4: one tile behind the back row on the centre lane, whole pixels: P1 (216, 212), P2 (424, 108)
   if (BOARD_V4) return player === 0 ? isoToScreen(BOARD_MID_COL, 5) : isoToScreen(BOARD_MID_COL, -1);
   return player === 0 ? isoToScreen(BOARD_MID_COL, 5.35) : isoToScreen(BOARD_MID_COL, -1.35);
@@ -460,10 +406,7 @@ export function pileTagAnchor(player: PlayerId, kind: 'deck' | 'graveyard'): Tag
     const x = Math.round(home.x);
     return player === 0 ? { x: x + PILE_TAG_SIDE_DX, y, align: 'left' } : { x: x - PILE_TAG_SIDE_DX, y, align: 'right' };
   }
-  if (!ARENA_V2) return { x: home.x, y: Math.round(home.y + 8), align: 'center' };
-  const y = Math.round(home.y) - Math.floor(PILE_TAG_H / 2);
-  const x = Math.round(home.x);
-  return player === 0 ? { x: x + PILE_TAG_SIDE_DX, y, align: 'left' } : { x: x - PILE_TAG_SIDE_DX, y, align: 'right' };
+  return { x: home.x, y: Math.round(home.y + 8), align: 'center' };
 }
 
 /** Left pixel column of a tag `w` px wide placed at anchor `a` (center: round(a.x − w/2), as PileView does today). */
@@ -476,7 +419,7 @@ export function tagLeft(a: TagAnchor, w: number): number {
  * v2: how far (grid units, ≈ 44.7 px each along the trim) the referee pylon on each deck corner
  * slides away from the deck. 0 in v1 (which has no pylons) — the result is just the corner point.
  */
-export const DECK_PYLON_SLIDE: number = byArena(0, 0.7);
+export const DECK_PYLON_SLIDE: number = 0;
 
 /**
  * Grid point (fractional) of the referee pylon on a player's deck corner. `outset` = how far the
@@ -581,28 +524,6 @@ const UI_V1: UiLayout = {
 };
 
 /**
- * v2 compact HUD. The four screen corners outside the board diamond hold the panels; nothing
- * covers a zone in normal play:
- *  - phaseBar sits above the board's top corner (P2 deck pad top at y 46; an ace on P2's
- *    top lane reaches up to y ≈ 17).
- *  - inspect fills the free upper-left triangle (the board edge passes (124,134); P1 field pad).
- *  - hand: resting cards should show at most ~40 px (tops at y ≥ 318); the P1 deck pad's
- *    bottom corner is at (340, 306). With the deck-corner contract (pileTagAnchor, deckPylonXY)
- *    the deck tag ends at y 290 and the deck pylon's foot at y 299, so the resting tops clear both.
- *  - p1Panel / buttons sit under the board's lower edges; p2Panel right of the P2 duelist.
- */
-const UI_V2: UiLayout = {
-  phaseBar: { x: 224, y: 3, w: 192, h: 14 },
-  p1Panel: { x: 4, y: 316, w: 128, h: 40 },
-  p2Panel: { x: 508, y: 4, w: 128, h: 40 },
-  hand: { x: 176, y: 306, w: 288, h: 54 },
-  handRestTop: 318,
-  inspect: { x: 4, y: 22, w: 116, h: 110 },
-  buttons: { x: 540, y: 316, w: 96, h: 40 },
-  bannerY: 172,
-};
-
-/**
  * 5+5 board (v3, default in a browser): the board's left tip reaches x ≈ 104 (y 142..165), so the 128-px inspect
  * panel covered it by ~28 px. The panel gets this width there (4..104); its card (96 px at 2x) still fits.
  */
@@ -613,7 +534,7 @@ export const INSPECT_W_Z5 = 100;
  */
 export const HINT_Y_Z5 = 262;
 
-const UI_BASE: UiLayout = byArena(UI_V1, UI_V2);
+const UI_BASE: UiLayout = UI_V1;
 /**
  * Neon Tower (the v3 default arena, src/view/board-nt/flag.ts): player 2's panel is the compact 148 × 47 one (src/view/v3/hudSkin.ts
  * HUD3_P2C) so the right hologram has the corner below it. Same switch as flag.ts (which imports this module, so it is repeated
@@ -621,7 +542,6 @@ const UI_BASE: UiLayout = byArena(UI_V1, UI_V2);
  */
 export const P2_PANEL_COMPACT_H = 47;
 function ntArenaOn(): boolean {
-  if (!LOOK_V3) return false;
   try {
     const g = (globalThis as { __NEON_ARENA_NT?: unknown }).__NEON_ARENA_NT;
     if (g === true || g === false) return g;

@@ -23,7 +23,6 @@ import type { MonsterUnit } from '../../duel/MonsterUnit';
 import { lightFlash } from '../../view/light';
 import { registerCardHook, registerStrike } from '../api';
 import {
-  ARENA_V2,
   E,
   Sparks,
   animate,
@@ -237,7 +236,7 @@ async function sentinelStrike(s: StrikeArgs): Promise<void> {
     const dist = vlen(vsub(stopAt, from));
     // v2's long throws across the bridge: a slower, higher lob
     const ms = travelMs(dist, 0, 4, 380, 560, 720);
-    const arc = clamp(dist * 0.42, 26, ARENA_V2 ? 84 : 56);
+    const arc = clamp(dist * 0.42, 26, 56);
     // shadow from the thrower's front to the target's floor
     const g0 = { x: u.home.x + 10 * d, y: u.home.y };
     const g1 = s.direct ? s.toGround : target ? { x: target.home.x - dir.x * 6, y: target.home.y } : s.toGround;

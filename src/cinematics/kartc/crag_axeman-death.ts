@@ -23,7 +23,7 @@ import { framePose } from '../../art/monsters-v3/crag_axeman-anims';
 import { AX, GY, H, W, drawAxeman, skeleton, type Pose } from '../../art/monsters-v3/crag_axeman-rig';
 import type { GameEvent } from '../../engine/types';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
-import { LOOK_V3, zoneXY, type XY } from '../../view/layout';
+import { zoneXY, type XY } from '../../view/layout';
 import { lightFlash, lightPool, type LightHandle } from '../../view/light';
 import { onFrame, sleep } from '../../vfx/combat';
 import { registerCardHook } from '../api';
@@ -233,12 +233,11 @@ async function axemanDeath(ctx: DestroyCtx): Promise<void> {
   await leave;
 }
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
   ID,
   'destroyed',
   async (ctx) => {
-    if (!LOOK_V3 || ctx.ev.location !== 'monster' || sourceOwnsDeath(ctx)) return ctx.base();
+    if ((ctx.ev.location !== 'monster') || sourceOwnsDeath(ctx)) return ctx.base();
     return axemanDeath(ctx);
   },
   { name: 'kartc:crag_axeman:death' },

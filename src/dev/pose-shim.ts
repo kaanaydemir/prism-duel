@@ -19,7 +19,6 @@ import { MONSTER_IDS, type MonsterId } from '../data/cards';
 import { monsterArt } from '../art/monsters';
 import { PixelCanvas } from '../art/pixel';
 import type { AnimSpec, DrawOpts, MonsterAnim, MonsterAnimExtra, MonsterArt } from '../art/types';
-import { LOOK_V3 } from '../view/layout';
 
 interface ShimFrame {
   anim: MonsterAnim;
@@ -130,7 +129,6 @@ export function applyPoseShim(base: MonsterArt): void {
 
 /** The monsters named by `?poseshim=` (empty without the flag or outside the v3 look). */
 export function poseShimTargets(search: string): MonsterId[] {
-  if (!LOOK_V3) return [];
   let v: string | null = null;
   try {
     v = new URLSearchParams(search).get('poseshim');

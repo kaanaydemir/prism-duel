@@ -23,7 +23,7 @@
 //         (shock ring, light, badge) lands as the band leaves. No cut-in: the finale at the land.
 
 import { PAL, PLAYER_COLOR, RAMPS, type Ramp } from '../../art/palette';
-import { DEPTH, LOOK_V3, type XY } from '../../view/layout';
+import { DEPTH, type XY } from '../../view/layout';
 import { lightFlash } from '../../view/light';
 import { registerCardHook } from '../api';
 import { atMark, fade as fadeV3, panAt, play as playV3 } from '../_v3/sound';
@@ -459,8 +459,7 @@ signatureSummon('abyss_magus', async (S) => {
 //               pose (≤ 120 ms, a puff of wisps at its hem) and holds it — the battle goes on at once.
 // Registered under ?look=v3 only (the old look keeps summon-b's flip handler untouched).
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     'abyss_magus',
     'flip',
     async (ctx) => {

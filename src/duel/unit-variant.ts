@@ -20,7 +20,6 @@ import type { AnyMonsterAnim, DrawOpts } from '../art/types';
 import type { PixelCanvas } from '../art/pixel';
 import { artFrame, monsterSheetKey, sheetAnimKey } from '../art/textures';
 import { ensureVariantSheet, slotVariant, variantArt, variantSheetKey, warmVariant } from '../art/variants';
-import { LOOK_V3 } from '../view/layout';
 import { MonsterUnit } from './MonsterUnit';
 
 const variants = new WeakMap<MonsterUnit, string>();
@@ -106,7 +105,7 @@ let installed = false;
 
 /** Install the MonsterUnit hooks (v3 only; once). FieldView calls it at module load. */
 export function installUnitVariants(): void {
-  if (installed || !LOOK_V3) return;
+  if (installed) return;
   installed = true;
   MonsterUnit.sheetFor = (u) => {
     const v = variants.get(u);

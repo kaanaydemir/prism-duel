@@ -10,7 +10,7 @@
 // Camera never moves (EF-8).
 
 import { PAL } from '../../art/palette';
-import { LOOK_V3, type XY } from '../../view/layout';
+import { type XY } from '../../view/layout';
 import { lightFlash, lightPool } from '../../view/light';
 import { Sparks, animate } from '../../vfx/combat';
 import { registerCardHook, registerEvent } from '../api';
@@ -26,7 +26,7 @@ registerEvent(
   'positionChange',
   async (ctx) => {
     const ev = ctx.ev;
-    if (!LOOK_V3 || ctx.cardId(ev.uid) !== ID) return ctx.base();
+    if (ctx.cardId(ev.uid) !== ID) return ctx.base();
     const unit = ctx.unit(ev.uid);
     const tile = ctx.tile(ev.uid);
     const toDef = ev.position === 'defense';
@@ -88,7 +88,6 @@ registerCardHook(
   ID,
   'flip',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     const ev = ctx.ev;
     const v = ctx.views;
     const field = v.field;

@@ -9,7 +9,7 @@ import { PAL } from '../palette';
 import { NT_PAL } from './palette';
 import { type Atlas, Surface, packAtlas } from './platform-pack';
 import { BOARD_V4 } from '../../view/layout';
-import { RIM_W, bandTone, floorTone, rimTone } from './stagetop';
+import { GRAPHITE, RIM_W, bandTone, floorTone, rimTone } from './stagetop';
 
 /** Texture keys: the platform body (hull, top, shadow) and the fx atlas (frames named inside). */
 export const NT_PLATFORM_KEY = 'nt:platform';
@@ -359,7 +359,63 @@ const W5_M0 = 18; // metal band rows 18 .. 39
 const W5_M1 = 40;
 const W5_PLINTH = 40; // ink, lit lip, body ×3, ink foot
 
+// Owner 2026-11-17 (the graphite slab, ./stagetop.ts GRAPHITE): the wall under it is sleek dark METAL, not stone: a thin lit lip
+// under the gold rim, tall navy panels (vertical seams with a lit edge every ~24 px, one horizontal groove), and a small LED dash
+// in the owner's colour near the foot of every other panel (the view blinks the status LEDs), then a dark plinth. Lit = the
+// near-left faces (key light from the top left), the rest one step down. No vents, no rivets, no carving.
+const GW_GROOVE = 15;
+const GW_DASH = FACE_H - 9;
+const GW_PLINTH = FACE_H - 4;
+
+function paintFaceGraphite(S: Surface, f: FaceDef, id: number, rim: PlatformArt['rim']): void {
+  const [A, B] = [f.a, f.b];
+  const lit = f.lit;
+  const slope = (B[1] - A[1]) / (B[0] - A[0]);
+  const yTop = (x: number): number => edgeTop(A[1], slope, A[0], x);
+  const sideAt = (x: number): 0 | 1 => stripSide(f.side !== null ? f.side : sideOfRow(f.col - (x - NT_OX) / 32), x);
+  const L = B[0] - A[0];
+  const np = Math.max(1, Math.round(L / 24));
+  const seams = Array.from({ length: np + 1 }, (_, j) => A[0] + Math.round((L * j) / np));
+  // [lip, panel hi, panel body, panel low]
+  const P = lit ? ([N3, PAL.night3, PAL.night2, PAL.night1] as const) : ([N2, PAL.night2, PAL.night1, PAL.night0] as const);
+  const lipPts: { x: number; y: number }[] = [];
+  for (let x = A[0]; x < B[0]; x++) {
+    const yt = yTop(x);
+    let pi = 0;
+    while (pi + 1 < np && x >= seams[pi + 1]) pi++;
+    const lx = x - seams[pi];
+    const rx = seams[pi + 1] - 1 - x;
+    const mid = (seams[pi] + seams[pi + 1]) >> 1;
+    const dash = (pi + id) % 2 === 0 && Math.abs(x + 0.5 - mid) < 3;
+    const T = STRIP_TONES[sideAt(x)];
+    for (let v = 0; v < FACE_H; v++) {
+      let c: Color;
+      if (v === 0) c = P[0];
+      else if (v === 1) c = INK;
+      else if (v >= GW_PLINTH) c = v === GW_PLINTH || v === FACE_H - 1 ? INK : N0;
+      else {
+        // the panel: a lit top row, the body, a darker foot band; the groove (ink + a lit row under it)
+        c = v === 2 ? P[1] : v >= GW_PLINTH - 3 ? P[3] : P[2];
+        if (v === GW_GROOVE) c = INK;
+        else if (v === GW_GROOVE + 1) c = P[1];
+        // the vertical seam (ink) with its lit edge on the right of the seam
+        if (lx === 0 && pi > 0) c = INK;
+        else if (lx === 1 && pi > 0) c = P[1];
+        else if (rx === 0 && pi < np - 1) c = P[3];
+        // the LED dash: a 1-px owner-colour line with a dim spill row under it
+        if (dash && v === GW_DASH) c = T[2];
+        else if (dash && v === GW_DASH + 1) c = T[3];
+      }
+      S.put(x, yt + v, c);
+    }
+    if (dash && Math.abs(x + 0.5 - mid) < 1) LEDS.push({ x, y: yt + GW_DASH, side: f.side === null ? sideOfRow(f.col - (x - NT_OX) / 32) : f.side });
+    lipPts.push({ x, y: yt - 1 });
+  }
+  if (L > 60) rim.push(lipPts);
+}
+
 function paintFaceV5(S: Surface, f: FaceDef, id: number, vents: PlatformArt['vents'], rim: PlatformArt['rim']): void {
+  if (GRAPHITE) return paintFaceGraphite(S, f, id, rim);
   const [A, B] = [f.a, f.b];
   const lit = f.lit;
   const slope = (B[1] - A[1]) / (B[0] - A[0]);
@@ -472,6 +528,19 @@ function paintFaceV5(S: Surface, f: FaceDef, id: number, vents: PlatformArt['ven
 
 /** arena v5 step 2: a corner post where two wall faces meet — a carved stone quoin column (lit left, shaded right, course lines). */
 function paintPillarV5(S: Surface, p: Pillar): void {
+  if (GRAPHITE) {
+    // a metal corner post: lit left edge, shaded right, the panel groove carried round it
+    for (let x = p.cx - PIL_HW; x < p.cx + PIL_HW; x++) {
+      const yt = edgeTop(p.k[1], x <= p.k[0] ? p.sl : p.sr, p.k[0], x);
+      const k = x - p.cx;
+      for (let v = 2; v < GW_PLINTH; v++) {
+        let c: Color = k === -2 ? N3 : k === -1 ? PAL.night3 : k === 0 ? PAL.night2 : INK;
+        if (v === GW_GROOVE) c = INK;
+        S.put(x, yt + v, c);
+      }
+    }
+    return;
+  }
   for (let x = p.cx - PIL_HW; x < p.cx + PIL_HW; x++) {
     const yt = edgeTop(p.k[1], x <= p.k[0] ? p.sl : p.sr, p.k[0], x);
     const k = x - p.cx;

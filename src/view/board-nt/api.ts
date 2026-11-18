@@ -28,4 +28,7 @@ export interface ArenaViewApi {
   destroy(): void;
   /** The crowd reacts (Neon Tower only; the calm arena has none). */
   crowd?(kind: CrowdReaction, side: PlayerId | null, power?: number): void;
+  /** Gelgit Körfezi floods the stage (Neon Tower, BOARD_V4 only; elsewhere absent). */
+  readonly tide?: boolean;
+  setTide?(on: boolean, animate?: boolean, from?: PlayerId | null): Promise<void>;
 }

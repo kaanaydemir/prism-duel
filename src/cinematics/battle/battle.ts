@@ -42,9 +42,9 @@ import type { GameEvent } from '../../engine/types';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import { ATTRIBUTE_RAMP, PAL, RAMPS, type Ramp } from '../../art/palette';
 import { restoreBattlePlates } from './plates';
-import { DEPTH, GAME_W, LOOK_V3, type XY } from '../../view/layout';
+import { DEPTH, GAME_W, type XY } from '../../view/layout';
 import { shake, wait } from '../../vfx/core';
-import { blockClang, directHit, impact as combatImpact, whiteFlash } from '../../vfx/combat';
+import { blockClang,  impact as combatImpact } from '../../vfx/combat';
 import { lightFlash } from '../../view/light';
 import { genericStrike } from '../_defaults/strikes';
 import { fx, registerEvent, strikeFor, type StrikeArgs } from '../api';
@@ -55,7 +55,7 @@ import { DEATH_AFTER_CONTACT_MS } from '../_v3/budget';
 import { settleBefore, settleGoal, strikeContactIn, struckPosesFor } from '../_v3/posematch';
 import { onFrame } from '../../vfx/setpieces';
 import { weightOf } from '../../duel/motion';
-import { strikeLight as strikeLightOf, type Ctx, type EvOf, all, arenaDim, duelist, guardReact, impactLight, lerpXY, live, norm, other, sub, takeAttack } from './_kit';
+import { strikeLight as strikeLightOf, type Ctx, type EvOf, all, arenaDim, duelist,   lerpXY, live, norm, other, sub, takeAttack } from './_kit';
 import { panAt, play as playSnd, quietCombat, soundsOf } from '../_v3/sound';
 import { v3Recipe } from '../../presentation/registry';
 import type { ImpactOpts } from '../_core/types';
@@ -76,191 +76,11 @@ function battlePower(ev: EvOf<'battle'>, dmg: number): 1 | 2 | 3 {
 registerEvent(
   'battle',
   async (ctx) => {
-    if (LOOK_V3) {
-      try {
-        return await battleV3(ctx);
-      } finally {
-        restoreBattlePlates(ctx.stateNext);
-      }
+    try {
+      return await battleV3(ctx);
+    } finally {
+      restoreBattlePlates(ctx.stateNext);
     }
-    const ev = ctx.ev;
-    const sc = ctx.scene;
-    const attacker = ctx.unit(ev.attackerUid);
-    const target = ev.targetUid !== null ? ctx.unit(ev.targetUid) : null;
-    // ---- the consequences that belong to this battle
-    const dmgIdx = ctx.findType('damage', (e) => e.source === 'battle', { until: isBreak });
-    const destroyIdx: number[] = [];
-    for (let i = ctx.index + 1; i < ctx.events.length; i++) {
-      const e = ctx.events[i];
-      if (isBreak(e)) break;
-      if (e.type === 'destroy' && e.reason === 'battle' && !ctx.isConsumed(i)) destroyIdx.push(i);
-    }
-    const dmgEv = dmgIdx >= 0 ? (ctx.events[dmgIdx] as EvOf<'damage'>) : null;
-    const tDestroy = destroyIdx.find((i) => (ctx.events[i] as EvOf<'destroy'>).uid === ev.targetUid) ?? -1;
-    const aDestroy = destroyIdx.find((i) => (ctx.events[i] as EvOf<'destroy'>).uid === ev.attackerUid) ?? -1;
-    const direct = ev.result === 'direct';
-    const defender = other(ev.player);
-    const defense = ev.targetPosition === 'defense';
-    const blocked = ev.result === 'attackerDestroyed' || (ev.result === 'noDestroy' && defense && (ev.targetValue ?? 0) > ev.attackerAtk);
-    const power = battlePower(ev, dmgEv?.amount ?? 0);
-    const { hold, other: kept } = takeAttack(ctx);
-    const aRamp: Ramp = attacker ? ATTRIBUTE_RAMP[attacker.attribute] : RAMPS.gold;
-    const tRamp: Ramp = target ? ATTRIBUTE_RAMP[target.attribute] : RAMPS.gold;
-    const tTile = ev.targetUid !== null ? ctx.tile(ev.targetUid) : null;
-    const to: XY = direct ? fx.duelistPoint(ctx, defender) : live(target) ? target!.core() : tTile ? { x: tTile.home.x, y: tTile.home.y - 10 } : { x: GAME_W / 2, y: 140 };
-    const toGround: XY = direct ? { x: to.x, y: to.y + 18 } : target ? target.home : tTile ? tTile.home : to;
-    const aCore = attacker ? attacker.core() : to;
-    const blow = attacker ? norm(sub(toGround, attacker.home)) : { x: ev.player === 0 ? 1 : -1, y: ev.player === 0 ? -0.5 : 0.5 };
-    const back = { x: -blow.x, y: -blow.y };
-
-    // ---- camera: lean toward the clash
-    const zoom = power >= 3 ? 1.065 : 1.05;
-    const focusAt = lerpXY(aCore, to, 0.62);
-    void ctx.focus(focusAt, { zoom, ms: 360, pan: 0.32 });
-    // arena v2 light: the stadium dims around the clash (restored when the battle is over)
-    void arenaDim(sc, power >= 3 ? 0.42 : 0.28, 320);
-    const strikeLight = attacker ? strikeLightOf(attacker.cardId) ?? aRamp[3] : aRamp[3];
-
-    const pending: Promise<unknown>[] = [];
-    /** The damage number + LP roll: the triggers below need not wait for the counter to settle. */
-    const rolls: Promise<unknown>[] = [];
-    let dmgQueued = false;
-    const playDamageAt = (at: XY, delay = 0) => {
-      if (dmgIdx < 0 || dmgQueued || ctx.isConsumed(dmgIdx)) return;
-      dmgQueued = true;
-      const job = delay > 0 ? wait(sc, delay).then(() => ctx.play(dmgIdx, { at, battle: true })) : ctx.play(dmgIdx, { at, battle: true });
-      rolls.push(job);
-    };
-    /** Where a number over a unit goes (just above its head). */
-    const overHead = (u: typeof attacker): XY => {
-      if (!u || !u.sprite.active) return { x: to.x, y: to.y - 22 };
-      const t = u.worldPoint('top');
-      return { x: Math.round(t.x), y: Math.round(t.y - 8) };
-    };
-
-    /** Over a duelist's head (recoil damage), or behind their back row without duelist art. */
-    const overDuelist = (p: typeof ev.player): XY => {
-      const c = fx.duelistPoint(ctx, p);
-      return { x: Math.round(c.x), y: Math.round(c.y - 14) };
-    };
-
-    let impacted = false;
-    let resolveImpact!: () => void;
-    const impactedP = new Promise<void>((r) => (resolveImpact = r));
-    const onImpact = (at?: XY) => {
-      if (impacted) return;
-      impacted = true;
-      resolveImpact();
-      const p = at ?? to;
-      if (direct) {
-        // the burst lives on the un-zoomed UI camera: project the world hit point once, as the
-        // camera stands on the impact frame
-        const hit = fx.directImpact(ctx, p, to);
-        impactLight(sc, hit.world, toGround.y, strikeLight, power, { k: 1.15 });
-        // the impact frame: directHit's heavy shake + hit-stop (no zoom punch: integer camera)
-        pending.push(directHit(sc, defender, { at: hit.screen }));
-        void duelist(ctx, defender)?.jolt();
-        if (dmgEv && dmgEv.player === defender) playDamageAt({ x: hit.world.x, y: hit.world.y - 22 });
-        return;
-      }
-      // the impact frame is sold by shake + hit-stop, not a zoom punch (integer camera, v3 A1.2):
-      // every reaction below shakes the world camera and freezes time — combat impact (hitReact /
-      // guardReact) or blockClang. Only a strike into an empty tile has none: a plain shake then.
-      const tu = live(target);
-      if (!blocked && !tu) void shake(sc, 100 + power * 30, power);
-      // the impact lights the floor under the struck point (a guard that holds flashes shield-blue)
-      if (blocked) impactLight(sc, p, toGround.y, defense ? PAL.water3 : tRamp[3], 1, { k: 0.85 });
-      else impactLight(sc, p, toGround.y, strikeLight, power);
-      if (blocked) {
-        if (tu && defense) {
-          // the guard holds: hex-shield clang, the blow glances off
-          pending.push(guardReact(ctx, tu, { power: 1, dir: blow, at: p, ramp: RAMPS.water, survive: true, noStop: true }));
-          pending.push(blockClang(sc, Math.round(p.x + back.x * 6), Math.round(p.y + back.y * 6), { from: aCore, color: PAL.water3 }));
-        } else {
-          // an attack-position target simply outclasses the attacker: it takes the blow standing
-          pending.push(blockClang(sc, Math.round(p.x + back.x * 5), Math.round(p.y + back.y * 5), { from: aCore, color: tRamp[3] }));
-          if (tu) void whiteFlash(sc, tu.sprite, 1);
-        }
-        // the attacker recoils: flash as the shock travels back up its arm
-        const au = live(attacker);
-        if (au) void wait(sc, 70).then(() => whiteFlash(sc, au.sprite, 2));
-        // the recoil hits the attacking player: the number pops over their duelist as they flinch
-        if (dmgEv && dmgEv.player === ev.player) playDamageAt(overDuelist(ev.player), 150);
-      } else if (tu) {
-        if (defense) pending.push(guardReact(ctx, tu, { power, dir: blow, at: p, ramp: aRamp, survive: tDestroy < 0 }));
-        else pending.push(fx.hitReact(ctx, tu, power, aRamp, p, blow));
-        if (ev.result === 'bothDestroyed') {
-          const au = live(attacker);
-          if (au) void whiteFlash(sc, au.sprite, 2);
-        }
-      }
-      // damage to the defender: over the struck monster
-      if (dmgEv && dmgEv.player === defender) playDamageAt(overHead(target), 40);
-      if (tDestroy >= 0) {
-        // guard: the knock-back lands first; attack position: right after the hit-stop
-        const delay = defense ? 130 + power * 20 : 110;
-        pending.push(wait(sc, delay).then(() => ctx.play(tDestroy, { push: blow, hit: false })));
-      }
-    };
-
-    // ---- the strike
-    const au = live(attacker);
-    if (au) {
-      kept?.destroy();
-      if (hold) {
-        hold.dropMarks();
-        await hold.release(70);
-      }
-      const strike = strikeFor(au.cardId, genericStrike);
-      const args: StrikeArgs = {
-        ctx,
-        scene: sc,
-        attacker: au,
-        target: live(target),
-        to,
-        toGround,
-        direct,
-        blocked,
-        power,
-        impact: onImpact,
-        impacted: impactedP,
-      };
-      try {
-        await Promise.race([strike(args), wait(sc, 6000)]);
-      } catch (e) {
-        console.error('[battle] strike failed', e);
-      }
-    } else {
-      kept?.destroy();
-      hold?.destroy();
-      await wait(sc, 200);
-    }
-    onImpact(); // in case the strike never called it
-
-    // ---- after the strike: the attacker pays
-    const au2 = live(attacker);
-    if (dmgEv && dmgEv.player === ev.player && !ctx.isConsumed(dmgIdx)) playDamageAt(overDuelist(ev.player));
-    if (aDestroy >= 0) {
-      const dir = attacker && target ? norm(sub(attacker.home, target.home)) : back;
-      if (au2) {
-        // the counter blow (attacker lost) / the mirrored blow (both destroyed)
-        const hitAt = au2.core();
-        pending.push(fx.hitReact(ctx, au2, 2, tRamp, { x: hitAt.x - dir.x * 4, y: hitAt.y - dir.y * 4 }, dir));
-        impactLight(sc, hitAt, au2.home.y, tRamp[3], 2, { k: 0.8 });
-      }
-      pending.push(wait(sc, au2 ? 120 : 0).then(() => ctx.play(aDestroy, { push: dir, hit: false })));
-    } else if (au2 && blocked && dmgEv && dmgEv.player === ev.player) {
-      void au2.play('hit');
-    }
-    // any other battle destroy (should not happen) still plays
-    for (const i of destroyIdx) if (i !== tDestroy && i !== aDestroy && !ctx.isConsumed(i)) pending.push(ctx.play(i));
-    await all(pending);
-    // the triggers this battle sets off (counter-splash, howl, discharge) play while the camera
-    // is still on the clash — no dead beat between the blow and the answer (the LP roll of the
-    // battle damage finishes alongside)
-    await all([...rolls, fx.playBattleTriggers(ctx, [ev.attackerUid, ev.targetUid], { skip: dmgIdx >= 0 ? [dmgIdx] : [] })]);
-    void arenaDim(sc, 0, 420);
-    await ctx.unfocus(300);
   },
   { name: 'tb:battle' },
 );
@@ -589,7 +409,7 @@ async function battleV3(ctx: Ctx<'battle'>): Promise<void> {
         if (ms !== null) {
           // the goal: the frames the pose this blow plays continues (death on a kill, else the recoils)
           const tu = live(target);
-          settleBefore(tu, ms, tu && LOOK_V3 ? settleGoal(tu, struckPosesFor(tDestroy >= 0)) : null);
+          settleBefore(tu, ms, tu ? settleGoal(tu, struckPosesFor(tDestroy >= 0)) : null);
         }
       }
       await Promise.race([run, wait(sc, 6000)]);

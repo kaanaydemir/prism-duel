@@ -36,7 +36,7 @@ import { PAL, RAMPS } from '../../art/palette';
 import type { CardId, MonsterId } from '../../data/cards';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import type { GameEvent, PlayerId, Uid } from '../../engine/types';
-import { DEPTH, LOOK_V3, type XY, unitDepth, zoneXY } from '../../view/layout';
+import { DEPTH, type XY, unitDepth, zoneXY } from '../../view/layout';
 import { lightDim, lightFlash, lightPool, type LightHandle } from '../../view/light';
 import { hitStop, shake, wait } from '../../vfx/core';
 import { fx, registerCardHook, registerStrike } from '../api';
@@ -93,7 +93,7 @@ const NO_HUM: { stop(ms?: number): void } = { stop: () => undefined };
 const ease = (t: number) => t * t * (3 - 2 * t);
 
 // the ace cut-in's band is split in its two poles: orange (N, fire) behind the portrait, blue (S, water) before it
-if (LOOK_V3) CUTIN_BAND_SPLIT.set(ID as MonsterId, { back: RAMPS.fire, front: RAMPS.water });
+CUTIN_BAND_SPLIT.set(ID as MonsterId, { back: RAMPS.fire, front: RAMPS.water });
 
 // ================================================================ fusion: the pre-show (tribute hook)
 
@@ -102,7 +102,6 @@ registerCardHook(
   'tribute',
   async (ctx) => {
     const ev = ctx.ev;
-    if (!LOOK_V3) return ctx.base();
     const di = ctx.find((e) => e.type === 'summon' && e.uid === ev.forUid);
     const dEv = di >= 0 ? (ctx.events[di] as SummonEv) : null;
     if (!dEv || dEv.from !== 'hand' || dEv.method !== 'special') return ctx.base();
@@ -335,7 +334,6 @@ registerCardHook(
   ID,
   'summon',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     const ev = ctx.ev;
     if (ev.from === 'field') return ctx.base();
     // the fusion only (special from the hand); a revival (soul_recall) takes the generic pose entrance
@@ -350,7 +348,6 @@ registerCardHook(
 registerStrike(
   ID,
   async (s: StrikeArgs) => {
-    if (!LOOK_V3) return s.base?.();
     const u = s.attacker;
     const sc = s.scene;
     seedFx(u.uid * 43 + (s.target?.uid ?? 5));
@@ -452,7 +449,6 @@ registerCardHook(
   ID,
   'destroyed',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     if (ctx.ev.location !== 'monster' || sourceOwnsDeath(ctx)) return ctx.base();
     const sc = ctx.scene;
     const u = ctx.views.field.unit(ctx.ev.uid);
@@ -610,7 +606,6 @@ registerCardHook(
   ID,
   'effect',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     const ev = ctx.ev;
     if (ev.type !== 'activate' || ev.from !== 'graveyard') return ctx.base();
     const sc = ctx.scene;

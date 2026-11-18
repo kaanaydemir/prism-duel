@@ -19,9 +19,9 @@
 // the arena cools, flames gutter out in smoke, steam stops, the badges roll back.
 
 import Phaser from 'phaser';
-import type { GameEvent } from '../../engine/types';
+import type { GameEvent, PlayerId } from '../../engine/types';
 import { PAL, RAMPS } from '../../art/palette';
-import { ARENA_V2, DEPTH, type XY, unitDepth, zoneXY } from '../../view/layout';
+import { DEPTH, type XY, unitDepth, zoneXY } from '../../view/layout';
 import { lightDimFor } from '../../view/light';
 import { TEX, flash, shake, wait } from '../../vfx/core';
 import { damageNumber } from '../../vfx/numbers';
@@ -40,6 +40,21 @@ import { panAt, play as playV3, start as startV3 } from '../_v3/sound';
 import { impactNumber } from '../_v3/number';
 import { cardLeaves } from '../_v3/card';
 import { FRONT_SPREAD_MS, beatTimes, frontArrivalMs, frontSchedule, volcanoAmbienceOnV3, volcanoAmbienceV3 } from './_volcano_v3';
+import { fireBlessing } from './_volcano_blessing';
+import { lavaArrivalMs } from '../../view/board-nt/volcano';
+import { BOARD_V4 } from '../../view/layout';
+
+/** When the eruption's lava reaches a unit: along the Neon Tower lava network (BOARD_V4), else the calm arena's seam table. */
+function arrivalMs(origin: PlayerId, u: MonsterUnit): number {
+  if (BOARD_V4) {
+    try {
+      return lavaArrivalMs(origin, u.home);
+    } catch {
+      /* fall back to the table */
+    }
+  }
+  return frontArrivalMs(origin, u.player, u.zone);
+}
 
 const ADD = Phaser.BlendModes.ADD;
 const FIRE_FX = [PAL.white, PAL.fire4, PAL.fire3, PAL.fire2, PAL.fire1] as const;
@@ -66,7 +81,6 @@ function takeStatChanges(ctx: AnyCtx): StatEv[] {
  * faster in px (tuned against films of the v2 board).
  */
 function frontDelay(d: number): number {
-  if (ARENA_V2) return Math.round(Math.min(860, 90 + d * 1.55));
   return Math.round(Math.min(760, 110 + d * 2.1));
 }
 
@@ -678,7 +692,9 @@ async function frontBeatV3(ctx: AnyCtx, u: MonsterUnit, e: StatEv, spots: Number
   // the monster's pad lights one tone (mark `front:<uid>`)
   void lightFlash(sc, u.home.x, u.home.y, fire ? PAL.fire3 : PAL.mist, fs(22), 420, { floorY: u.home.y, intensity: 0.6 });
   if (fire) {
-    playV3('heatFlare', { volume: 0.85, pan });
+    playV3('heatFlare', { volume: 0.6, pan });
+    // ATEŞ KUTSAMASI: the lava geyser erupts under it (its own sound, flash, globs, shock ring)
+    if (u.attribute === 'FIRE') bg(fireBlessing(sc, u, { seed: u.uid * 53 + 11 }));
     embers(sc, topEdge(u, 5), { n: 5, up: 74, spread: 22, depth: u.sprite.depth + 1, seed: u.uid * 31 + 7 });
     if (v3art) bg(poseRun(u, 'roar', [0, 1, 2, 1, 0]));
     // the edge climbs feet → head in three 50-ms steps; the number on its top frame — and never before
@@ -776,7 +792,7 @@ async function fieldV3(ctx: CinematicContext<Extract<GameEvent, { type: 'fieldSp
   // ---- the front: each FIRE / WATER monster's beat as the lava reaches its zone, spaced by what the player
   // sees (frontSchedule: the numbers ≥ 150 ms apart, the sounds ≥ 100 ms, the first ≥ 150 ms after the eruption)
   const items = stats.map((e) => ({ e, u: ctx.unit(e.uid) })).filter((x): x is { e: StatEv; u: MonsterUnit } => !!x.u);
-  const sched = frontSchedule(items.map((x) => ({ arrival: frontArrivalMs(ev.player, x.u.player, x.u.zone), lead: fireBeat(x.u, x.e) ? FIRE_LEAD : 0 })), { first: ERUPT_CLEAR, gap: NUMBER_GAP });
+  const sched = frontSchedule(items.map((x) => ({ arrival: arrivalMs(ev.player, x.u), lead: fireBeat(x.u, x.e) ? FIRE_LEAD : 0 })), { first: ERUPT_CLEAR, gap: NUMBER_GAP });
   const spots: NumberSpot[] = [];
   const beats = items.map((x, i) => wait(sc, sched[i].start).then(() => frontBeatV3(ctx, x.u, x.e, spots, sched[i].show - sched[i].start)));
   const last = sched.length ? Math.max(...sched.map((b) => b.show)) : 0;

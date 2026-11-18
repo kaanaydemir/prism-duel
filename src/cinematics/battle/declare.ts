@@ -19,17 +19,16 @@
 import type Phaser from 'phaser';
 import { PAL, PLAYER_COLOR, PLAYER_RAMP } from '../../art/palette';
 import { pixelText } from '../../ui/text';
-import { LANES, LANE_MID, DEPTH, LOOK_V3, type XY, zoneXY } from '../../view/layout';
+import { LANES, LANE_MID, DEPTH, type XY, zoneXY } from '../../view/layout';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import { showBattlePlates } from './plates';
 import { DECLARE_MAX_MS } from '../_v3/budget';
 import { canHandOver, declarePoseFrame, type HandOver } from '../_v3/clash';
 import { resultPlate } from '../traps/_opening';
-import { tween, wait } from '../../vfx/core';
+import { wait } from '../../vfx/core';
 import { attackArrow, blockClang, lockOn } from '../../vfx/combat';
 import { atFrame, dropCharge, holdCharge, play as playSnd, quietCombat } from '../_v3/sound';
-import { E, Sparks, addGlow, floorRing, onFrame, run } from '../../vfx/setpieces';
-import { banner, type BannerOpts } from '../../vfx/banners';
+import { E, Sparks,  floorRing, onFrame, run } from '../../vfx/setpieces';
 import { lightBeam, lightFlash } from '../../view/light';
 import { fx, registerEvent, registerObserver } from '../api';
 import { REACTION_POSES, warmUnitPoses } from '../_v3/warm';
@@ -65,173 +64,7 @@ import {
 registerEvent(
   'attackDeclare',
   async (ctx) => {
-    if (LOOK_V3) return attackDeclareV3(ctx);
-    const ev = ctx.ev;
-    const sc = ctx.scene;
-    seed(ev.attackerUid * 31 + (ev.targetUid ?? 7));
-    // a stale hold (should not happen) goes first
-    ctx.take('attack')?.destroy();
-    const attacker = live(ctx.unit(ev.attackerUid));
-    const target = ev.targetUid !== null ? live(ctx.unit(ev.targetUid)) : null;
-    const tTile = ev.targetUid !== null ? ctx.tile(ev.targetUid) : null;
-    const defender = other(ev.player);
-    const ramp = PLAYER_RAMP[ev.player];
-    const home = zoneXY(ev.player, 'monster', ev.attackerZone);
-    const from: XY = attacker ? attacker.core() : { x: home.x, y: home.y - 12 };
-    const to: XY = target ? target.core() : tTile ? { x: tTile.home.x, y: tTile.home.y - 8 } : fx.duelistPoint(ctx, defender);
-
-    // camera leans in between attacker and target
-    void ctx.focus(lerpXY(from, to, 0.5), { zoom: 1.05, ms: 380, pan: 0.32 });
-    void duelist(ctx, ev.player)?.play('command');
-    ctx.sfx('attackDeclare', { volume: 0.85 });
-
-    // ---- wind-up: the attacker coils back toward its own side, squashes, powers up
-    let tremble: (() => void) | null = null;
-    let coil: Promise<void> = Promise.resolve();
-    const back = norm(sub(from, to));
-    const coilXY = attacker ? { x: Math.round(attacker.rest0.x + back.x * 2), y: Math.round(attacker.rest0.y + back.y * 2) } : null;
-    if (attacker && coilXY) {
-      const s = attacker.sprite;
-      attacker.posed = true;
-      sc.tweens.killTweensOf(s);
-      coil = tween(sc, { targets: s, x: coilXY.x, y: coilXY.y, scaleY: 0.93, scaleX: 1.05, duration: 210, ease: 'Quad.Out' });
-      void addGlow(sc, s, ramp[3], 380, 0.55);
-      void floorRing(sc, attacker.home.x, attacker.home.y, { r0: 4, r1: 30 * TK, ms: 420, ramp: [PAL.white, ramp[4], ramp[3], ramp[2]], depth: DEPTH.SHADOW - 1 });
-      // arena v2: the power-up lights the marble in the player's colour; the stadium holds its breath
-      void lightFlash(sc, attacker.home.x, attacker.home.y - 8, ramp[3], 42, 560, { floorY: attacker.home.y, ring: true, intensity: 0.75 });
-      void arenaDim(sc, 0.2, 380);
-      const motes = new Sparks(sc, DEPTH.FX - 1, ADD);
-      const h = attacker.home;
-      void fx.all([
-        new Promise<void>((done) => {
-          onFrame(sc, (dt, el) => {
-            if (el > 520) {
-              motes.close();
-              done();
-              return false;
-            }
-            if (dt > 0 && rnd() < dt / 26) {
-              const a = rr(0, TAU);
-              motes.add({ x: h.x + Math.cos(a) * rr(8, 16), y: h.y + Math.sin(a) * rr(3, 7), vy: rr(-70, -40), drag: 1, life: rr(240, 420), ramp: [PAL.white, ramp[4], ramp[3], ramp[2]], tex: rnd() < 0.25 ? 'fx:plus' : 'fx:px1' });
-            }
-            return true;
-          });
-        }),
-      ]);
-    }
-
-    // ---- the arrow arcs out, the reticle snaps onto the target
-    await wait(sc, 70);
-    const arrow = attackArrow(sc, from, to, ev.player);
-    // arena v2: the aim lights a faint strip along the floor from the attacker to its target
-    const aimFrom = attacker ? attacker.home : home;
-    const aimTo = target ? target.home : tTile ? tTile.home : { x: to.x, y: to.y + 18 };
-    const aimLight = lightBeam(sc, aimFrom, aimTo, ramp[3], 0, { air: false, floor: { from: aimFrom, to: aimTo }, floorWidth: 9, intensity: 0.55, shimmer: 0.4 });
-    const size = target ? Math.max(24, Math.round(target.art.w * 0.42)) : tTile ? 26 : 30;
-    const lock = lockOn(sc, to.x, to.y, { color: PLAYER_COLOR[ev.player], size });
-    // the target braces as the reticle lands
-    void wait(sc, 230).then(() => {
-      if (target && target.sprite.active) {
-        if (target.position === 'defense') {
-          void hexGlint(sc, to.x + back.x * 8, to.y + back.y * 8 - 2, back.x, PAL.water3, 340);
-        } else {
-          const s = target.sprite;
-          const r = target.rest0;
-          const away = norm(sub(to, from));
-          if (!target.posed) {
-            sc.tweens.killTweensOf(s);
-            void tween(sc, { targets: s, x: Math.round(r.x + away.x * 1.5), y: Math.round(r.y + away.y), duration: 70, ease: 'Quad.Out', yoyo: true, hold: 60 }).then(() => {
-              if (s.active && !target.posed) s.setPosition(r.x, r.y);
-            });
-          }
-        }
-      } else if (tTile && tTile.active && !tTile.faceUp) void tTile.pulse(PLAYER_COLOR[ev.player], 320);
-      else if (ev.targetUid === null) void duelist(ctx, defender)?.jolt();
-    });
-    await coil;
-    // a held breath: the coiled attacker trembles while the attack hangs (and through a decision)
-    if (attacker && coilXY) {
-      const s = attacker.sprite;
-      tremble = onFrame(sc, (_dt, el) => {
-        if (!s.active) return false;
-        const j = Math.floor(el / 90) % 4;
-        s.x = coilXY.x + (j === 1 ? 1 : j === 3 ? -1 : 0) * 0.5;
-        return true;
-      });
-    }
-
-    let marksGone = false;
-    const dropMarks = () => {
-      if (marksGone) return;
-      marksGone = true;
-      arrow.destroy();
-      lock.destroy();
-      void aimLight.fadeOut(160);
-    };
-    let released = false;
-    const restore = () => {
-      tremble?.();
-      tremble = null;
-      if (!attacker) return;
-      const s = attacker.sprite;
-      if (!s.active) return;
-      sc.tweens.killTweensOf(s);
-      const r = attacker.rest0;
-      s.setPosition(r.x, r.y).setScale(1);
-      attacker.posed = false;
-    };
-    const hold: AttackHold = {
-      kind: 'attackHold',
-      attackerUid: ev.attackerUid,
-      targetUid: ev.targetUid,
-      player: ev.player,
-      from,
-      to,
-      dropMarks,
-      shatterMarks() {
-        if (marksGone) return;
-        // the arrow breaks apart along its arc, the reticle bursts
-        const sp = new Sparks(sc, DEPTH.FX_TOP + 1);
-        const mid = { x: (from.x + to.x) / 2, y: Math.min(from.y, to.y) - Math.min(46, Math.max(14, Math.hypot(to.x - from.x, to.y - from.y) * 0.32)) };
-        for (let i = 0; i <= 16; i++) {
-          const t = i / 16;
-          const u = 1 - t;
-          const p = { x: u * u * from.x + 2 * u * t * mid.x + t * t * to.x, y: u * u * from.y + 2 * u * t * mid.y + t * t * to.y };
-          sp.add({ x: p.x, y: p.y, vx: rr(-40, 40), vy: rr(-50, 10), ay: 240, drag: 1.5, life: rr(220, 420), ramp: [PAL.white, ramp[4], ramp[3], ramp[2]], tex: rnd() < 0.3 ? 'fx:px2' : 'fx:px1' });
-        }
-        sp.burst(10, () => {
-          const a = rr(0, TAU);
-          return { x: to.x, y: to.y, vx: Math.cos(a) * rr(50, 110), vy: Math.sin(a) * rr(50, 110), drag: 3, life: rr(200, 360), ramp: [PAL.white, ramp[4], ramp[3]], tex: 'fx:plus' };
-        });
-        sp.close();
-        void lightFlash(sc, to.x, to.y, ramp[3], 30, 260, { floorY: to.y + 16, intensity: 0.7 });
-        dropMarks();
-      },
-      async release(ms = 80) {
-        if (released) return;
-        released = true;
-        tremble?.();
-        tremble = null;
-        if (!attacker || !attacker.sprite.active) return;
-        const s = attacker.sprite;
-        const r = attacker.rest0;
-        sc.tweens.killTweensOf(s);
-        await tween(sc, { targets: s, x: r.x, y: r.y, scaleX: 1, scaleY: 1, duration: ms, ease: 'Quad.Out' });
-        if (s.active) s.setPosition(r.x, r.y).setScale(1);
-        attacker.posed = false;
-      },
-      destroy() {
-        dropMarks();
-        if (!released) {
-          released = true;
-          restore();
-        }
-      },
-    };
-    ctx.keep('attack', hold);
-    await arrow.done;
-    await lock.done;
-    await wait(sc, 140);
+    return attackDeclareV3(ctx);
   },
   { name: 'tb:attackDeclare' },
 );
@@ -274,36 +107,26 @@ registerEvent(
     const at = { x: row.x, y: row.y - 22 };
     const t = pixelText(sc, at.x, at.y, 'Pass', { size: 'md', color: PAL.mist, originX: 0.5, originY: 0.5 }).setDepth(DEPTH.FX_TOP + 5);
     ctx.sfx('uiBack', { volume: 0.5, pitch: 0.9 });
-    if (LOOK_V3) {
-      // v3: never squashed — it drops in on whole pixels (2 px, a dim tone, then lit), holds and
-      // rises out the same way, dimming in palette steps (as trapWord / resultPlate)
-      const x = Math.round(at.x);
-      const y = Math.round(at.y);
-      t.setPosition(x, y - 2).setTint(PAL.steel);
-      void (async () => {
-        await run(sc, 50, (k) => t.active && t.setY(y - 2 + Math.min(2, Math.floor(k * 3))));
-        if (t.active) t.setY(y).setTint(PAL.white);
-        await wait(sc, 40);
-        if (t.active) t.setTint(PAL.mist);
-        await wait(sc, 300);
-        await run(sc, 120, (k) => {
-          if (!t.active) return;
-          t.setY(y - Math.min(3, Math.floor(k * 4)));
-          t.setTint(k < 0.5 ? PAL.steel : PAL.night4);
-        });
-        t.destroy();
-      })();
-      await wait(sc, 300);
-      return;
-    }
-    t.setScale(1.4, 0.7);
+    // v3: never squashed — it drops in on whole pixels (2 px, a dim tone, then lit), holds and
+    // rises out the same way, dimming in palette steps (as trapWord / resultPlate)
+    const x = Math.round(at.x);
+    const y = Math.round(at.y);
+    t.setPosition(x, y - 2).setTint(PAL.steel);
     void (async () => {
-      await tween(sc, { targets: t, scaleX: 1, scaleY: 1, duration: 120, ease: 'Back.Out' });
-      await wait(sc, 260);
-      await tween(sc, { targets: t, y: at.y - 8, alpha: 0, duration: 260, ease: 'Quad.In' });
+      await run(sc, 50, (k) => t.active && t.setY(y - 2 + Math.min(2, Math.floor(k * 3))));
+      if (t.active) t.setY(y).setTint(PAL.white);
+      await wait(sc, 40);
+      if (t.active) t.setTint(PAL.mist);
+      await wait(sc, 300);
+      await run(sc, 120, (k) => {
+        if (!t.active) return;
+        t.setY(y - Math.min(3, Math.floor(k * 4)));
+        t.setTint(k < 0.5 ? PAL.steel : PAL.night4);
+      });
       t.destroy();
     })();
     await wait(sc, 300);
+    return;
   },
   { name: 'tb:responseDeclined' },
 );
@@ -317,32 +140,7 @@ registerEvent(
 registerEvent(
   'attackNegated',
   async (ctx) => {
-    if (LOOK_V3) return attackNegatedV3(ctx);
-    const ev = ctx.ev;
-    const sc = ctx.scene;
-    const { hold, other: kept } = takeAttack(ctx);
-    kept?.destroy();
-    hold?.shatterMarks();
-    const u = live(ctx.unit(ev.attackerUid));
-    if (u) {
-      await hold?.release(60);
-      const c = u.core();
-      const s = u.sprite;
-      const r = u.rest0;
-      const back = u.player === 0 ? { x: -1, y: 0.5 } : { x: 1, y: -0.5 };
-      void blockClang(sc, Math.round(c.x - back.x * 8), Math.round(c.y - back.y * 8), { from: { x: c.x - back.x * 30, y: c.y - back.y * 30 }, color: PAL.mag3 });
-      void lightFlash(sc, c.x - back.x * 8, c.y - back.y * 8, PAL.mag3, 36, 320, { floorY: u.home.y, ring: true });
-      void u.play('hit');
-      u.posed = true;
-      await tween(sc, { targets: s, x: Math.round(r.x + back.x * 4), y: Math.round(r.y + back.y * 2), duration: 70, ease: 'Quad.Out' });
-      await tween(sc, { targets: s, x: r.x, y: r.y, duration: 260, ease: 'Back.Out' });
-      u.posed = false;
-    } else hold?.destroy();
-    void ctx.unfocus(260);
-    void arenaDim(sc, 0, 420);
-    ctx.log('Attack negated!', PAL.mag3);
-    const o: BannerOpts & { stagger: number } = { style: 'trap', hold: 140, stagger: 18 };
-    await banner(sc, 'BATTLE OVER', o);
+    return attackNegatedV3(ctx);
   },
   { name: 'tb:attackNegated' },
 );

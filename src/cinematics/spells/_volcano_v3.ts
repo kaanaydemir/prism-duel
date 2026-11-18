@@ -39,7 +39,8 @@ import Phaser from 'phaser';
 import type { PlayerId } from '../../engine/types';
 import { PAL } from '../../art/palette';
 import { mulberry32 } from '../../art/pixel';
-import { BOARD_COLS, BOARD_ROWS, DEPTH, isoToScreen, unitDepth, zoneXY, type XY } from '../../view/layout';
+import { BOARD_COLS, BOARD_ROWS, BOARD_V4, DEPTH, isoToScreen, unitDepth, zoneXY, type XY } from '../../view/layout';
+import { lavaPoint } from '../../art/arena-nt/volcano';
 import { REDUCED_MOTION } from '../../view/v3/motion';
 import { lightPool, type LightHandle } from '../../view/light';
 import { TEX } from '../../vfx/core';
@@ -240,6 +241,8 @@ function findPad(scene: Phaser.Scene): PlayerId | null {
 
 /** A random point on the lava seams (the lines between the zones of the whole grid, 5×5 or 7×5, and round it). */
 function seamPoint(rnd: () => number): XY {
+  // the Neon Tower stage: the embers lift off its lava network (art/arena-nt/volcano.ts), not the old tile seams
+  if (BOARD_V4) return lavaPoint(rnd);
   // the three draws keep the 5×5 order (seam index, position along it, axis): same points as ever
   const u1 = rnd();
   const u2 = rnd();

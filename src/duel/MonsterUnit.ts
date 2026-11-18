@@ -51,13 +51,16 @@ import { artFrame, monsterAnimKey, monsterFrame, monsterFrameName, monsterP2Text
 import type { AnimMark, AnimSpec, AnyMonsterAnim, MonsterAnim, MonsterArt } from '../art/types';
 import { animLengthMs, animSpec, artMarkFrame, frameMs as specFrameMs, frameStartMs, impactFrame as artImpactFrame, impactMs as artImpactMs, rangeMs as specRangeMs } from '../art/animtime';
 import type { PlayerId, Position, Uid } from '../engine/types';
-import { DEPTH, LOOK_V3, type XY, unitDepth, zoneXY } from '../view/layout';
+import { DEPTH, type XY, unitDepth, zoneXY } from '../view/layout';
 import type { TileCard } from '../view/TileCard';
 import { wait } from '../vfx/core';
 import { framePointToWorld } from '../vfx/combat';
 import { clearHologram, getHologram } from '../vfx/hologram';
 import { Raster, run } from '../vfx/setpieces';
 import type { Disposable } from './types';
+import { CAST, castShadowTex } from './cast-shadow';
+import { syncReflection } from '../view/board-nt/tide-state';
+import { TEX } from '../vfx/core';
 import { StatBadge, type PlateLock } from './StatBadge';
 import { motionProfile, reactGuardPushPx, reactGuardReturnEase } from './motion';
 import { onDuelStart } from './seeds';
@@ -68,27 +71,59 @@ export type UnitPoint = 'muzzle' | 'core' | 'anchor' | 'top' | 'feet';
 /** Badge offset from the tile centre (on the front half of the tile). */
 const BADGE_DY = 11;
 
-function shadowKey(scene: Phaser.Scene, rx: number): string {
+// Owner 2026-11-17 (the graphite slab): the drop shadow is a CAST shadow — the key light comes from the upper left, so besides the
+// contact ellipse under the feet a longer, softer lobe falls toward the lower right (screen +x, a little +y). Three flat tones
+// (no smooth gradient): an ink occlusion core right under the feet, the contact patch in night0, the cast lobe in the cooler,
+// lighter night1 (a cast shadow is lit by the blue ambient), then a dithered 1-px rim. The texture is wider to the right:
+// shadowOrigin() puts the feet on the contact ellipse's centre.
+// Owner 2026-11-17 (round 2, the lit stage): the long lobe is replaced by the monster's own silhouette (cast-shadow.ts); this
+// image is only the contact patch under the feet now (a short lobe toward the light's far side keeps it reading as one shadow).
+const SHADOW_LOBE_DX = 0.35; // lobe centre, in contact-rx units to the right
+const SHADOW_LOBE_RX = 0.9; // lobe half-width, in contact-rx units
+const SHADOW_ALPHA = 0.7;
+
+function shadowDims(rx: number): { ry: number; W: number; H: number; cx: number; cy: number } {
   const ry = Math.max(2, Math.round(rx * 0.42));
-  const key = `duel:shadow:${rx}x${ry}`;
+  const right = Math.ceil(rx * (SHADOW_LOBE_DX + SHADOW_LOBE_RX));
+  const lobeRy = Math.ceil(ry * 0.95);
+  const H = Math.max(ry, lobeRy + 1) * 2 + 1;
+  return { ry, W: rx + right + 1, H, cx: rx, cy: (H - 1) >> 1 };
+}
+
+function shadowKey(scene: Phaser.Scene, rx: number): string {
+  const { ry, W, H, cx, cy } = shadowDims(rx);
+  const key = `duel:shadow4:${rx}x${ry}`;
   if (scene.textures.exists(key)) return key;
-  const W = rx * 2 + 1;
-  const H = ry * 2 + 1;
   const p = new PixelCanvas(W, H);
+  const lcx = cx + rx * SHADOW_LOBE_DX;
+  const lcy = cy;
+  const lrx = rx * SHADOW_LOBE_RX;
+  const lry = ry * 0.95;
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
-      const dx = (x - rx) / (rx + 0.5);
-      const dy = (y - ry) / (ry + 0.5);
-      const d = dx * dx + dy * dy;
-      if (d > 1) continue;
-      // solid core, dithered rim (no smooth alpha in pixel art)
-      if (d < 0.45) p.set(x, y, PAL.ink);
-      else if (d < 0.75) {
-        if ((x + y) % 2 === 0) p.set(x, y, PAL.ink);
-      } else if ((x % 2 === 0 && y % 2 === 0) || (x % 2 === 1 && y % 2 === 1 && (x + y) % 4 === 0)) p.set(x, y, PAL.ink);
+      const ex = (x - cx) / (rx + 0.5);
+      const ey = (y - cy) / (ry + 0.5);
+      const dContact = ex * ex + ey * ey;
+      const lx = (x - lcx) / (lrx + 0.5);
+      const ly = (y - lcy) / (lry + 0.5);
+      const dLobe = lx * lx + ly * ly;
+      // the lobe's far end tapers; the image's alpha makes the whole pool soft
+      const fade = Math.max(0, (x - cx) / Math.max(1, W - 1 - cx));
+      const dL = dLobe / (1 - 0.35 * fade);
+      const d = Math.min(dContact, dL);
+      if (dContact < 0.42) p.set(x, y, PAL.ink);
+      else if (dContact < 0.8) p.set(x, y, PAL.night0);
+      else if (d < 0.8) p.set(x, y, PAL.night1);
+      else if (d <= 1 && (x + y) % 2 === 0) p.set(x, y, dContact <= 1 ? PAL.night0 : PAL.night1);
     }
   scene.textures.addCanvas(key, p.toCanvas());
   return key;
+}
+
+/** Origin of a shadow texture so the feet sit on the contact ellipse's centre. */
+function shadowOrigin(rx: number): [number, number] {
+  const { W, H, cx, cy } = shadowDims(rx);
+  return [(cx + 0.5) / W, (cy + 0.5) / H];
 }
 
 const widthCache = new Map<MonsterId, number>();
@@ -108,7 +143,7 @@ function shadowRx(id: MonsterId): number {
 }
 
 /**
- * Warm (v3 A1 item 11): create a monster's drop-shadow texture (`duel:shadow:<rx>x<ry>`) ahead of
+ * Warm (v3 A1 item 11): create a monster's drop-shadow texture (`duel:shadow3:<rx>x<ry>`) ahead of
  * its first unit. Returns the key.
  */
 export function warmUnitShadow(scene: Phaser.Scene, id: MonsterId): string {
@@ -249,36 +284,6 @@ function guardGlint(scene: Phaser.Scene, x: number, y: number, face: number, dep
   }).then(() => ras.destroy());
 }
 
-/**
- * White silhouette over a sprite for `frames` real frames (it keeps flashing through a hit-stop).
- * It is an overlay that follows the sprite, so the sprite's own tint — and any other flash
- * running on it (combat.whiteFlash saves / restores the tint and must not capture this one) —
- * is never touched.
- */
-function flashOverlay(scene: Phaser.Scene, s: Phaser.GameObjects.Sprite, frames: number): void {
-  if (!s.active || !s.visible || !s.frame) return;
-  const g = scene.add
-    .image(s.x, s.y, s.texture.key, s.frame.name)
-    .setOrigin(s.originX, s.originY)
-    .setFlipX(s.flipX)
-    .setScale(s.scaleX, s.scaleY)
-    .setAngle(s.angle)
-    .setDepth(s.depth + 0.05)
-    .setTintFill(PAL.white);
-  let k = 0;
-  const end = () => {
-    scene.events.off(Phaser.Scenes.Events.POST_UPDATE, tick);
-    scene.events.off(Phaser.Scenes.Events.SHUTDOWN, end);
-    if (g.active) g.destroy();
-  };
-  const tick = () => {
-    if (++k > frames || !s.active || !g.active) return end();
-    g.setPosition(s.x, s.y).setFrame(s.frame.name).setFlipX(s.flipX).setScale(s.scaleX, s.scaleY).setVisible(s.visible);
-  };
-  scene.events.on(Phaser.Scenes.Events.POST_UPDATE, tick);
-  scene.events.once(Phaser.Scenes.Events.SHUTDOWN, end);
-}
-
 export interface GuardHitOpts {
   /** Direction of the blow (attacker → this unit); the knock-back follows it. */
   dir?: XY;
@@ -370,6 +375,11 @@ export class MonsterUnit {
   readonly attribute: Attribute;
   readonly sprite: Phaser.GameObjects.Sprite;
   readonly shadow: Phaser.GameObjects.Image;
+  /** The silhouette cast shadow (cast-shadow.ts): the current frame lying on the floor, away from the key light. */
+  readonly cast: Phaser.GameObjects.Image;
+  private castId = '';
+  /** Gelgit Körfezi: its mirror image in the flooded stage (board-nt/tide-state.ts), created on first use. */
+  private refl: Phaser.GameObjects.Image | null = null;
   readonly badge: StatBadge;
   player: PlayerId;
   zone: number;
@@ -448,7 +458,8 @@ export class MonsterUnit {
     const home = this.home;
     const rx = shadowRx(o.cardId);
     this.shadowBase = this.art.hover > 0 ? Math.max(0.55, 1 - this.art.hover / 30) : 1;
-    this.shadow = scene.add.image(home.x, home.y, shadowKey(scene, rx)).setDepth(DEPTH.SHADOW).setAlpha(0.5).setScale(this.shadowBase);
+    this.shadow = scene.add.image(home.x, home.y, shadowKey(scene, rx)).setOrigin(...shadowOrigin(rx)).setDepth(DEPTH.SHADOW).setAlpha(SHADOW_ALPHA).setScale(this.shadowBase);
+    this.cast = scene.add.image(home.x, home.y, TEX.px1).setDepth(DEPTH.SHADOW - 0.05).setAlpha(CAST.ALPHA).setVisible(false);
     const sprite = new UnitSprite(scene, home.x, home.y - this.art.hover, monsterTextureKey(o.cardId), monsterFrameName('idle', 0));
     sprite.unit = this;
     scene.add.existing(sprite);
@@ -492,7 +503,7 @@ export class MonsterUnit {
     const b = artFrame(art, 'idle', 0).bounds();
     const rx = Math.max(7, Math.round((b ? b.w : 24) * 0.36));
     this.shadowBase = art.hover > 0 ? Math.max(0.55, 1 - art.hover / 30) : 1;
-    if (this.shadow.active) this.shadow.setTexture(shadowKey(this.scene, rx));
+    if (this.shadow.active) this.shadow.setTexture(shadowKey(this.scene, rx)).setOrigin(...shadowOrigin(rx));
     if (!this.sprite.active) return;
     this.applyFacing();
     const cur = this.frameInfo().anim;
@@ -898,13 +909,12 @@ export class MonsterUnit {
     //    frame or more back along toGuard, by power) and closes again (brace()); else the guard
     //    pose holds (the loop keeps breathing; a held non-guard frame goes back to it)
     if (o.pose !== false) {
-      if (LOOK_V3 && !o.hold && this.frameCount('toGuard') >= 3) this.brace(power);
+      if (!o.hold && this.frameCount('toGuard') >= 3) this.brace(power);
       else if (this.frameInfo().anim !== 'guard' || !s.anims.isPlaying) this.rest();
     }
     // 2. white silhouette frame(s) (an overlay: never fights another flash over the tint); the
     //    v3 look lights only the face the blow lands on (≤ half the silhouette, A0 §6.2 item 1)
-    if (LOOK_V3) contactFlash(sc, s, blow, { frames: power >= 3 ? 3 : 2, coverage: power >= 3 ? 0.45 : 0.4 });
-    else flashOverlay(sc, s, power >= 3 ? 3 : 2);
+    contactFlash(sc, s, blow, { frames: power >= 3 ? 3 : 2, coverage: power >= 3 ? 0.45 : 0.4 });
     // 3. hex-shield glint on the side the blow came from (bigger for heavier blows); an art whose
     //    guard is not a hex opts out (MonsterArt.guardGlint false)
     const c = this.core();
@@ -918,7 +928,7 @@ export class MonsterUnit {
     const backEase = reactGuardReturnEase(this.art); // legacy: 'Back.Out'
     const to = { x: Math.round(base.x + blow.x * k), y: Math.round(base.y + blow.y * k * 0.6) };
     // v3: the knock-back steps whole pixels (the eases leave sub-pixel in-betweens otherwise)
-    const snap = LOOK_V3 ? () => s.setPosition(Math.round(s.x), Math.round(s.y)) : undefined;
+    const snap = () => s.setPosition(Math.round(s.x), Math.round(s.y));
     return new Promise<void>((resolve) => {
       let done = false;
       const finish = () => {
@@ -1216,6 +1226,7 @@ export class MonsterUnit {
     this.badge.setVisible(false);
     this.sprite.setVisible(false);
     this.shadow.setVisible(false);
+    this.cast.setVisible(false);
     this.flushWaiters();
     this.scene.time.delayedCall(delayMs, () => this.destroy());
   }
@@ -1228,6 +1239,9 @@ export class MonsterUnit {
     for (const k of [...this.auras.keys()]) this.setAura(k, null);
     if (this.sprite.active) this.sprite.destroy();
     if (this.shadow.active) this.shadow.destroy();
+    if (this.cast.active) this.cast.destroy();
+    this.refl?.destroy();
+    this.refl = null;
     this.badge.destroy();
   }
 
@@ -1247,7 +1261,7 @@ export class MonsterUnit {
     this.animSheetKey = MonsterUnit.animSheetFor?.(this) ?? this.p1Key;
     // v3: the poses a blow may need are painted first, in the background, as the unit takes the
     // field (A2 tech review r2 #12: never painted synchronously on a contact frame)
-    if (LOOK_V3) warmMonsterSheet(this.sheetKey, WARM_ON_FIELD);
+    warmMonsterSheet(this.sheetKey, WARM_ON_FIELD);
     if (this.sprite instanceof UnitSprite) this.sprite.syncSheet();
     this.sprite.setFlipX(flip);
     this.sprite.setOrigin((flip ? a.w - a.anchorX : a.anchorX) / a.w, a.anchorY / a.h);
@@ -1265,18 +1279,38 @@ export class MonsterUnit {
     // sprite is never rotated, and a legacy strike's squash / stretch (an old monster's tweened
     // 0.97–1.07 scale) shows at 1×, as a claimed sprite does (claim keep()). A grow / shrink well
     // away from 1× (an exit, a tween from 0) is left alone.
-    if (LOOK_V3) {
-      if (s.angle !== 0) s.setAngle(0);
-      if ((s.scaleX !== 1 || s.scaleY !== 1) && Math.abs(s.scaleX - 1) <= SNAP_SCALE && Math.abs(s.scaleY - 1) <= SNAP_SCALE) s.setScale(1);
-    }
+    if (s.angle !== 0) s.setAngle(0);
+    if ((s.scaleX !== 1 || s.scaleY !== 1) && Math.abs(s.scaleX - 1) <= SNAP_SCALE && Math.abs(s.scaleY - 1) <= SNAP_SCALE) s.setScale(1);
     const vis = s.visible && !this.retired && s.alpha > 0.05;
     this.shadow.setVisible(vis);
-    if (!vis) return;
+    if (!vis) {
+      this.cast.setVisible(false);
+      this.refl?.setVisible(false);
+      return;
+    }
     // the shadow stays on the floor under the sprite and shrinks with the height above it
     const h = this.art.hover + this.lift;
     this.shadow.setPosition(Math.round(s.x), Math.round(s.y + h));
     const k = Math.max(0.35, this.shadowBase * (1 - this.lift / 90)) * Math.abs(s.scaleX);
     this.shadow.setScale(k);
-    this.shadow.setAlpha(0.5 * Math.min(1, s.alpha) * (this.lift > 0 ? Math.max(0.35, 1 - this.lift / 80) : 1));
+    this.shadow.setAlpha(SHADOW_ALPHA * Math.min(1, s.alpha) * (this.lift > 0 ? Math.max(0.35, 1 - this.lift / 80) : 1));
+    // its reflection in the water (Gelgit Körfezi)
+    this.refl = syncReflection(this.scene, this.refl, s, Math.round(s.y + this.art.hover + this.lift), this.lift, PAL.cyan3, this.uid);
+    // the silhouette lying on the floor (re-keyed only when the frame / facing changes)
+    const fr = s.frame;
+    const id = fr ? `${fr.texture.key}|${fr.name}|${s.flipX ? 1 : 0}` : '';
+    if (id !== this.castId) {
+      this.castId = id;
+      const ct = fr ? castShadowTex(this.scene, fr, s.flipX, s.originX, s.originY, Math.round(this.art.hover)) : null;
+      if (ct) this.cast.setTexture(ct.key).setOrigin(ct.ox, ct.oy);
+      else this.castId = '';
+      this.cast.setData('ok', !!ct);
+    }
+    const ok = this.cast.getData('ok') === true;
+    this.cast.setVisible(ok);
+    if (!ok) return;
+    this.cast.setPosition(Math.round(s.x), Math.round(s.y + h));
+    this.cast.setScale(Math.abs(s.scaleX) * Math.max(0.5, 1 - this.lift / 60), Math.abs(s.scaleY) * Math.max(0.5, 1 - this.lift / 60));
+    this.cast.setAlpha(CAST.ALPHA * Math.min(1, s.alpha) * (this.lift > 0 ? Math.max(0.2, 1 - this.lift / 50) : 1));
   }
 }

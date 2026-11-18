@@ -61,7 +61,7 @@ import { PAL } from '../../art/palette';
 import { FLAT_H, FLAT_W, ISO_CX, ISO_CY, ISO_TEX_H, ISO_TEX_W, STAND_H, STAND_W, cardIsoKey, cardMip, isoProject, poseAxes, qAxis, qFromBasis, qMul, qSlerp, renderCard, restQuat, standQuat, type Quat, type V3 } from '../../art/cards';
 import type { TileCard } from '../../view/TileCard';
 import { CardSprite } from '../../view/CardSprite';
-import { BOARD_CENTER, DEPTH, LOOK_V3, type XY, zoneXY } from '../../view/layout';
+import { BOARD_CENTER, DEPTH, type XY, zoneXY } from '../../view/layout';
 import { shake, wait } from '../../vfx/core';
 import { Sparks as PxSparks, stopTime } from '../../vfx/combat';
 import { E, Raster, floorRing, onFrame, run, seg } from '../../vfx/setpieces';
@@ -1366,7 +1366,6 @@ function bg(p: Promise<unknown>): void {
 // ---------------------------------------------------------------- hooks
 
 registerCardHook('auger_lance', 'activate', async (ctx) => {
-  if (!LOOK_V3) return ctx.base();
   const ev = ctx.ev;
   const run0 = fx.resolutionRun(ctx);
   const ti = idxOf(ctx, run0, (e) => e.type === 'target' && e.sourceUid === ev.uid);
@@ -1393,7 +1392,6 @@ registerCardHook('auger_lance', 'activate', async (ctx) => {
 });
 
 registerCardHook('auger_lance', 'target', async (ctx) => {
-  if (!LOOK_V3) return ctx.base();
   const ev = ctx.ev;
   const ref = ev.targets[0];
   if (!ref) return ctx.base();

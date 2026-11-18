@@ -31,14 +31,13 @@ import { mulberry32 } from '../../art/pixel';
 import { AK } from '../../art/arena';
 import { monsterAnimKey, monsterFrameName } from '../../art/textures';
 import type { AnyMonsterAnim, MonsterAnim } from '../../art/types';
-import { DEPTH, GAME_H, GAME_W, LOOK_V3, TILE_W, type XY, unitDepth } from '../../view/layout';
+import { DEPTH, GAME_H, GAME_W, TILE_W, type XY, unitDepth } from '../../view/layout';
 import { attributeLightColor, lightBeam, lightDim, lightFlash, lightPool, type BeamHandle, type LightHandle, type PoolOpts } from '../../view/light';
-import { flash, flashRect, flashTopDepth, shake, wait } from '../../vfx/core';
+import { flash,   shake, wait } from '../../vfx/core';
 import { E, Raster, Sparks, freeze, onFrame, run } from '../../vfx/setpieces';
 import { createMagicCircle, shockwave, type MagicCircleCtl } from '../../vfx/summon';
 import { Swarm } from '../../vfx/particles';
 import { clearHologram, framePixels, getHologram, holoRamp, opaqueBox, pixelToWorld, setHologram, type HologramParams } from '../../vfx/hologram';
-import { cutIn } from '../../vfx/cutin';
 import { sfx, type SfxName, type SfxOpts } from '../../audio/sfx';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import type { CardSprite } from '../../view/CardSprite';
@@ -215,16 +214,13 @@ export function softGlow(scene: Phaser.Scene, x: number, y: number, color: numbe
   // v3: no soft glow sprite (its fractionally scaled bands read as a grey wash around the card);
   // the stepped light layer (the caller's lightPool / glowPop's lightFlash) carries the light.
   // The image stays (hidden) so callers can keep scaling / fading / destroying it.
-  if (LOOK_V3) img.setVisible(false);
+  img.setVisible(false);
   return img;
 }
 
 /** A glow that swells and fades (fire-and-forget). v3: a stepped light flash on the floor instead. */
 export function glowPop(scene: Phaser.Scene, x: number, y: number, color: number, o: { from?: number; to?: number; alpha?: number; ms?: number; depth?: number } = {}): Promise<void> {
-  if (LOOK_V3) return lightFlash(scene, Math.round(x), Math.round(y), color, Math.round(12 * (o.to ?? 2.4)), o.ms ?? 300, { intensity: Math.min(1, o.alpha ?? 0.8) });
-  const g = softGlow(scene, x, y, color, o.from ?? 0.4, o.alpha ?? 0.8, o.depth);
-  const a0 = o.alpha ?? 0.8;
-  return run(scene, o.ms ?? 300, (t) => g.setScale(lerp(o.from ?? 0.4, o.to ?? 2.4, E.outCubic(t))).setAlpha(a0 * (1 - t) * (1 - t))).then(() => g.destroy());
+  return lightFlash(scene, Math.round(x), Math.round(y), color, Math.round(12 * (o.to ?? 2.4)), o.ms ?? 300, { intensity: Math.min(1, o.alpha ?? 0.8) });
 }
 
 /** Iso floor ring helper (floor radius r → ellipse r × r/2). */
@@ -236,12 +232,8 @@ export function isoRing(r: Raster, cx: number, cy: number, rad: number, c: numbe
 /** A full-screen flash over the world in the v3 look (not the HUD; v1 / v2: the overlay band, as before) with stepped fall-off (additive tint). */
 export function screenFlash(scene: Phaser.Scene, color: number, alpha: number, ms: number): Promise<void> {
   // v3: never a world-wide wash (A2 tech review r2 #14) — a stepped floor light at the view's centre
-  if (LOOK_V3) {
-    const c = scene.cameras.main.midPoint;
-    return lightFlash(scene, Math.round(c.x), Math.round(c.y + 20), color, 110, ms, { intensity: Math.min(1, 0.4 + alpha * 2), ring: false });
-  }
-  const r = flashRect(scene, color, alpha, flashTopDepth(), { blend: ADD });
-  return run(scene, ms, (t) => r.setAlpha(alpha * (t < 0.25 ? 1 : t < 0.5 ? 0.6 : t < 0.75 ? 0.3 : 0.12))).then(() => r.destroy());
+  const c = scene.cameras.main.midPoint;
+  return lightFlash(scene, Math.round(c.x), Math.round(c.y + 20), color, 110, ms, { intensity: Math.min(1, 0.4 + alpha * 2), ring: false });
 }
 
 /** Radial burst of sparks (pixel stars) from a point. */
@@ -463,7 +455,7 @@ function makeStage(ctx: SummonCtx, unit: MonsterUnit, o: { tribute: boolean; spe
     circle: null,
     coreRest: { x: home.x + (unit.flipX ? -1 : 1) * (core.x - unit.art.anchorX), y: rest.y + (core.y - unit.art.anchorY) },
     lightColor: attributeLightColor(unit.attribute),
-    v3: LOOK_V3,
+    v3: true,
     pose(po = {}) {
       return summonPose(scene, unit, { ramp: po.ramp ?? S.ramp, onLand: po.onLand, onPeak: po.onPeak, hologram: po.hologram });
     },
@@ -501,31 +493,15 @@ function makeStage(ctx: SummonCtx, unit: MonsterUnit, o: { tribute: boolean; spe
     async climax() {
       if (climaxed || !o.cutIn) return;
       climaxed = true;
-      if (LOOK_V3) {
-        // v3: the band-only cut-in (≤ 1.0 s); the climax goes on as the band starts to leave.
-        // The band passes UNDER the summoned monster (its feet and badge, where the camera shows
-        // them now): its summon pose lands, spreads and settles in full view above the band
-        beat(scene, 'cut-in');
-        const clear = fx.screenPoint(ctx, { x: home.x, y: home.y + 22 });
-        const c = cutInV3(scene, { monsterId: unit.cardId, name: unit.card.name, attribute: unit.attribute, player: ev.player, clear });
-        await Promise.race([c.exit, wait(scene, 1000)]);
-        beat(scene, 'cut-in done');
-        return;
-      }
-      let p: Promise<void>;
-      try {
-        p = cutIn(scene, { monsterId: unit.cardId, name: unit.card.name, attribute: unit.attribute, player: ev.player }).catch((e) => {
-          console.warn('[summon-a] cut-in failed', e);
-        });
-      } catch (e) {
-        console.warn('[summon-a] cut-in failed', e);
-        p = Promise.resolve();
-      }
-      // the cut-in's white flash-out peaks at ≈1.44 s and the reveal starts right under it
-      // (cutIn itself resolves ≈1.55 s); never wait on a broken one forever
+      // v3: the band-only cut-in (≤ 1.0 s); the climax goes on as the band starts to leave.
+      // The band passes UNDER the summoned monster (its feet and badge, where the camera shows
+      // them now): its summon pose lands, spreads and settles in full view above the band
       beat(scene, 'cut-in');
-      await Promise.race([p, wait(scene, 1480)]);
+      const clear = fx.screenPoint(ctx, { x: home.x, y: home.y + 22 });
+      const c = cutInV3(scene, { monsterId: unit.cardId, name: unit.card.name, attribute: unit.attribute, player: ev.player, clear });
+      await Promise.race([c.exit, wait(scene, 1000)]);
       beat(scene, 'cut-in done');
+      return;
     },
     async roar(r) {
       const n = unit.frameCount('roar');
@@ -625,11 +601,10 @@ export async function runSummon(ctx: SummonCtx, entrance: (S: Stage) => Promise<
   // v3: the entrance pose is painted now, in the background (the card / tributes come first) —
   // player 2's relit sheet and portrait are registered and painted here on first use
   warmPoses(ev.cardId as MonsterId, ev.player, ['summon']);
-  if (LOOK_V3) warmCutinP2(ctx.scene, ev.cardId as MonsterId, ev.player);
+  warmCutinP2(ctx.scene, ev.cardId as MonsterId, ev.player);
   beat(ctx.scene, ctx.hints.tribute ? 'summon' : 'start');
   // v3: the camera eases back while the summon already starts (never a dead beat)
-  if (LOOK_V3) void settleCamera(ctx);
-  else await settleCamera(ctx);
+  void settleCamera(ctx);
   const hints = ctx.hints as { tribute?: boolean; noCard?: boolean; ghost?: boolean; cutIn?: boolean };
   const atk = ctx.atk(ev.uid, 'next');
   const def = ctx.def(ev.uid, 'next');
@@ -659,7 +634,7 @@ export async function runSummon(ctx: SummonCtx, entrance: (S: Stage) => Promise<
   });
   try {
     beat(ctx.scene, 'entrance');
-    if (LOOK_V3 && unit.has('summon')) {
+    if (unit.has('summon')) {
       // v3: the body enters on its own summon pose
       if (v3Entrance) await v3Entrance(S);
       else await poseEntrance(poseStage(S));
@@ -724,7 +699,7 @@ export async function settleHolo(scene: Phaser.Scene, u: MonsterUnit, ms = 220):
   const s = u.sprite;
   if (!s.active) return;
   // v3: the hologram never lingers (the body is the show)
-  if (LOOK_V3) ms = Math.min(ms, HOLO_SETTLE_V3_MS);
+  ms = Math.min(ms, HOLO_SETTLE_V3_MS);
   const P = setHologram(s, {});
   P.white = 0.55;
   await wait(scene, 34);

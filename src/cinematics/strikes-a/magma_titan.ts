@@ -25,7 +25,6 @@ import type { StrikeArgs } from '../_core/types';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import {
   ADD,
-  ARENA_V2,
   E,
   FloorMarks,
   RR,
@@ -64,7 +63,7 @@ import {
   stopTime,
   strideCount,
   sub,
-  travelMs,
+  
   whiteFlash,
   worldToScreen,
 } from './_kit';
@@ -212,10 +211,10 @@ registerStrike('magma_titan', async (s: StrikeArgs) => {
   const dist = Math.hypot(feet.x - home.x, feet.y - home.y);
   // v1: a lunge of two thudding strides; v2's wide bridge: a real lumbering run (a stride per
   // ~46 px, slower per px so the weight reads)
-  const dashMs = ARENA_V2 ? travelMs(dist, 170, 1.45, 210, 420, 680) : clamp(170 + dist * 0.9, 210, 420);
+  const dashMs = clamp(170 + dist * 0.9, 210, 420);
   const nStride = strideCount(dist, 2, 46);
-  const backMs = ARENA_V2 ? travelMs(dist, 190, 0.9, 300, 300, 520) : 300;
-  const hop = ARENA_V2 ? 7 * clamp(dist / 80, 1, 1.7) : 7;
+  const backMs = 300;
+  const hop = 7;
   const set = (p: XY, lift = 0, kx = 1, ky = 1) => {
     if (!spr.active) return;
     placeFeet(u, p, lift);
@@ -279,11 +278,11 @@ registerStrike('magma_titan', async (s: StrikeArgs) => {
       // 4b. rebound: knocked back off the guard, staggers, then trudges home
       holdFrame(u, 'hit', 0);
       // knocked back a couple of steps (v2: a fixed ~30 px, not half the long bridge)
-      const back = lerpXY(feet, home, ARENA_V2 ? Math.min(0.45, 30 / Math.max(1, dist)) : 0.45);
+      const back = lerpXY(feet, home, 0.45);
       await animate(sc, 170, (t) => set(lerpXY(feet, back, E.outQ(t)), Math.sin(Math.PI * t) * 5, 1, 1));
       stomp(sc, marks, back, 0.6);
       void playFrom(u, 'hit', 1);
-      await animate(sc, ARENA_V2 ? travelMs(dist, 160, 0.6, 260, 260, 420) : 260, (t) => set(lerpXY(back, home, E.inOutQ(t)), Math.sin(Math.PI * t) * 3, 1, 1));
+      await animate(sc, 260, (t) => set(lerpXY(back, home, E.inOutQ(t)), Math.sin(Math.PI * t) * 3, 1, 1));
     } else {
       // 4. hold, follow-through, hop home
       await animate(sc, 110, (t) => set(lerpXY(feet, { x: feet.x + dir.x * 2, y: feet.y + dir.y * 2 }, t), 0, lerp(0.94, 1, t), lerp(1.06, 1, t)));
@@ -485,6 +484,6 @@ export type { MonsterUnit };
 registerContactEstimate('magma_titan', (u, t) => {
   const F = frameMs(u, 'attack');
   const dist = Math.max(0, homeDistance(u, t) - 10);
-  const dashMs = ARENA_V2 ? travelMs(dist, 170, 1.45, 210, 420, 680) : clamp(170 + dist * 0.9, 210, 420);
+  const dashMs = clamp(170 + dist * 0.9, 210, 420);
   return 150 + 70 + 90 + F + dashMs;
 });

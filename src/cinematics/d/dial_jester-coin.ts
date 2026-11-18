@@ -29,7 +29,7 @@ import type Phaser from 'phaser';
 import { PAL, PLAYER_COLOR } from '../../art/palette';
 import type { GameEvent, PlayerId, Uid } from '../../engine/types';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
-import { DEPTH, LOOK_V3, forward, panelRect, zoneXY, type XY } from '../../view/layout';
+import { DEPTH, forward, panelRect, zoneXY, type XY } from '../../view/layout';
 import { lightDim, lightFlash, lightPool, type LightHandle } from '../../view/light';
 import type { TileCard } from '../../view/TileCard';
 import { measureText, pixelText } from '../../ui/text';
@@ -153,7 +153,6 @@ registerCardHook(
   ID,
   'effect',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     const ev = ctx.ev;
     const u = ctx.unit(ev.uid);
     if (ev.from !== 'monster' || !u || !u.sprite.visible) return ctx.base();
@@ -198,7 +197,7 @@ registerEvent(
   'coinToss',
   async (ctx: Ctx<'coinToss'>) => {
     const ev = ctx.ev;
-    if (!LOOK_V3 || ctx.cardId(ev.sourceUid) !== ID) return ctx.base();
+    if (ctx.cardId(ev.sourceUid) !== ID) return ctx.base();
     const sc = ctx.scene;
     const field = ctx.views.field;
     const s = show ?? newShow();
@@ -621,7 +620,7 @@ registerEvent(
   'massDestroy',
   async (ctx: Ctx<'massDestroy'>) => {
     const ev = ctx.ev;
-    if (!LOOK_V3 || ev.sourceUid === null || ctx.cardId(ev.sourceUid) !== ID) return ctx.base();
+    if ((ev.sourceUid === null) || ctx.cardId(ev.sourceUid) !== ID) return ctx.base();
     const sc = ctx.scene;
     const s = show ?? newShow();
     show = s;

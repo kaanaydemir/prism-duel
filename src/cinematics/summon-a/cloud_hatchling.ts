@@ -15,7 +15,7 @@
 import type Phaser from 'phaser';
 import { PAL } from '../../art/palette';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
-import { DEPTH, LOOK_V3, type XY, unitDepth, zoneXY } from '../../view/layout';
+import { DEPTH, type XY, unitDepth, zoneXY } from '../../view/layout';
 import { shake } from '../../vfx/core';
 import type { Px } from '../../vfx/combat';
 import { registerObserver } from '../api';
@@ -316,16 +316,14 @@ function puffsToChest(sc: Phaser.Scene, c: SummonCloud, u: MonsterUnit, depth: n
   );
 }
 
-if (LOOK_V3) {
-  signatureSummon('cloud_hatchling', (S) => S.ctx.base(), { v3: eggDropV3 });
-  // the cloud drifts in during the hand take and the slam (observers run at the event's start)
-  registerObserver((ev, ctx) => {
-    if (ev.type !== 'summon' || ev.cardId !== 'cloud_hatchling' || ev.from !== 'hand') return;
-    const h = zoneXY(ev.player, 'monster', ev.zone);
-    const c = new SummonCloud(ctx.scene, h, cloudStart(h, ev.player), unitDepth(h.y) + 0.5);
-    pending.get(ev.uid)?.destroy();
-    pending.set(ev.uid, c);
-    play('hatchCloudDrift', { volume: 0.8, pan: panAt(h.x) });
-    driftIn(c, DRIFT_MS);
-  });
-}
+signatureSummon('cloud_hatchling', (S) => S.ctx.base(), { v3: eggDropV3 });
+// the cloud drifts in during the hand take and the slam (observers run at the event's start)
+registerObserver((ev, ctx) => {
+  if (ev.type !== 'summon' || ev.cardId !== 'cloud_hatchling' || ev.from !== 'hand') return;
+  const h = zoneXY(ev.player, 'monster', ev.zone);
+  const c = new SummonCloud(ctx.scene, h, cloudStart(h, ev.player), unitDepth(h.y) + 0.5);
+  pending.get(ev.uid)?.destroy();
+  pending.set(ev.uid, c);
+  play('hatchCloudDrift', { volume: 0.8, pan: panAt(h.x) });
+  driftIn(c, DRIFT_MS);
+});

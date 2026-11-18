@@ -44,7 +44,7 @@ import { attackPose, bodyFront, framePoints, panelPoint, panelTri, tailPoint } f
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import type { Disposable } from '../../duel/types';
 import { onDuelStart } from '../../duel/seeds';
-import { DEPTH, LOOK_V3, type XY, unitDepth, zoneXY } from '../../view/layout';
+import { DEPTH, type XY, unitDepth, zoneXY } from '../../view/layout';
 import { lightFlash, lightPool, type LightHandle } from '../../view/light';
 import { Px, animate, onFrame, setCombatSfx, sleep, stopTime } from '../../vfx/combat';
 import { registerCardHook, registerEvent, registerObserver, registerStrike, type CinematicContext, type StrikeArgs } from '../api';
@@ -317,22 +317,20 @@ function dimPanel(u: MonsterUnit | null | undefined, quiet = false): void {
   u.setAura(PANEL_KEY, null);
 }
 
-if (LOOK_V3) {
-  registerObserver((ev: GameEvent) => {
-    if (ev.type !== 'phaseChange' && ev.type !== 'turnStart') idleBusy = true;
-    if (!lit.size) return;
-    if (ev.type === 'phaseChange' || ev.type === 'turnStart') {
-      for (const u of [...lit.values()]) dimPanel(u);
-    } else if ((ev.type === 'destroy' || ev.type === 'positionChange') && lit.has(ev.uid)) {
-      dimPanel(lit.get(ev.uid));
-    } else if (ev.type === 'attackDeclare' && lit.has(ev.attackerUid)) {
-      // the 2nd attack: its own flare (special f1) takes over on the declared frame
-      dimPanel(lit.get(ev.attackerUid), true);
-    } else if (ev.type === 'controlChange') {
-      for (const u of [...lit.values()]) dimPanel(u);
-    }
-  });
-}
+registerObserver((ev: GameEvent) => {
+  if (ev.type !== 'phaseChange' && ev.type !== 'turnStart') idleBusy = true;
+  if (!lit.size) return;
+  if (ev.type === 'phaseChange' || ev.type === 'turnStart') {
+    for (const u of [...lit.values()]) dimPanel(u);
+  } else if ((ev.type === 'destroy' || ev.type === 'positionChange') && lit.has(ev.uid)) {
+    dimPanel(lit.get(ev.uid));
+  } else if (ev.type === 'attackDeclare' && lit.has(ev.attackerUid)) {
+    // the 2nd attack: its own flare (special f1) takes over on the declared frame
+    dimPanel(lit.get(ev.attackerUid), true);
+  } else if (ev.type === 'controlChange') {
+    for (const u of [...lit.values()]) dimPanel(u);
+  }
+});
 
 // ================================================================ the idle accent (cloth flutter + string hum)
 
@@ -349,7 +347,7 @@ let idleBusy = false;
 /** Per scene: the last idle tick and the last battle contact (scene clock, ms). */
 const idleClock = new WeakMap<Phaser.Scene, { last: number; contact: number }>();
 function idleSound(sc: Phaser.Scene, u: MonsterUnit): void {
-  if (!LOOK_V3 || idleWatched.has(u)) return;
+  if (idleWatched.has(u)) return;
   idleWatched.add(u);
   let st = idleClock.get(sc);
   if (!st) {
@@ -386,18 +384,16 @@ function idleSound(sc: Phaser.Scene, u: MonsterUnit): void {
  * A kite already on the board (placed by a scenario, or summoned before this module watched it) gets its idle watcher
  * the first time the board turns a phase or a turn: a cheap scan of the field's units, the event itself untouched.
  */
-if (LOOK_V3) {
-  const scan = async (ctx: CinematicContext<Extract<GameEvent, { type: 'phaseChange' | 'turnStart' }>>) => {
-    try {
-      for (const u of ctx.views.field.units()) if (u.cardId === ID && !u.retired) idleSound(ctx.scene, u);
-    } catch {
-      /* never break the event */
-    }
-    return ctx.base();
-  };
-  registerEvent('phaseChange', scan, { priority: -50, name: 'kartc:kite_fencer:idle-scan' });
-  registerEvent('turnStart', scan, { priority: -50, name: 'kartc:kite_fencer:idle-scan' });
-}
+const scan = async (ctx: CinematicContext<Extract<GameEvent, { type: 'phaseChange' | 'turnStart' }>>) => {
+  try {
+    for (const u of ctx.views.field.units()) if (u.cardId === ID && !u.retired) idleSound(ctx.scene, u);
+  } catch {
+    /* never break the event */
+  }
+  return ctx.base();
+};
+registerEvent('phaseChange', scan, { priority: -50, name: 'kartc:kite_fencer:idle-scan' });
+registerEvent('turnStart', scan, { priority: -50, name: 'kartc:kite_fencer:idle-scan' });
 
 // ================================================================ attack 1: "Pike"
 
@@ -890,7 +886,6 @@ async function kiteFlight(s: StrikeArgs): Promise<void> {
 registerStrike(
   ID,
   async (s: StrikeArgs) => {
-    if (!LOOK_V3) return s.base?.();
     const u = s.attacker;
     if (!u.has('special') || !u.has('attack')) return s.base?.();
     const nth = attackCount(s);
@@ -914,7 +909,6 @@ registerCardHook(
   ID,
   'attackDeclare',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     const ev = ctx.ev;
     warmPoses(ID, ev.player as PlayerId, ['special', 'death']);
     // the 2nd attack shares nothing with the 1st, not even the declaration's breath: the shared declaration holds
@@ -939,7 +933,6 @@ registerCardHook(
   ID,
   'defend',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     const ev = ctx.ev;
     const sc = ctx.scene;
     const u = ev.targetUid !== null ? ctx.unit(ev.targetUid) : null;
@@ -1087,7 +1080,7 @@ registerCardHook(
   ID,
   'summon',
   async (ctx) => {
-    if (!LOOK_V3 || ctx.ev.from === 'field') return ctx.base();
+    if (ctx.ev.from === 'field') return ctx.base();
     await runSummon(ctx as SummonCtx, async () => undefined, leafKite);
   },
   { name: 'kartc:kite_fencer:summon' },
@@ -1251,7 +1244,6 @@ registerCardHook(
   ID,
   'destroyed',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     const c = ctx as CinematicContext<Extract<GameEvent, { type: 'destroy' }>>;
     if (c.ev.location !== 'monster' || sourceOwnsDeath(c as never)) return ctx.base();
     const u = ctx.views.field.unit(c.ev.uid);

@@ -15,10 +15,11 @@ import Phaser from 'phaser';
 import { CARDS, isMonster, type CardId, type MonsterId } from '../data/cards';
 import { currentAtk, currentDef, plateLock } from '../engine';
 import type { GameState, PlayerId, Position, Uid } from '../engine/types';
-import { volcanoActive } from '../engine/query';
+import { tideActive, volcanoActive } from '../engine/query';
+import { tideAura } from './auras-tide';
 import type { CardOrientation } from '../art/cards';
 import { TileCard } from '../view/TileCard';
-import { LOOK_V3, type XY } from '../view/layout';
+import { type XY } from '../view/layout';
 import { MonsterUnit } from './MonsterUnit';
 import { installUnitVariants, syncSlotVariant, syncUidVariants } from './unit-variant';
 import { PileView, type PileKind } from './PileView';
@@ -203,6 +204,7 @@ export class FieldView {
   /** Instantly reconcile every zone, unit, aura and pile with `state`. */
   sync(state: GameState): void {
     const volcano = volcanoActive(state);
+    const tide = tideActive(state);
     const running = this.scene.sys.isActive();
     if (!running && !this.pendingSync) {
       // created before the scene runs (DuelScene.create): finish auras on the first frame
@@ -213,7 +215,7 @@ export class FieldView {
       });
     }
     this.lastState = state;
-    if (LOOK_V3) syncUidVariants(this.scene, state);
+    syncUidVariants(this.scene, state);
     const seen = new Set<string>();
     for (const p of [0, 1] as PlayerId[]) {
       const ps = state.players[p];
@@ -247,7 +249,7 @@ export class FieldView {
             this.addUnit(slot.uid, { atk, def, position: slot.position });
           }
           const u = e.unit!;
-          if (LOOK_V3) syncSlotVariant(u, cardId as MonsterId, slot);
+          syncSlotVariant(u, cardId as MonsterId, slot);
           if (u.player !== p || u.zone !== i) u.setController(p, i);
           if (u.position !== slot.position) void u.setPosition(slot.position, false);
           if (u.displaced) u.settle();
@@ -259,7 +261,7 @@ export class FieldView {
             if (shown.atk !== atk || shown.def !== def) void u.setStats(atk, def, u.battleTint);
             u.battleTint = false;
           }
-          if (LOOK_V3) u.setLock(plateLock(state, slot));
+          u.setLock(plateLock(state, slot));
           // auras (only on a running scene: aura helpers tick from their first frame)
           if (running) {
             try {
@@ -270,6 +272,14 @@ export class FieldView {
               const wantVolcano = volcano && (attr === 'FIRE' || attr === 'WATER');
               if (wantVolcano && !u.hasAura('volcano')) u.setAura('volcano', attr === 'FIRE' ? flameAura(this.scene, u) : steamAura(this.scene, u));
               if (!wantVolcano && u.hasAura('volcano')) u.setAura('volcano', null);
+              // Gelgit Körfezi: WATER / WIND keep the tide aura, FIRE the steam
+              const wantTide = tide && (attr === 'WATER' || attr === 'WIND' || attr === 'FIRE');
+              if (wantTide && !u.hasAura('tide')) u.setAura('tide', attr === 'FIRE' ? steamAura(this.scene, u) : tideAura(this.scene, u, attr === 'WIND' ? 'wind' : 'water'));
+              if (!wantTide && u.hasAura('tide')) u.setAura('tide', null);
+              // every other monster standing in the water gets its foam ring (the blessed ones draw theirs in the 'tide' aura)
+              const wantRing = tide && !(attr === 'WATER' || attr === 'WIND');
+              if (wantRing && !u.hasAura('tideRing')) u.setAura('tideRing', tideAura(this.scene, u, 'still'));
+              if (!wantRing && u.hasAura('tideRing')) u.setAura('tideRing', null);
             } catch (e) {
               console.error('[field] aura failed', e);
             }

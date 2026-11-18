@@ -40,7 +40,7 @@ import { PAL, RAMPS } from '../../art/palette';
 import type { AnyMonsterAnim } from '../../art/types';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import type { GameEvent, Uid } from '../../engine/types';
-import { DEPTH, LOOK_V3, TILE_H, TILE_W, type XY, zoneXY } from '../../view/layout';
+import { DEPTH, TILE_H, TILE_W, type XY, zoneXY } from '../../view/layout';
 import { lightFlash, lightPool } from '../../view/light';
 import { Sparks, animate, onFrame, sleep } from '../../vfx/combat';
 import { Raster, qbez } from '../../vfx/setpieces';
@@ -304,8 +304,7 @@ async function climbV3(S: Stage): Promise<void> {
   }
 }
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     ID,
     'summon',
     async (ctx) => {
@@ -443,15 +442,14 @@ async function lobV3(s: StrikeArgs): Promise<void> {
   await u.playRange('attack', CON + 1, undefined, { hold: false });
 }
 
-if (LOOK_V3) registerStrike(ID, (s) => lobV3(s), { priority: 20, name: 'kart-b:mudgrasp_spirit:strike' });
+registerStrike(ID, (s) => lobV3(s), { priority: 20, name: 'kart-b:mudgrasp_spirit:strike' });
 
 // ================================================================ effect: "Pençe kilidi" (activate → positionChange)
 
 /** Pinned attackers with the mud-ring aura (expired by the observer below). */
 const pinned = new Set<Uid>();
 
-if (LOOK_V3)
-  registerObserver((ev, ctx) => {
+registerObserver((ev, ctx) => {
     if (!pinned.size) return;
     if (ev.type !== 'turnStart' && ev.type !== 'phaseChange' && ev.type !== 'controlChange' && ev.type !== 'destroy' && ev.type !== 'gameOver') return;
     for (const uid of [...pinned]) {
@@ -667,8 +665,7 @@ async function pinV3(ctx: Ctx<'activate'>): Promise<void> {
   });
 }
 
-if (LOOK_V3)
-  registerCardHook(ID, 'effect', (ctx) => pinV3(ctx), { priority: 20, name: 'kart-b:mudgrasp_spirit:effect' });
+registerCardHook(ID, 'effect', (ctx) => pinV3(ctx), { priority: 20, name: 'kart-b:mudgrasp_spirit:effect' });
 
 // ================================================================ death: liquefies and flows back into the tile's cracks
 
@@ -806,8 +803,7 @@ async function liquidDeathV3(ctx: Ctx<'destroy'>): Promise<void> {
   await leave;
 }
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     ID,
     'destroyed',
     (ctx) => {

@@ -11,7 +11,7 @@ import { PAL, PLAYER_RAMP, RAMPS } from '../art/palette';
 import { PixelCanvas } from '../art/pixel';
 import { digitsWidth, drawDigits } from '../art/cards';
 import type { PlayerId, Position } from '../engine/types';
-import { DEPTH, LOOK_V3 } from '../view/layout';
+import { DEPTH } from '../view/layout';
 import { tween, tweenValue } from '../vfx/core';
 
 let badgeSeq = 0;
@@ -188,7 +188,7 @@ export class StatBadge {
 
   private color(v: number, base: number, active: boolean): number {
     // v3: higher = gold, lower = crimson (v1 keeps green / red)
-    if (v > base) return LOOK_V3 ? (active ? PAL.gold3 : PAL.gold2) : active ? PAL.leaf3 : PAL.leaf2;
+    if (v > base) return (active ? PAL.gold3 : PAL.gold2);
     if (v < base) return active ? PAL.crim3 : PAL.crim2;
     return active ? PAL.white : PAL.steel;
   }

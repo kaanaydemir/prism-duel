@@ -103,6 +103,30 @@ export function freeSpellTrapZones(s: GameState, p: PlayerId): number[] {
 }
 
 /** True when a face-up field spell with the volcano effect is active (anyone's). */
+/** Is a face-up Gelgit Körfezi (fieldTidalBay) on either field? */
+export function tideActive(s: GameState): boolean {
+  for (const p of PLAYERS) {
+    const fs = s.players[p].fieldSpell;
+    if (fs && fs.faceUp) {
+      const d = defOf(s, fs.uid);
+      if (isSpell(d) && d.effect === 'fieldTidalBay') return true;
+    }
+  }
+  return false;
+}
+
+/** Which player's face-up Gelgit Körfezi lights the stage (null if none). */
+export function tideOwner(s: GameState): PlayerId | null {
+  for (const p of PLAYERS) {
+    const fs = s.players[p].fieldSpell;
+    if (fs && fs.faceUp) {
+      const d = defOf(s, fs.uid);
+      if (isSpell(d) && d.effect === 'fieldTidalBay') return p;
+    }
+  }
+  return null;
+}
+
 export function volcanoActive(s: GameState): boolean {
   for (const p of PLAYERS) {
     const fs = s.players[p].fieldSpell;

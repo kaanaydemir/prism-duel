@@ -69,7 +69,7 @@ import type { CardId } from '../../data/cards';
 import type { GameEvent, PlayerId, Uid } from '../../engine/types';
 import { ISO_CX, ISO_CY, ISO_TEX_H, ISO_TEX_W, cardIsoKey } from '../../art/cards';
 import { PAL } from '../../art/palette';
-import { BOARD_CENTER, DEPTH, GAME_H, GAME_W, LOOK_V3, type XY, zoneXY } from '../../view/layout';
+import { BOARD_CENTER, DEPTH, GAME_H, GAME_W, type XY, zoneXY } from '../../view/layout';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import type { TileCard } from '../../view/TileCard';
 import { dropHat, getHat } from '../../view/hats';
@@ -650,7 +650,6 @@ interface Card {
 // ================================================================ the activation (opening → orb to the sky)
 
 registerCardHook(ID, 'activate', async (ctx: ActCtx) => {
-  if (!LOOK_V3) return ctx.base();
   const ev = ctx.ev;
   const sc = ctx.scene;
   const mi = ctx.findType('massDestroy', (e) => e.sourceUid === ev.uid);
@@ -694,7 +693,7 @@ registerCardHook(ID, 'activate', async (ctx: ActCtx) => {
 
 registerLaneE(
   'massDestroy',
-  (ctx) => LOOK_V3 && ctx.ev.sourceUid !== null && ctx.cardId(ctx.ev.sourceUid) === ID,
+  (ctx) => (ctx.ev.sourceUid !== null) && ctx.cardId(ctx.ev.sourceUid) === ID,
   (ctx) => voidEyeWipe(ctx),
 );
 

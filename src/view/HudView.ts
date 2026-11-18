@@ -26,7 +26,7 @@ import { TEX, tween, tweenValue } from '../vfx/core';
 import { Button } from './Button';
 import { HudV3 } from './v3/hudV3';
 import { V3_A6_B } from './v3flags';
-import { ARENA_V2, DEPTH, UI, byArena, type Rect, type XY, panelRect } from './layout';
+import { DEPTH, UI, type Rect, type XY, panelRect } from './layout';
 import {
   GLOW_PAD,
   ICON,
@@ -80,27 +80,22 @@ function capY(size: TextSize, capTop: number): number {
 //  v2: the compact 128×40 corner panel — name (sm) + SIRA chip in an 11px header, LP (lg) + a
 //      slim bar on the left, deck/hand/grave counts stacked in a column on the right (that column
 //      flips away while an LP delta chip shows, like the v1 emblem).
-const PW = byArena(148, 128);
-const PH = byArena(64, 40);
-const HEADER = byArena(15, 11);
-const LP_X = byArena(22, 16);
-const LP_CAP = byArena(19, 14);
-const BAR = byArena({ x: 8, y: 37, w: 132, h: 4 }, { x: 7, y: 31, w: 84, h: 3 });
+const PW = 148;
+const PH = 64;
+const HEADER = 15;
+const LP_X = 22;
+const LP_CAP = 19;
+const BAR = { x: 8, y: 37, w: 132, h: 4 };
 const ICON_CY = 50;
 /** Top-left of the 25×23 player emblem (v1). */
 const EMBLEM = { x: PW - 33, y: 13 };
 /** Images per running light: halo + head + tail. */
-const COMET = byArena(14, 11);
+const COMET = 14;
 /** Name line + left column x of the panel text. */
-const NAME = byArena({ size: 'md' as TextSize, x: 8, cap: 5 }, { size: 'sm' as TextSize, x: 7, cap: 4 });
-const LP_LABEL_X = byArena(8, 6);
+const NAME = { size: 'md' as TextSize, x: 8, cap: 5 };
+const LP_LABEL_X = 8;
 /** TURN chip (header, right end). */
-const CHIP = byArena(
-  { w: 36, h: 11, y: 2, right: 6, caretX: 4, caretY: 2, textX: 12, textCap: 3, caret: ICON.caret as string },
-  { w: 33, h: 9, y: 2, right: 5, caretX: 3, caretY: 1, textX: 9, textCap: 2, caret: ICON.caretSm as string },
-);
-/** v2 count column: groove x, glyph x, first glyph top, row pitch, number x. */
-const SIDE = { groove: 95, iconX: 99, top: 13, pitch: 8, textX: 109, pivot: 112 };
+const CHIP = { w: 36, h: 11, y: 2, right: 6, caretX: 4, caretY: 2, textX: 12, textCap: 3, caret: ICON.caret as string };
 
 type Kind = 'deck' | 'hand' | 'grave';
 /** Count icon kinds of a player panel (countXY). */
@@ -162,19 +157,16 @@ const GAME_CX = 320;
 const HINT_V2 = { right: UI.buttons.x + UI.buttons.w, bottom: UI.buttons.y - 4, maxW: 150 };
 
 // phase bar: segment width, marker top, label cap top, separator diamond top
-const SEG_W = byArena(54, 46);
-const MARKER_Y = byArena(3, 2);
-const SEG_CAP = byArena(5, 4);
-const SEP_Y = byArena(7, 6);
+const SEG_W = 54;
+const MARKER_Y = 3;
+const SEG_CAP = 5;
+const SEP_Y = 7;
 /** Turn badge left of the phase bar. */
-const TURN = byArena(
-  { dx: -50, w: 46, h: 16, labelX: 5, labelCap: 6, numCap: 5, numCx: 36 },
-  { dx: -47, w: 44, h: 14, labelX: 4, labelCap: 5, numCap: 4, numCx: 34 },
-);
+const TURN = { dx: -50, w: 46, h: 16, labelX: 5, labelCap: 6, numCap: 5, numCx: 36 };
 /** Main buttons (inside UI.buttons): height and the two tops. */
-const MAIN_BTN = byArena({ h: 25, y1: 1, y2: 30 }, { h: 19, y1: 0, y2: 21 });
+const MAIN_BTN = { h: 25, y1: 1, y2: 30 };
 /** Toolbar row (top-left): top + height. */
-const TOOLBAR = byArena({ y: 4, h: 16 }, { y: 3, h: 14 });
+const TOOLBAR = { y: 4, h: 16 };
 
 /** ≡ toolbar icon (white bars, ink outline; tinted by Button). */
 function menuIconTex(scene: Phaser.Scene): string {
@@ -379,7 +371,6 @@ class HudViewV1 {
     scene.events.on(Phaser.Scenes.Events.UPDATE, this.updateFn);
     // an occasional light sweep across the active panel keeps the HUD alive
     this.sheenEvent = scene.time.addEvent({ delay: 4600, startAt: 2600, loop: true, callback: () => this.playPanelSheen(this.activePlayer) });
-    if (ARENA_V2) this.barGlintEvent = scene.time.addEvent({ delay: 3700, startAt: 1200, loop: true, callback: () => this.playBarGlints() });
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroy());
   }
 
@@ -837,53 +828,27 @@ class HudViewV1 {
     const bar = sc.add.graphics();
     const counts = {} as Record<Kind, CountUi>;
     let emblem: Phaser.GameObjects.Container;
-    if (!ARENA_V2) {
-      // emblem: container centered on the hexagon so it can flip (scaleX) around its middle
-      emblem = sc.add.container(EMBLEM.x + 12, EMBLEM.y + 11);
-      const emblemImg = sc.add.image(-12, -11, emblemTex(sc, player)).setOrigin(0);
-      const emblemNum = pixelText(sc, 0, capY('md', -3), String(player + 1), { size: 'md', color: R[4] });
-      emblemNum.x = Math.round(0.5 - emblemNum.width / 2);
-      emblem.add([emblemImg, emblemNum]);
-      root.add([name, lpLabel, lpText, bar, emblem]);
+    // emblem: container centered on the hexagon so it can flip (scaleX) around its middle
+    emblem = sc.add.container(EMBLEM.x + 12, EMBLEM.y + 11);
+    const emblemImg = sc.add.image(-12, -11, emblemTex(sc, player)).setOrigin(0);
+    const emblemNum = pixelText(sc, 0, capY('md', -3), String(player + 1), { size: 'md', color: R[4] });
+    emblemNum.x = Math.round(0.5 - emblemNum.width / 2);
+    emblem.add([emblemImg, emblemNum]);
+    root.add([name, lpLabel, lpText, bar, emblem]);
 
-      // count groups
-      const groups: [Kind, string, number][] = [
-        ['deck', ICON.deck, 8],
-        ['hand', ICON.hand, 54],
-        ['grave', ICON.grave, 100],
-      ];
-      for (const [k, key, x] of groups) {
-        const f = sc.textures.getFrame(key);
-        const iy = Math.round(ICON_CY - f.height / 2);
-        const icon = sc.add.image(x, iy, key).setOrigin(0).setTint(mix(R[4], PAL.white, 0.3));
-        const text = pixelText(sc, x + f.width + 3, capY('md', ICON_CY - 3), '0', { size: 'md', color: PAL.white });
-        root.add([icon, text]);
-        counts[k] = { icon, text, value: 0, baseY: iy, at: { x: x + Math.round(icon.width / 2), y: iy + Math.round(icon.height / 2) } };
-      }
-    } else {
-      // v2: deck / hand / grave stacked in a column right of a groove; the whole column is the
-      // "emblem" that flips edge-on while an LP delta chip needs the room
-      emblem = sc.add.container(SIDE.pivot, 0);
-      const groove = sc.add.graphics();
-      const gx = SIDE.groove - SIDE.pivot;
-      groove.fillStyle(mix(R[0], PAL.ink, 0.35)).fillRect(gx, HEADER + 3, 1, PH - HEADER - 7);
-      groove.fillStyle(mix(R[1], PAL.night2, 0.3)).fillRect(gx + 1, HEADER + 3, 1, PH - HEADER - 7);
-      // little studs at both ends of the groove
-      groove.fillStyle(R[2]).fillRect(gx, HEADER + 2, 2, 1).fillRect(gx, PH - 5, 2, 1);
-      emblem.add(groove);
-      root.add([name, lpLabel, lpText, bar, emblem]);
-      const groups: [Kind, string][] = [
-        ['deck', ICON.deckSm],
-        ['hand', ICON.handSm],
-        ['grave', ICON.graveSm],
-      ];
-      groups.forEach(([k, key], i) => {
-        const iy = SIDE.top + i * SIDE.pitch;
-        const icon = sc.add.image(SIDE.iconX - SIDE.pivot, iy, key).setOrigin(0).setTint(mix(R[4], PAL.white, 0.3));
-        const text = pixelText(sc, SIDE.textX - SIDE.pivot, capY('sm', iy + 2), '0', { size: 'sm', color: PAL.white });
-        emblem.add([icon, text]);
-        counts[k] = { icon, text, value: 0, baseY: iy, at: { x: SIDE.iconX + Math.round(icon.width / 2), y: iy + Math.round(icon.height / 2) } };
-      });
+    // count groups
+    const groups: [Kind, string, number][] = [
+      ['deck', ICON.deck, 8],
+      ['hand', ICON.hand, 54],
+      ['grave', ICON.grave, 100],
+    ];
+    for (const [k, key, x] of groups) {
+      const f = sc.textures.getFrame(key);
+      const iy = Math.round(ICON_CY - f.height / 2);
+      const icon = sc.add.image(x, iy, key).setOrigin(0).setTint(mix(R[4], PAL.white, 0.3));
+      const text = pixelText(sc, x + f.width + 3, capY('md', ICON_CY - 3), '0', { size: 'md', color: PAL.white });
+      root.add([icon, text]);
+      counts[k] = { icon, text, value: 0, baseY: iy, at: { x: x + Math.round(icon.width / 2), y: iy + Math.round(icon.height / 2) } };
     }
 
     // SIRA chip (right end of the header)
@@ -1020,23 +985,9 @@ class HudViewV1 {
       const a = danger ? PAL.crim2 : R[2];
       const b = danger ? PAL.crim3 : R[3];
       const c = danger ? PAL.crim4 : R[4];
-      if (ARENA_V2) {
-        // slim 3-row bar: lit top, mid tone, shaded bottom
-        g.fillStyle(mix(a, PAL.ink, 0.25)).fillRect(x, y, fill, h);
-        g.fillStyle(b).fillRect(x, y, fill, h - 1);
-        g.fillStyle(c).fillRect(x, y, fill, 1);
-        // idle glint running along the fill
-        if (P.barGlint >= 0 && fill > 6) {
-          const gx = x + Math.round(P.barGlint * (fill - 3));
-          g.fillStyle(PAL.white, 0.9).fillRect(gx + 1, y, 2, 1);
-          g.fillStyle(mix(c, PAL.white, 0.5), 0.85).fillRect(gx, y + 1, 3, 1);
-          g.fillStyle(c, 0.5).fillRect(gx - 2, y, 2, 1);
-        }
-      } else {
-        g.fillStyle(a).fillRect(x, y, fill, h);
-        g.fillStyle(b).fillRect(x, y, fill, h - 2);
-        g.fillStyle(c).fillRect(x, y, fill, 1);
-      }
+      g.fillStyle(a).fillRect(x, y, fill, h);
+      g.fillStyle(b).fillRect(x, y, fill, h - 2);
+      g.fillStyle(c).fillRect(x, y, fill, 1);
       g.fillStyle(PAL.white).fillRect(x + fill - 1, y, 1, h - 1);
     }
   }
@@ -1103,7 +1054,7 @@ class HudViewV1 {
     const lpW = measureText(String(Math.max(P.shownLp, P.lp)), 'lg').w;
     const w = measureText(s, 'md').w;
     const gapL = P.rect.x + LP_X + lpW + 4;
-    const gapR = P.rect.x + PW - byArena(7, 5);
+    const gapR = P.rect.x + PW - 7;
     const cx = Math.round(Math.max(gapL + w / 2, (gapL + gapR) / 2));
     const cy = P.rect.y + LP_CAP + 7;
     const t = pixelText(sc, cx, cy, s, { size: 'md', color }).setDepth(DEPTH.HUD + 1).setScrollFactor(0);
@@ -1399,10 +1350,6 @@ class HudViewV1 {
     }
     root.removeAll(true);
     const R = UI_RAMP[h.style];
-    if (ARENA_V2) {
-      this.renderHintV2(h, flash, R);
-      return;
-    }
     const t = pixelText(sc, 16, capY('md', 5), h.text, { size: 'md', color: PAL.white });
     const w = Math.ceil(t.width) + 24;
     const H = 17;

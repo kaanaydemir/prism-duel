@@ -14,16 +14,14 @@ import { AK } from '../../art/arena';
 import { monsterAnimKey, monsterFrame, monsterFrameName } from '../../art/textures';
 import type { AnyMonsterAnim, MonsterAnim } from '../../art/types';
 import { MONSTER_ANIMS } from '../../art/types';
-import { ARENA_V2, DEPTH, GAME_H, GAME_W, LOOK_V3, TILE_W, type XY, unitDepth, zoneXY } from '../../view/layout';
+import { DEPTH, GAME_H, GAME_W, TILE_W, type XY, unitDepth, zoneXY } from '../../view/layout';
 import { lightFlash, lightPool, type LightHandle } from '../../view/light';
-import type { TileCard } from '../../view/TileCard';
-import { flashRect, flashTopDepth, shake } from '../../vfx/core';
+import { shake } from '../../vfx/core';
 import { E, Px, Sparks, animate, framePointToWorld, onFrame, sleep, stopTime, whiteFlash } from '../../vfx/combat';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import { sfx, type SfxName, type SfxOpts } from '../../audio/sfx';
 import { listHandlers } from '../_core/registry';
 import type { CinematicContext } from '../_core/types';
-import { cardToGraveyard } from '../_core/helpers';
 import { onDuelStart } from '../../duel/seeds';
 import { isExtraAnim } from '../../art/animtime';
 import { deathV3 } from '../_v3/death';
@@ -83,10 +81,6 @@ export function qbez(a: XY, c: XY, b: XY, t: number): XY {
   const u = 1 - t;
   return { x: u * u * a.x + 2 * u * t * c.x + t * t * b.x, y: u * u * a.y + 2 * u * t * c.y + t * t * b.y };
 }
-
-// ================================================================ arena geometry (v1 / v2)
-
-export { ARENA_V2 };
 /**
  * Floor scale of the arena: 1 on v1's 64×32 tiles, 1.25 on v2's 80×40 tiles. Floor rings, magic
  * circles and pools that cover a tile are multiplied by it (v1 sizes stay exactly as tuned).
@@ -98,12 +92,12 @@ export const TK = TILE_W / 64;
  * v2's long paths across the bridge may take up to `maxV2` (a real run, not a teleport).
  */
 export function travelMs(dist: number, base: number, perPx: number, min: number, max: number, maxV2: number): number {
-  return clamp(base + dist * perPx, min, ARENA_V2 ? maxV2 : max);
+  return clamp(base + dist * perPx, min, max);
 }
 
 /** Strides of a run over `dist` px: v1 keeps its count; v2 takes one stride per `stride` px. */
 export function strideCount(dist: number, v1: number, stride: number): number {
-  return ARENA_V2 ? Math.max(v1, Math.round(dist / stride)) : v1;
+  return v1;
 }
 
 // ================================================================ light layer (arena v2; no-ops in v1)
@@ -148,9 +142,7 @@ export function glowPulse(scene: Phaser.Scene, x: number, y: number, color: numb
 /** Full-screen tinted flash over the world in the v3 look (not the HUD; v1 / v2: the overlay band, as before; ADD), stepped fall-off. */
 export function screenFlash(scene: Phaser.Scene, color: number, alpha: number, ms: number): Promise<void> {
   // v3: never a world-wide wash (A2 tech review r2 #14) — a stepped floor light at the view's centre
-  if (LOOK_V3) return stepFlash(scene, color, alpha, ms);
-  const r = flashRect(scene, color, alpha, flashTopDepth(), { blend: ADD });
-  return animate(scene, ms, (t) => r.setAlpha(alpha * Math.pow(1 - t, 2))).then(() => r.destroy());
+  return stepFlash(scene, color, alpha, ms);
 }
 
 /**
@@ -229,7 +221,7 @@ export function currentPixels(u: MonsterUnit): { anim: MonsterAnim; frame: numbe
   const m = /^([a-z]+):(\d+)$/.exec(name);
   // v3: a frame of an extra anim ('death:4', 'hitHeavy:1' …; never shown in the old look) breaks
   // as itself, not as idle 0 (the `anim` field stays the base anim the old flavours expect)
-  const x = LOOK_V3 && !m ? /^([A-Za-z]+):(\d+)$/.exec(name) : null;
+  const x = !m ? /^([A-Za-z]+):(\d+)$/.exec(name) : null;
   if (x && isExtraAnim(x[1]) && u.has(x[1])) return { anim: 'hit', frame: Number(x[2]), pc: unitFrame(u, x[1], Number(x[2])) };
   const anim = m && (MONSTER_ANIMS as string[]).includes(m[1]) ? (m[1] as MonsterAnim) : 'idle';
   const frame = m ? Number(m[2]) : 0;
@@ -676,16 +668,11 @@ export async function shatterPx(scene: Phaser.Scene, u: MonsterUnit, o: ShatterP
             b.img.x += b.vx * s;
             b.img.y += b.vy * s;
             // v3: crisp debris — no spin, no fractional shrink (it just reaches the sink)
-            if (!LOOK_V3) {
-              b.img.rotation += b.vr * s;
-              b.img.setScale(sx * Math.min(1, dd / 18 + 0.3), sy * Math.min(1, dd / 18 + 0.3));
-            }
           } else if (!b.rest) {
             b.vy += grav * s;
             b.vx *= Math.exp(-1.2 * s);
             b.img.x += b.vx * s;
             b.img.y += b.vy * s;
-            if (!LOOK_V3) b.img.rotation += b.vr * s;
             if (floor !== null && b.img.y > floor + rr(-3, 3) && b.vy > 0) {
               b.vy = -b.vy * bounce;
               b.vx *= 0.5;
@@ -706,7 +693,6 @@ export async function shatterPx(scene: Phaser.Scene, u: MonsterUnit, o: ShatterP
           }
           const t = age / b.life;
           // v3: no alpha ramp (the blink below steps it out)
-          if (!LOOK_V3) b.img.setAlpha(t < 0.55 ? 1 : 1 - (t - 0.55) / 0.45);
           if (t > 0.7) b.img.setVisible(Math.floor(age / 50) % 2 === 0);
         }
         return alive > 0;
@@ -764,47 +750,7 @@ export async function flavoredDeath(ctx: Ctx<'destroy'>, flavor: (d: DeathArgs) 
   const ev = ctx.ev;
   if (ev.location !== 'monster') return ctx.base();
   if (sourceOwnsDestroy(ctx)) return ctx.base();
-  if (LOOK_V3) return deathV3(ctx, { legacy: (d) => flavor(d), fallback: () => ctx.base() });
-  const unit = ctx.unit(ev.uid);
-  if (!unit || unit.retired || !unit.sprite.active || !unit.sprite.visible) return ctx.base();
-  const field = ctx.views.field;
-  const gi = ctx.findType('toGraveyard', (e) => e.uid === ev.uid, {
-    until: (e) => e.type !== 'toGraveyard' && e.type !== 'destroy' && e.type !== 'fieldSpell' && e.type !== 'statChange',
-  });
-  const gEv = gi >= 0 ? (ctx.events[gi] as EvOf<'toGraveyard'>) : null;
-  if (gi >= 0) ctx.consumeAt(gi);
-  const owner = gEv ? gEv.owner : ctx.owner(ev.uid);
-  const { tile } = field.release(ev.uid);
-  const home = tile ? { ...tile.home } : zoneXY(ev.player, 'monster', ev.zone);
-  unit.badge.setVisible(false);
-  unit.posed = true;
-  let tileJob: Promise<void> | null = null;
-  const burst = () => {
-    if (tileJob || !tile) return;
-    tileJob = dissolveTile(ctx, tile);
-  };
-  try {
-    await flavor({ ctx, unit, push: ctx.hints.push as XY | undefined, hit: ctx.hints.hit !== false, home, burst });
-  } catch (e) {
-    console.error('[strikes-a] death flavour failed', e);
-  } finally {
-    burst();
-    unit.posed = false;
-    if (!unit.retired) unit.retire();
-    field.forget(ev.uid);
-  }
-  const jobs: Promise<unknown>[] = [];
-  if (tileJob) jobs.push(tileJob);
-  if (gEv) jobs.push(cardToGraveyard(ctx as unknown as AnyCtx, { owner, cardId: ev.cardId, from: { x: home.x, y: home.y - 4 } }));
-  await Promise.all(jobs.map((p) => p.catch((e) => console.error('[strikes-a]', e))));
-}
-
-async function dissolveTile(ctx: AnyCtx | Ctx<'destroy'>, tile: TileCard): Promise<void> {
-  if (!tile.active) return;
-  await sleep(ctx.scene, 120);
-  if (!tile.active) return;
-  await tile.dissolve(480);
-  if (tile.active) tile.destroy();
+  return deathV3(ctx, { legacy: (d) => flavor(d), fallback: () => ctx.base() });
 }
 
 // ================================================================ effect runs

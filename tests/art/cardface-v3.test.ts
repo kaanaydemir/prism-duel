@@ -57,8 +57,7 @@ function alphaMask(c: Canvas): number[] {
 }
 
 describe('A5-B v3 card face (B-1: frame + overlays)', () => {
-  it('flags: V3_CARDS is on only in the v3 look with lane A5-B on and no &cards=v1', async () => {
-    expect((await load('v1')).flags.V3_CARDS).toBe(false);
+  it('flags: V3_CARDS is on only with lane A5-B on and no &cards=v1', async () => {
     expect((await load('v3')).flags.V3_CARDS).toBe(true);
     expect((await load('v3', { a5: 'b', a6: 'off' })).flags.V3_CARDS).toBe(true);
     expect((await load('v3', { cards: 'v1' })).flags.V3_CARDS).toBe(false);
@@ -133,13 +132,10 @@ describe('A5-B v3 card face (B-1: frame + overlays)', () => {
   it('&cards=v1 and A5-B off: today\'s card pixels (faces, minis, art), byte for byte', async () => {
     const off = await load('v3', { a5: 'off' });
     const cardsV1 = await load('v3', { cards: 'v1' });
-    const v1 = await load('v1');
     for (const id of off.data.ALL_CARD_IDS.slice(0, 20)) { // the 20 original cards (later cards may already have v3 art)
       expect(cardsV1.cards.cardFaceCanvas(id).data).toEqual(off.cards.cardFaceCanvas(id).data);
       expect(cardsV1.cards.cardMip(id).levels[2].data).toEqual(off.cards.cardMip(id).levels[2].data);
       expect(cardsV1.cards.cardArtCanvas(id).data).toEqual(off.cards.cardArtCanvas(id).data);
-      // the v1 look draws the same old face wherever the monster art is the same in both looks
-      if (id !== 'stone_sentinel') expect(v1.cards.cardFaceCanvas(id).data).toEqual(off.cards.cardFaceCanvas(id).data);
     }
   }, 60_000);
 

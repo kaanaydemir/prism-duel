@@ -23,7 +23,7 @@
 
 import { PAL, RAMPS, type Ramp } from '../../art/palette';
 import type { GameEvent } from '../../engine/types';
-import { DEPTH, LOOK_V3, unitDepth, type XY } from '../../view/layout';
+import { DEPTH, unitDepth, type XY } from '../../view/layout';
 import { lightFlash, lightPool } from '../../view/light';
 import { shake } from '../../vfx/core';
 import { Sparks, animate, onFrame, sleep } from '../../vfx/combat';
@@ -147,7 +147,6 @@ registerCardHook(
   ID,
   'summon',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     if (ctx.ev.from === 'field') return ctx.base();
     await runSummon(ctx, entranceV3, entranceV3);
   },
@@ -180,7 +179,6 @@ function silhouetteEdge(t: MonsterUnit, y: number, side: 1 | -1): number | null 
 registerStrike(
   ID,
   async (s: StrikeArgs) => {
-    if (!LOOK_V3) return s.base?.();
     const u = s.attacker;
     const sc = s.scene;
     const spr = u.sprite;
@@ -304,7 +302,6 @@ registerCardHook(
   ID,
   'destroyed',
   (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     if (ctx.ev.location !== 'monster' || sourceOwnsDeath(ctx)) return ctx.base();
     const sc = ctx.scene;
     const u = ctx.views.field.unit(ctx.ev.uid);

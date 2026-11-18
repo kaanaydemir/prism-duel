@@ -15,18 +15,16 @@ import type Phaser from 'phaser';
 import { PAL } from '../../art/palette';
 import { STAND_H, isoProject } from '../../art/cards';
 import type { TileCard } from '../../view/TileCard';
-import { LANE_MID, DEPTH, LOOK_V3, UI, type XY, zoneXY } from '../../view/layout';
+import { LANE_MID, DEPTH, UI, type XY, zoneXY } from '../../view/layout';
 import { lightFlash, lightPool } from '../../view/light';
-import { flash, shake, wait } from '../../vfx/core';
+import { shake, wait } from '../../vfx/core';
 import { Sparks as PxSparks, stopTime } from '../../vfx/combat';
 import { E, Raster, Sparks, floorRing, onFrame, run, seg, sleep, tileFlash } from '../../vfx/setpieces';
-import { banner, type BannerOpts } from '../../vfx/banners';
 import { measureText, pixelLetters, pixelText, upper } from '../../ui/text';
 import { cardLeaves } from '../_v3/card';
 import { chainRattle } from './_chains';
 import { dropAllCharges, play as playV3 } from '../_v3/sound';
-import { fx } from '../api';
-import { ADD, TAU, TK, type Ctx, arenaDim, duelist, isSetPulse, rnd, rr } from '../battle/_kit';
+import { ADD, TAU, TK, type Ctx,  duelist, isSetPulse, rnd, rr } from '../battle/_kit';
 // lane A5-A (A5_PLAN §3.3): Ayna Kalkanı's accent in the v3 scene language, behind V3_A5_A only
 import { V3_A5_A } from '../../view/v3flags';
 
@@ -111,73 +109,12 @@ export function trapBurst(scene: Phaser.Scene, x: number, y: number): Promise<vo
   });
 }
 
-/** A soft magenta aura breathing behind a standing trap card (until stopped). */
-function cardAura(scene: Phaser.Scene, tile: TileCard): () => void {
-  const sp = new Sparks(scene, DEPTH.FX - 3, ADD);
-  // arena v2: the standing card glows on the floor around it
-  const glow = lightPool(scene, tile.home.x, tile.home.y - 26, { color: PAL.mag3, spill: PAL.mag2, radius: 34, floorY: tile.home.y, air: 0.45, airRadius: 22, intensity: 0.85, anim: 'breathe', fadeIn: 200 });
-  let stopped = false;
-  const stop = onFrame(scene, (dt) => {
-    if (stopped || !tile.active || !tile.visible) {
-      sp.close();
-      return false;
-    }
-    if (dt > 0 && rnd() < dt / 45) {
-      const side = rnd() < 0.5 ? -1 : 1;
-      sp.add({ x: tile.home.x + side * rr(14, 26), y: tile.home.y - rr(4, 60), vy: rr(-30, -14), vx: side * rr(2, 8), life: rr(300, 560), ramp: [PAL.mag4, PAL.mag3, PAL.mag2, PAL.mag1], tex: rnd() < 0.2 ? 'fx:plus' : 'fx:px1' });
-    }
-    return true;
-  });
-  return () => {
-    stopped = true;
-    stop();
-    sp.close();
-    void glow.fadeOut(300);
-  };
-}
-
 /**
  * The common trap opening. Resolves when the set piece should begin (~0.75 s at speed 1); the
  * banner's exit keeps playing in the background (`op.banner`).
  */
 export async function trapOpening(ctx: ActCtx, o: { focus?: XY } = {}): Promise<Opening> {
-  if (LOOK_V3) return trapOpeningV3(ctx, o);
-  const sc = ctx.scene;
-  const ev = ctx.ev;
-  // the trap window closes: the breathing set cards stop
-  const pulse = ctx.take('trapPulse');
-  if (isSetPulse(pulse)) pulse.destroy();
-  else pulse?.destroy();
-  const tile = ev.zone !== null ? ctx.views.field.tileAt(ev.player, 'spellTrap', ev.zone) : null;
-  const at = tile ? { ...tile.home } : ev.zone !== null ? zoneXY(ev.player, 'spellTrap', ev.zone) : zoneXY(ev.player, 'spellTrap', LANE_MID);
-  const face = { x: at.x, y: at.y - 36 };
-  if (tile) tile.setCard(ev.cardId);
-  const stopAuraRef = { fn: () => undefined as void };
-  void ctx.focus(o.focus ?? { x: at.x, y: at.y - 30 }, { zoom: 1.06, ms: 260, pan: 0.3 });
-  void duelist(ctx, ev.player)?.play('command');
-  // the card presses, then snaps upright — in slow motion once the burst goes off
-  const stand = tile && tile.active ? tile.standUp(250, { reveal: true }) : Promise.resolve();
-  await wait(sc, 60);
-  ctx.sfx('trapActivate', { volume: 1 });
-  void trapBurst(sc, at.x, at.y);
-  // arena v2: the stadium darkens around the sprung trap (trapExit brings the floodlights back)
-  void arenaDim(sc, 0.5, 260);
-  void flash(sc, 90, PAL.mag3, 0.22, DEPTH.FX_TOP + 40);
-  void shake(sc, 180, 2);
-  await stopTime(sc, 50);
-  ctx.views.speed.slowMo(0.35, 280);
-  await stand;
-  if (tile && tile.active) {
-    stopAuraRef.fn = cardAura(sc, tile);
-    void tile.pulse(PAL.white, 200);
-  }
-  // then "TUZAK!" slams (the letters drop faster than the default trap banner)
-  const opts: BannerOpts & { stagger: number } = { style: 'trap', hold: 40, stagger: 24 };
-  const ban = banner(sc, 'TRAP!', opts);
-  // the set piece starts as the letters have landed (the band is still on its way out)
-  await Promise.race([ban, wait(sc, 350)]);
-  const stopAura = () => stopAuraRef.fn();
-  return { tile, at, face, banner: ban, stopAura };
+  return trapOpeningV3(ctx, o);
 }
 
 /**
@@ -185,30 +122,7 @@ export async function trapOpening(ctx: ActCtx, o: { focus?: XY } = {}): Promise<
  * copy arcs into the owner's graveyard (consumes the trap's own toGraveyard event).
  */
 export async function trapExit(ctx: ActCtx, op: Opening): Promise<void> {
-  if (LOOK_V3) return trapExitV3(ctx, op);
-  const ev = ctx.ev;
-  op.stopAura();
-  void arenaDim(ctx.scene, 0, 480);
-  const gi = ctx.findType('toGraveyard', (e) => e.uid === ev.uid);
-  if (gi < 0) return;
-  const gEv = ctx.events[gi] as Extract<typeof ctx.events[number], { type: 'toGraveyard' }>;
-  ctx.consumeAt(gi);
-  const field = ctx.views.field;
-  const { tile } = field.release(ev.uid);
-  const from = tile ? { x: tile.home.x, y: tile.home.y - (tile.standing ? 36 : 4) } : { x: op.at.x, y: op.at.y - 4 };
-  const jobs: Promise<unknown>[] = [];
-  if (tile && tile.active) {
-    jobs.push(
-      (async () => {
-        void tile.pulse(PAL.white, 220);
-        await wait(ctx.scene, 90);
-        await tile.dissolve(420);
-        tile.destroy();
-      })(),
-    );
-  }
-  jobs.push(wait(ctx.scene, 160).then(() => fx.cardToGraveyard(ctx, { owner: gEv.owner, cardId: ev.cardId, from, scale: 0.5 })));
-  await fx.all(jobs);
+  return trapExitV3(ctx, op);
 }
 
 

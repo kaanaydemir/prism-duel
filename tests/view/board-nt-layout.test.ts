@@ -8,8 +8,8 @@ import { DUELIST_PADS, FACE_H, PLATE_FULL, PLATE_TOP, HOLOS, KEEP_OUT, PLATE_COR
 import { duelistXY, zoneXY } from '../../src/view/layout';
 
 describe('neon tower layout map', () => {
-  it('is off by default (v1 look, no ?arena=nt)', () => {
-    expect(ARENA_NT).toBe(false);
+  it('is on by default (the v3 look is the only look; ?arena=calm opts out)', () => {
+    expect(ARENA_NT).toBe(true);
   });
 
   it('projects the platform around the existing tiles: the v1 3+3 board is columns 2..4 of the 7×5 grid', () => {

@@ -174,8 +174,8 @@ describe('lookups', () => {
 });
 
 describe('the switch: profiles off = the old weight-blind reactions, bit for bit', () => {
-  it('is off by default (no ?look=v3 / __NEON_MOTION in the test environment)', () => {
-    expect(WEIGHT_MOTION).toBe(false);
+  it('is on by default (the v3 look is the only look; __NEON_MOTION can still switch it off)', () => {
+    expect(WEIGHT_MOTION).toBe(true);
   });
 
   it('legacy tables are the literals the call sites used', () => {
@@ -187,18 +187,15 @@ describe('the switch: profiles off = the old weight-blind reactions, bit for bit
     }
   });
 
-  it('off: every reaction value ignores the weights (and the default `on` is off)', () => {
+  it('off: every reaction value ignores the weights', () => {
     const sources = [null, undefined, ...WEIGHT_CLASSES, ...MONSTER_IDS.map((id) => monsterArt(id))];
     for (const p of POWERS)
       for (const s of sources) {
         expect(reactStopMs(p, s, false)).toBe([0, 60, 80, 100][p]);
-        expect(reactStopMs(p, s)).toBe([0, 60, 80, 100][p]);
         expect(reactShakePx(p, s, false)).toBe([0, 1.5, 3, 5][p]);
-        expect(reactShakePx(p, s)).toBe([0, 1.5, 3, 5][p]);
         expect(reactGuardPushPx(s, p, false)).toBe(p >= 2 ? 3 : 2);
-        expect(reactGuardPushPx(s, p)).toBe(p >= 2 ? 3 : 2);
-        expect(reactHitJitterPx(s, p)).toBe(p >= 2 ? 1 : 0.5);
-        expect(reactGuardReturnEase(s)).toBe('Back.Out');
+        expect(reactHitJitterPx(s, p, false)).toBe(p >= 2 ? 1 : 0.5);
+        expect(reactGuardReturnEase(s, false)).toBe('Back.Out');
       }
   });
 

@@ -6,7 +6,6 @@
 // under the knee pass unchanged. The old look (LOOK_V3 false) gets null: engine.ts builds its
 // chain exactly as before.
 
-import { LOOK_V3 } from '../../view/layout';
 import type { OutputCeiling } from '../engine';
 
-export const V3_CEILING: OutputCeiling | null = LOOK_V3 ? { knee: 0.6, top: 0.84, lowpass: 0 } : null;
+export const V3_CEILING: OutputCeiling | null = { knee: 0.6, top: 0.84, lowpass: 0 };

@@ -38,7 +38,7 @@ import type { Action, GameState, PlayerId, Uid, ZoneKind, ZoneRef } from '../eng
 import type { MonsterUnit } from './MonsterUnit';
 import { PAL, PLAYER_COLOR } from '../art/palette';
 import { sfx } from '../audio/sfx';
-import { GAME_W, LOOK_V3, panelRect, type BoardSpot, type XY } from '../view/layout';
+import { GAME_W, panelRect, type BoardSpot, type XY } from '../view/layout';
 import { V3_A6_B } from '../view/v3flags';
 import { AimMarks, SelectMark, ackClick, rejectClick } from '../view/v3/TargetMarks';
 import { gravePanelOpen, openGravePanel } from '../view/v3/GravePanel';
@@ -158,7 +158,7 @@ export class HumanInput {
       if (over.length) return;
       if (V3_A6_B && gravePanelOpen(scene)) return; // the panel holds the input
       const hp = this.hoverPick;
-      const hit = LOOK_V3 && hp && hp.x === p.x && hp.y === p.y && hp.ctx === this.zoneHover && hp.st === this.state && hp.mode === this.mode ? hp.hit : this.pick(p.x, p.y);
+      const hit = hp && hp.x === p.x && hp.y === p.y && hp.ctx === this.zoneHover && hp.st === this.state && hp.mode === this.mode ? hp.hit : this.pick(p.x, p.y);
       if (!hit) return;
       if (V3_A6_B) {
         this.lastClick = { x: p.x, y: p.y };
@@ -395,7 +395,6 @@ export class HumanInput {
    * Without the look switch (v1 / v2) the menu is exactly as before: the show runs on behind it.
    */
   private pauseMenu(canSurrender: boolean): Promise<'resume' | 'surrender' | 'quit'> {
-    if (!LOOK_V3) return this.pauseMenuBody(canSurrender);
     const resume = showClock(this.scene).pause();
     const p = this.pauseMenuBody(canSurrender);
     void p.then(resume, resume);
@@ -935,7 +934,7 @@ export class HumanInput {
           if (V3_A6_B) this.views.hud.endHintFlash(); // A6B-11: a valid pick ends the reason
           finish(r);
         } else {
-          if (LOOK_V3 && shroudReject(this.scene, this.views, this.state, h, this.player)) return; // tide_harpooner: Körfez kalkanı
+          if (shroudReject(this.scene, this.views, this.state, h, this.player)) return; // tide_harpooner: Körfez kalkanı
           if (aim) this.rejectHit(h);
           else sfx.play('uiError', { volume: 0.4 });
           // v3: candidates with corners are "marked", not lit (the floor highlight is theirs only without a monster)
@@ -1230,18 +1229,11 @@ export class HumanInput {
     const tile: Pick | null = z ? { player: z.player, spot: z.spot, index: z.index } : null;
     const valid = this.validPick();
     if (valid) {
-      if (LOOK_V3) {
-        // v3: a valid body (front-most, even one partly covered by a non-valid body) first; then
-        // in a board pick the valid tile, in idle whatever body is in front (what the player sees)
-        const v = hits.find(valid);
-        if (v) return v;
-        if (tile && valid(tile) && (this.zoneHover || !hits.length)) return tile;
-      } else {
-        // the tile itself first (it is what the player aims at), then any unit body
-        if (tile && valid(tile)) return tile;
-        const v = hits.find(valid);
-        if (v) return v;
-      }
+      // v3: a valid body (front-most, even one partly covered by a non-valid body) first; then
+      // in a board pick the valid tile, in idle whatever body is in front (what the player sees)
+      const v = hits.find(valid);
+      if (v) return v;
+      if (tile && valid(tile) && (this.zoneHover || !hits.length)) return tile;
     }
     return hits[0] ?? tile;
   }
@@ -1279,7 +1271,7 @@ export class HumanInput {
     // v3 (K12): the other player's mini-hand by its panel
     const mini = V3_A6_B && !inHand ? this.miniAt(sx, sy) : null;
     const h = inHand || mini !== null ? null : this.pick(sx, sy);
-    this.hoverPick = LOOK_V3 && !inHand && mini === null ? { x: sx, y: sy, ctx: this.zoneHover, st: this.state, mode: this.mode, hit: h } : null;
+    this.hoverPick = !inHand && mini === null ? { x: sx, y: sy, ctx: this.zoneHover, st: this.state, mode: this.mode, hit: h } : null;
     // board pick feedback: the candidate under the pointer lights up white
     const zh = this.zoneHover;
     if (inHand) {

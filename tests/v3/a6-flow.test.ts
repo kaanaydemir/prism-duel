@@ -8,6 +8,12 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+// These cases were written against the calm arena (the Neon Tower arena became the default when the v1 look
+// was removed, 2026-11-17): keep them on it. vi.hoisted runs before the module imports below.
+vi.hoisted(() => {
+  (globalThis as { __NEON_ARENA_NT?: boolean }).__NEON_ARENA_NT = false;
+});
+
 vi.mock('phaser', async () => (await import('../presentation/_phaser-stub')).phaserStub());
 
 import { FRAME_V3, frameRectV3 } from '../../src/art/frame-v3';
@@ -200,13 +206,12 @@ describe('the v3 HUD behind V3_A6_B (§5.0.3)', () => {
     return { HudView, HudV3, HudViewProto: (HudView as { prototype: object }).prototype };
   }
 
-  it('new HudView() is the v3 HUD only with lane B on; v1, &a6=off and &a6=a keep today’s HUD', async () => {
+  it('new HudView() is the v3 HUD only with lane B on; &a6=off and &a6=a keep today’s HUD', async () => {
     const on = await load('v3');
     expect(on.HudView).toBe(on.HudV3);
     const onB = await load('v3', 'b');
     expect(onB.HudView).toBe(onB.HudV3);
     for (const [look, a6] of [
-      ['v1', undefined],
       ['v3', 'off'],
       ['v3', 'a'],
     ] as const) {
@@ -216,7 +221,7 @@ describe('the v3 HUD behind V3_A6_B (§5.0.3)', () => {
   }, 60000);
 
   it('the v3 HUD offers every public method and getter of HudView', async () => {
-    const v1 = await load('v1');
+    const v1 = await load('v3', 'off'); // today's HudView (lane B off)
     const proto = (v1.HudV3 as { prototype: object }).prototype;
     for (const k of API) {
       expect(typeof (v1.HudViewProto as Record<string, unknown>)[k], `HudView.${k}`).toBe('function');
@@ -872,8 +877,7 @@ describe('B1 registration audit (§6.4): lane B fills only its own hooks, only u
     return filledV3Hooks();
   }
 
-  it('v1: none; v3 lane B on: turnStart + phaseChange + duelPlate + hudIn + presentHeal + target + decision + deckOut + gameOver (and nothing outside lane B); lane B off: none of B’s', async () => {
-    expect(await filled('v1')).toEqual([]);
+  it('v3 lane B on: turnStart + phaseChange + duelPlate + hudIn + presentHeal + target + decision + deckOut + gameOver (and nothing outside lane B); lane B off: none of B’s', async () => {
     const b = await filled('v3', 'b');
     expect(b).toEqual(expect.arrayContaining(['turnStart', 'phaseChange', 'duelPlate', 'hudIn', 'presentHeal', 'target', 'decision', 'deckOut', 'gameOver']));
     expect(b.filter((h) => !LANE_B_HOOKS.includes(h))).toEqual([]);
@@ -894,8 +898,8 @@ describe('B4 registration (§6.4): the block wrapper is lane B’s only event ha
     const { listHandlers } = await import('../../src/cinematics/_core/registry');
     return listHandlers().events.damage ?? [];
   }
-  it('v1 and lanes a / off: no a6:block; v3 lane B: a6:block (p10) runs first, today’s tb:damage after it', async () => {
-    for (const [look, a6] of [['v1', undefined], ['v3', 'off'], ['v3', 'a']] as const) expect((await damageChain(look, a6)).some((n) => n.startsWith('a6:block')), `${look} ${a6}`).toBe(false);
+  it('lanes a / off: no a6:block; v3 lane B: a6:block (p10) runs first, today’s tb:damage after it', async () => {
+    for (const [look, a6] of [['v3', 'off'], ['v3', 'a']] as const) expect((await damageChain(look, a6)).some((n) => n.startsWith('a6:block')), `${look} ${a6}`).toBe(false);
     const chain = await damageChain('v3', 'b');
     expect(chain[0]).toBe('a6:block (p10)');
     expect(chain).toContain('tb:damage (p0)');
@@ -1342,8 +1346,7 @@ describe('A6-B fix round 1 (critic A6B-1 … A6B-7)', () => {
     };
     expect(await mk('v3')).toEqual([[true, 30]]);
     expect(await mk('v3', 'b')).toEqual([[true, 30]]);
-    // nothing to hide: v1, lane B off, vsBot, no curtain, a hand already down or someone else's on screen
-    expect(await mk('v1')).toEqual([]);
+    // nothing to hide: lane B off, vsBot, no curtain, a hand already down or someone else's on screen
     expect(await mk('v3', 'off')).toEqual([]);
     expect(await mk('v3', 'a')).toEqual([]);
     expect(await mk('v3', undefined, { mode: 'vsBot' })).toEqual([]);

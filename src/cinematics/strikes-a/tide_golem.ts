@@ -15,7 +15,7 @@
 import Phaser from 'phaser';
 import { onDuelStart } from '../../duel/seeds';
 import { PAL, RAMPS } from '../../art/palette';
-import { DEPTH, LOOK_V3, type XY } from '../../view/layout';
+import { DEPTH, type XY } from '../../view/layout';
 import { projectile } from '../../vfx/combat';
 import { lightFlash, lightPool } from '../../view/light';
 import { fx, registerCardHook, registerStrike } from '../api';
@@ -24,7 +24,6 @@ import type { StrikeArgs } from '../_core/types';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import { waterSplash } from './coral_serpent';
 import {
-  ARENA_V2,
   E,
   FloorMarks,
   frameBounds,
@@ -33,7 +32,7 @@ import {
   TAU,
   TK,
   animate,
-  clamp,
+  
   effectDamage,
   followLight,
   flavoredDeath,
@@ -153,22 +152,6 @@ registerStrike('tide_golem', async (s: StrikeArgs) => {
   const crash = s.blocked ? { x: s.toGround.x - dir.x * 10, y: s.toGround.y - dir.y * 10 } : s.toGround;
   // arena v2: the rolling wave carries a rippling blue light along the floor (combat.wave's own
   // path and timing: a 120 ms swell, then start → end over clamp(dist·6.5, 380, 720) ms)
-  if (ARENA_V2) void (async () => {
-    const st = { x: ground.x + dir.x * 10, y: ground.y + dir.y * 10 };
-    const en = { x: crash.x - dir.x * 9, y: crash.y - dir.y * 9 };
-    const ms = clamp(Math.hypot(en.x - st.x, en.y - st.y) * 6.5, 380, 720);
-    const wl = lightPool(sc, st.x, st.y - 8, { color: PAL.water4, spill: PAL.water3, radius: 24 * TK, floorY: st.y, air: 0.4, intensity: 0.3, anim: 'caustic', fadeIn: 120 });
-    await sleep(sc, 120);
-    wl.setIntensity(1.15, 200);
-    await animate(sc, ms, (t) => {
-      const k = 0.3 * t + 0.7 * t * t;
-      const x = st.x + (en.x - st.x) * k;
-      const y = st.y + (en.y - st.y) * k;
-      wl.setPosition(x, y - 10, y);
-    });
-    await sleep(sc, 100);
-    void wl.fadeOut(260);
-  })();
   await projectile(sc, ground, crash, 'wave', {
     chargeMs: 120,
     onImpact: () => {
@@ -253,16 +236,10 @@ registerCardHook('tide_golem', 'effect', async (ctx) => {
   const hitAt = atkSpot ?? fx.duelistPoint(ctx, victim);
   await projectile(sc, from, hitAt, 'water', {
     onImpact: () => {
-      if (attacker && LOOK_V3) {
+      if (attacker) {
         // v3 (A2 motion review r3 #5): the splash is a blow on the body — the hit kit's contact
         // flash on the struck side and a recoil along the splash, never a full-silhouette tint
         void fx.hitReact(ctx, attacker, 1, RAMPS.water, hitAt, norm(sub(hitAt, from)), null, { kind: 'physical', noStop: true });
-      } else if (attacker) {
-        void attacker.play('hit');
-        // drenched for an instant (never leave the tint behind, whatever overlapped it)
-        void whiteFlash(sc, attacker.sprite, 2, PAL.water4).then(() => sleep(sc, 120)).then(() => {
-          if (attacker.sprite.active && !attacker.retired) attacker.sprite.clearTint();
-        });
       }
       waterSplash(sc, hitAt, { dir: norm(sub(hitAt, from)), floor: attacker ? attacker.home.y : hitAt.y + 18, power: 1 });
       impactLight(sc, hitAt, attacker ? attacker.home.y : hitAt.y + 18, PAL.water4, 1);

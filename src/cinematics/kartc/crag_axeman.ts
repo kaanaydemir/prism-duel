@@ -34,7 +34,7 @@ import type Phaser from 'phaser';
 import { PAL } from '../../art/palette';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import { monsterFrame } from '../../art/textures';
-import { DEPTH, LOOK_V3, unitDepth, type XY } from '../../view/layout';
+import { DEPTH, unitDepth, type XY } from '../../view/layout';
 import { lightFlash } from '../../view/light';
 import { shake } from '../../vfx/core';
 import { registerEvent, registerObserver, registerStrike, type CinematicContext } from '../api';
@@ -681,7 +681,7 @@ const idleWatched = new WeakSet<MonsterUnit>();
 let idleBusy = false;
 const idleClock = new WeakMap<Phaser.Scene, { last: number; contact: number }>();
 export function idleTap(sc: Phaser.Scene, u: MonsterUnit): void {
-  if (!LOOK_V3 || idleWatched.has(u)) return;
+  if (idleWatched.has(u)) return;
   idleWatched.add(u);
   let st = idleClock.get(sc);
   if (!st) {
@@ -708,41 +708,35 @@ export function idleTap(sc: Phaser.Scene, u: MonsterUnit): void {
   });
 }
 
-if (LOOK_V3) {
-  registerObserver((ev) => {
-    if (ev.type !== 'phaseChange' && ev.type !== 'turnStart') idleBusy = true;
-  });
-  const scan = async (ctx: CinematicContext<Extract<GameEvent, { type: 'phaseChange' | 'turnStart' }>>) => {
-    try {
-      for (const u of ctx.views.field.units()) if (u.cardId === ID && !u.retired) idleTap(ctx.scene, u);
-    } catch {
-      /* never break the event */
-    }
-    return ctx.base();
-  };
-  registerEvent('phaseChange', scan, { priority: -50, name: 'kartc:crag_axeman:idle-scan' });
-  registerEvent('turnStart', scan, { priority: -50, name: 'kartc:crag_axeman:idle-scan' });
-}
+registerObserver((ev) => {
+  if (ev.type !== 'phaseChange' && ev.type !== 'turnStart') idleBusy = true;
+});
+const scan = async (ctx: CinematicContext<Extract<GameEvent, { type: 'phaseChange' | 'turnStart' }>>) => {
+  try {
+    for (const u of ctx.views.field.units()) if (u.cardId === ID && !u.retired) idleTap(ctx.scene, u);
+  } catch {
+    /* never break the event */
+  }
+  return ctx.base();
+};
+registerEvent('phaseChange', scan, { priority: -50, name: 'kartc:crag_axeman:idle-scan' });
+registerEvent('turnStart', scan, { priority: -50, name: 'kartc:crag_axeman:idle-scan' });
 
-if (LOOK_V3)
-  registerStrike(ID, async (s) => {
-    if (!LOOK_V3) return s.base?.();
+registerStrike(ID, async (s) => {
     idleTap(s.scene, s.attacker);
     return dagYaran(s);
   });
 
 // ---- the haft coming across the chest on a position change (the struck body's own sounds — fur / hide, the haft
 // slap on a guarded blow, the grunt on a heavy one — are the voice's `struck` set: src/audio/v3/crag_axeman.ts)
-if (LOOK_V3) {
-  registerObserver((ev, ctx) => {
-    if (ev.type === 'positionChange' && ev.position === 'defense') {
-      const u = ctx.unit(ev.uid);
-      if (!u || u.cardId !== ID) return;
-      idleTap(ctx.scene, u);
-      // the haft comes across the chest as a bar on the guard's last in-between frame
-      atFrame(u, 'toGuard', 3, () => play('caxGuard', { volume: 0.7, pan: panAt(u.home.x) }), { maxMs: 2000 });
-    }
-  });
-}
+registerObserver((ev, ctx) => {
+  if (ev.type === 'positionChange' && ev.position === 'defense') {
+    const u = ctx.unit(ev.uid);
+    if (!u || u.cardId !== ID) return;
+    idleTap(ctx.scene, u);
+    // the haft comes across the chest as a bar on the guard's last in-between frame
+    atFrame(u, 'toGuard', 3, () => play('caxGuard', { volume: 0.7, pan: panAt(u.home.x) }), { maxMs: 2000 });
+  }
+});
 
 export { SEAM_DEPTH };

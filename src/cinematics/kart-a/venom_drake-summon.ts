@@ -18,7 +18,7 @@
 
 import { PAL } from '../../art/palette';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
-import { DEPTH, LOOK_V3, TILE_H, TILE_W, type XY } from '../../view/layout';
+import { DEPTH, TILE_H, TILE_W, type XY } from '../../view/layout';
 import { shake } from '../../vfx/core';
 import { registerCardHook } from '../api';
 import { fade, panAt, play, soundsOfUnit, start, atFrame, atMark } from '../_v3/sound';
@@ -455,24 +455,22 @@ const venomFlipAccent: FlipAccentFn = (ctx, _id, x, y) => {
   sp.release();
 };
 
-if (LOOK_V3) {
-  signatureSummon('venom_drake', (S) => S.ctx.base(), { v3: venomMistV3 });
-  registerCardHook(
-    'venom_drake',
-    'flip',
-    (ctx) =>
-      flipV3With(ctx, (c, id, x, y) => {
-        venomFlipAccent(c, id, x, y);
-        const ev = ctx.ev;
-        c.scene.time.delayedCall(320, () => scarTile(c.scene, zoneKey(ev.player, ev.zone), { x, y }, { level: 1, life: 'brief' }));
-      }, {
-        burst: false,
-        rise: (c, u) => {
-          const v = soundsOfUnit(u);
-          if (v) play(v.land, { volume: 0.6, pan: panAt(u.home.x) });
-          else c.sfx('roarBig', { volume: 0.55 });
-        },
-      }),
-    { name: 'kart-a:venom_drake:flip' },
-  );
-}
+signatureSummon('venom_drake', (S) => S.ctx.base(), { v3: venomMistV3 });
+registerCardHook(
+  'venom_drake',
+  'flip',
+  (ctx) =>
+    flipV3With(ctx, (c, id, x, y) => {
+      venomFlipAccent(c, id, x, y);
+      const ev = ctx.ev;
+      c.scene.time.delayedCall(320, () => scarTile(c.scene, zoneKey(ev.player, ev.zone), { x, y }, { level: 1, life: 'brief' }));
+    }, {
+      burst: false,
+      rise: (c, u) => {
+        const v = soundsOfUnit(u);
+        if (v) play(v.land, { volume: 0.6, pan: panAt(u.home.x) });
+        else c.sfx('roarBig', { volume: 0.55 });
+      },
+    }),
+  { name: 'kart-a:venom_drake:flip' },
+);

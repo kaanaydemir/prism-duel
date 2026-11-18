@@ -9,7 +9,7 @@
 // never used (falls back to the default lunge, v1 films unchanged).
 
 import { PAL } from '../../art/palette';
-import { DEPTH, LOOK_V3, type XY } from '../../view/layout';
+import { DEPTH, type XY } from '../../view/layout';
 import { lightFlash } from '../../view/light';
 import { shake } from '../../vfx/core';
 import { registerStrike } from '../api';
@@ -22,7 +22,6 @@ const DUST = [PAL.stone3, PAL.stone2, PAL.stone1] as const;
 const MARK_DEPTH = DEPTH.CARD_ON_TILE + 2;
 
 registerStrike('seal_leg_r', async (s: StrikeArgs) => {
-  if (!LOOK_V3) return s.base?.();
   const u = s.attacker;
   const sc = s.scene;
   const spr = u.sprite;

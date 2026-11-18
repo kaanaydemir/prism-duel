@@ -15,7 +15,7 @@
 import type Phaser from 'phaser';
 import { PAL } from '../../art/palette';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
-import { DEPTH, LOOK_V3, TILE_H, TILE_W, type XY } from '../../view/layout';
+import { DEPTH, TILE_H, TILE_W, type XY } from '../../view/layout';
 import { registerCardHook } from '../api';
 import { deathV3 } from '../_v3/death';
 import { atFrame } from '../_v3/sound';
@@ -145,4 +145,4 @@ async function venomDeathV3(ctx: Ctx<'destroy'>): Promise<void> {
   });
 }
 
-if (LOOK_V3) registerCardHook('venom_drake', 'destroyed', venomDeathV3, { name: 'kart-a:venom_drake:death' });
+registerCardHook('venom_drake', 'destroyed', venomDeathV3, { name: 'kart-a:venom_drake:death' });

@@ -14,7 +14,7 @@ import type { PlayerId } from '../../engine/types';
 import { pixelText } from '../../ui/text';
 import { Button } from '../../view/Button';
 import { CardSprite } from '../../view/CardSprite';
-import { DEPTH, LOOK_V3, unitDepth } from '../../view/layout';
+import { DEPTH, unitDepth } from '../../view/layout';
 import { ICON, UI_RAMP, haloTex, panelTex, type UiStyle } from '../../view/ui-textures';
 import { safe, tween, tweenValue, wait } from '../../vfx/core';
 import {
@@ -267,7 +267,7 @@ const PAGES: Page[] = [
     lines: [
       'Each player starts with 4000 LP. Bring your opponent\'s LP to 0 to win the duel.',
       'Each player picks a deck of 40 to 80 cards (up to 3 copies of a card) in the deck picker, or plays a preset.',
-      LOOK_V3 ? 'Your opening hand is 5 cards; on your turn you draw a 6th. If you must draw and your deck is empty, you lose.' : 'Your opening hand is 4 cards. If you must draw and your deck is empty, you lose.',
+      'Your opening hand is 5 cards; on your turn you draw a 6th. If you must draw and your deck is empty, you lose.',
       'A player who surrenders loses.',
     ],
     async run(st) {
@@ -325,7 +325,7 @@ const PAGES: Page[] = [
       'Battle: attack with your monsters in Attack Position.',
       'Main 2: everything from Main 1 again (once-per-turn limits still count).',
       'End: keep at most 6 cards in hand; the turn passes to your opponent.',
-      LOOK_V3 ? 'The first player also draws on turn 1, but cannot attack.' : 'The first player does not draw on turn 1 and cannot attack.',
+      'The first player also draws on turn 1, but cannot attack.',
     ],
     async run(st) {
       const s = st.scene;

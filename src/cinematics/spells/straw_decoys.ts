@@ -69,7 +69,7 @@ import { PAL } from '../../art/palette';
 import { PixelCanvas } from '../../art/pixel';
 import { monsterFrame, relightsP2 } from '../../art/textures';
 import type { TileCard } from '../../view/TileCard';
-import { DEPTH, LOOK_V3, type XY, unitDepth, zoneXY } from '../../view/layout';
+import { DEPTH, type XY, unitDepth, zoneXY } from '../../view/layout';
 import type { LightHandle } from '../../view/light';
 import { shake, wait } from '../../vfx/core';
 import { Sparks as PxSparks, attackArrow, lockOn, stopTime } from '../../vfx/combat';
@@ -1013,7 +1013,6 @@ function clearOfArc(ctx: AnyCtx, burst: XY, ds: Decoy[]): XY {
 // ================================================================ hooks
 
 registerCardHook(ID, 'activate', async (ctx: ActCtx) => {
-  if (!LOOK_V3) return ctx.base();
   const ev = ctx.ev;
   const sc = ctx.scene;
   const ds: Decoy[] = [];
@@ -1082,7 +1081,6 @@ registerCardHook(ID, 'activate', async (ctx: ActCtx) => {
  * the decoy; the battle then plays into it (it takes the re-kept hold, with the new marks).
  */
 registerCardHook(ID, 'target', async (ctx) => {
-  if (!LOOK_V3) return ctx.base();
   const ev = ctx.ev;
   const ref = ev.targets[0];
   if (!ref || ref.zone !== 'monster') return ctx.base();

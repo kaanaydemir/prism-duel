@@ -56,7 +56,6 @@
 // No runtime Phaser import (type-only), so the clock is unit-tested in node (tests/duel/showclock.test.ts).
 
 import type Phaser from 'phaser';
-import { LOOK_V3 } from '../view/layout';
 
 /** Phaser.Scenes.Events names (string values; no runtime Phaser import). */
 const EV_UPDATE = 'update';
@@ -133,13 +132,13 @@ export class ShowClock {
    * Shake and hologram follow the full show clock (hit-stop, slow motion) — the v3 look — instead
    * of real time × the user speed (v1: unchanged at 1×). See the header.
    */
-  strictFx: boolean = LOOK_V3;
+  strictFx: boolean = true;
   /**
    * v1 / v2 (default without the look switch): when a freeze ends, the speed it began with comes
    * back until the next setSpeed — the old stopTime / hitStop save-restore, see the header. The v3
    * look: the current speed comes back at once.
    */
-  legacyThaw: boolean = !LOOK_V3;
+  legacyThaw: boolean = false;
   /** Show time (ms): frame delta × scale. Starts at game.loop.time. */
   now: number;
   private _speed = 1;

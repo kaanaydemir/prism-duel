@@ -38,7 +38,7 @@ import { PixelCanvas } from '../../art/pixel';
 import { ambience } from '../../audio/ambience';
 import { sfx } from '../../audio/sfx';
 import type { GameEvent, PlayerId } from '../../engine/types';
-import { BANISH_PAD, type BoardSpot, duelistXY, zoneXY } from '../layout';
+import { BANISH_PAD, BOARD_V4, type BoardSpot, duelistXY, zoneXY } from '../layout';
 import { calmZones } from '../board-calm/art';
 import { REDUCED_MOTION } from '../v3/motion';
 import { TEX } from '../../vfx/core';
@@ -50,6 +50,9 @@ import { WIDE_OX } from '../mobile';
 
 type Img = Phaser.GameObjects.Image;
 type Bob = Phaser.GameObjects.Bob;
+
+/** The tide layer draws the flooded stage itself (BOARD_V4: BoardViewNt creates it). */
+const TIDE_LAYER = BOARD_V4;
 
 const Z = {
   floorTint: NT_DEPTH.platform + 1.4745,
@@ -677,8 +680,9 @@ export function createReactLayer(ctx: NtCtx): NtLayer {
         q.bob.y = y;
       });
     else hide(embers);
-    // ---- tidal bay caustics: each glint forms, peaks and breaks on its own period
-    if (theme === 'water' && k > 0 && motion)
+    // ---- tidal bay caustics: each glint forms, peaks and breaks on its own period. Owner 2026-11-17: the tide layer
+    // (board-nt/tide.ts) floods the stage with its own caustics, glints and swell — these glints would only add noise there
+    if (theme === 'water' && k > 0 && motion && !TIDE_LAYER)
       caustics.forEach((q, i) => {
         const at = causticAt[i];
         if (!at) return;

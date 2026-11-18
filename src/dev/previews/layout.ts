@@ -22,11 +22,9 @@ import { PAL } from '../../art/palette';
 import { monsterAnimKey, monsterTextureKey } from '../../art/textures';
 import type { MonsterAnim } from '../../art/types';
 import { MONSTER_IDS, type MonsterId } from '../../data/cards';
-import { PYLONS } from '../../art/arena-v2/geom';
 import { PileView } from '../../duel/PileView';
 import type { PlayerId } from '../../engine/types';
 import {
-  ARENA_V2,
   ARENA_VARIANT,
   BOARD_BOUNDS,
   BOARD_CENTER,
@@ -47,7 +45,7 @@ import {
   type BoardSpot,
   type Rect,
   cellKind,
-  deckPylonXY,
+  
   duelistXY,
   isoToScreen,
   pileTagAnchor,
@@ -58,9 +56,6 @@ import {
 } from '../../view/layout';
 import { BoardView } from '../../view/BoardView';
 import type { DevPreview } from '../types';
-
-/** How far the v2 referee pylons stand outside the tile grid (art/arena-v2/geom.ts BORDER − 0.14). */
-const PYLON_OUTSET = 0.16;
 
 const SHORT: Record<BoardSpot, string> = { monster: 'M', spellTrap: 'ST', field: 'FLD', graveyard: 'GY', deck: 'DK', banish: 'BAN' };
 const DEFAULT_P1: MonsterId[] = ['stone_sentinel', 'crystal_wyrm', 'magma_titan'];
@@ -84,42 +79,6 @@ function diamond(g: Phaser.GameObjects.Graphics, x: number, y: number, hw: numbe
 /** Width of a pile count tag for `n` cards (PileView: 4 px per digit + 5). */
 function tagWidth(n: number): number {
   return String(n).length * 4 + 5;
-}
-
-/**
- * &corner=1 (v2): what the deck corners look like once PileView and geom.ts adopt the layout
- * contract. Moves the preview's own pile tags to pileTagAnchor and the board's two deck-corner
- * pylons (post, beacon, glow) to deckPylonXY. Dev-only: reaches into PileView's tag objects.
- */
-function applyCornerContract(scene: Phaser.Scene, piles: PileView[]): void {
-  for (const pile of piles) {
-    const pv = pile as unknown as { tag: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.BitmapText };
-    const w = tagWidth(pile.count);
-    const a = pileTagAnchor(pile.player, pile.kind);
-    const x = tagLeft(a, w);
-    // PileView draws the tag graphics at (round(home.x − w/2), round(home.y + 8)): shift it
-    pv.tag.setPosition(x - Math.round(pile.home.x - w / 2), a.y - Math.round(pile.home.y + 8));
-    pv.label.setPosition(x + Math.floor(w / 2), a.y + 5);
-  }
-  let moved = 0;
-  for (const p of [0, 1] as PlayerId[]) {
-    const deck = zoneXY(p, 'deck');
-    const old = PYLONS.reduce((b, q) => (Math.hypot(q.x - deck.x, q.y - deck.y) < Math.hypot(b.x - deck.x, b.y - deck.y) ? q : b));
-    const to = deckPylonXY(p, PYLON_OUTSET);
-    // board-v2/stadium.ts: post at (x − 5, y − 22), beacon at (x − 2, y − 21), glow at (x, y − 17)
-    const spots: [string, number, number][] = [
-      ['arena2:pylon', old.x - 5, old.y - 22],
-      ['arena2:beacon', old.x - 2, old.y - 21],
-      ['arena:glow', old.x, old.y - 17],
-    ];
-    for (const o of scene.children.list) {
-      if (!(o instanceof Phaser.GameObjects.Image)) continue;
-      if (!spots.some(([k, x, y]) => o.texture.key === k && o.x === x && o.y === y)) continue;
-      o.setPosition(o.x + to.x - old.x, o.y + to.y - old.y);
-      moved++;
-    }
-  }
-  console.log(`[layout] corner contract: ${piles.length} pile tags, ${moved}/6 pylon parts moved`);
 }
 
 function label(scene: Phaser.Scene, x: number, y: number, s: string, color: string, bg = '#07070fc0'): Phaser.GameObjects.Text {
@@ -282,11 +241,6 @@ const preview: DevPreview = {
         const a = pileTagAnchor(pile.player, pile.kind);
         g.lineStyle(1, PAL.gold2, 0.9).strokeRect(tagLeft(a, w) - 0.5, a.y - 0.5, w + 1, PILE_TAG_H + 1);
       }
-      if (ARENA_V2)
-        for (const p of [0, 1] as PlayerId[]) {
-          const q = deckPylonXY(p, PYLON_OUTSET);
-          g.lineStyle(1, PAL.mist, 0.9).strokeRect(q.x - 5 - 0.5, q.y - 22 - 0.5, 12, 25);
-        }
     }
     if (showHud) {
       // mock resting hand: five card backs fanned; the visible strip is what normal play shows
@@ -301,7 +255,6 @@ const preview: DevPreview = {
       }
     }
 
-    if (params.get('corner') === '1' && ARENA_V2) applyCornerContract(scene, piles);
 
     // ------------------------------------------------------------ numbers
     const m0 = zoneXY(0, 'monster', 0);

@@ -28,6 +28,8 @@ import { createHologramsLayer } from './holograms';
 import { createLightsLayer } from './lights';
 import { createGlowLayer } from './glow';
 import { createReactLayer } from './react';
+import { createVolcanoLayer, type VolcanoLayer } from './volcano';
+import { createTideLayer, type TideLayer } from './tide';
 import { ShapedHighlights, shapedZone } from './zone-hl';
 import { BOARD_V4 } from '../layout';
 import { createPadsLayer } from './pads';
@@ -51,12 +53,18 @@ export class BoardViewNt implements ArenaViewApi {
   private unobserve: (() => void) | null = null;
   /** arena v4 step 4 (8c): the field seal / deck / graveyard pads highlight in their own shape */
   private readonly shaped: ShapedHighlights | null;
+  /** Volkan Arenası on the graphite stage (BOARD_V4): the torn lava network replaces the calm engine's seam lava. */
+  private readonly volcano: VolcanoLayer | null;
+  /** Gelgit Körfezi on the graphite stage (BOARD_V4): the flooded stage, its cascades and pools. */
+  private readonly tideLayer: TideLayer | null;
 
   constructor(scene: Phaser.Scene, opts: BoardViewCalmOptions = {}) {
     this.scene = scene;
-    this.calm = new BoardViewCalm(scene, { ...opts, skip: { ...NT_SKIP, ...opts.skip } });
+    this.calm = new BoardViewCalm(scene, { ...opts, theme: BOARD_V4 ? 'normal' : opts.theme, skip: { ...NT_SKIP, ...(BOARD_V4 ? { lava: true } : {}), ...opts.skip } });
     this.shaped = BOARD_V4 ? new ShapedHighlights(scene) : null;
     const ctx = makeCtx(scene, this.objs);
+    this.volcano = BOARD_V4 ? createVolcanoLayer(ctx) : null;
+    this.tideLayer = BOARD_V4 ? createTideLayer(ctx) : null;
     // far → near (the order is only bookkeeping: depth comes from NT_DEPTH)
     // owner decision 2026-11-02: no spectators / seats / grandstands in the hall (stands + crowd layers off);
     // the hall floor, walls, fog and torches stay. createStandsLayer / createCrowdLayer are kept for a later return.
@@ -74,7 +82,13 @@ export class BoardViewNt implements ArenaViewApi {
       ...(BOARD_V4 ? [createGlowLayer(ctx)] : []),
       // arena v4 step 4: the reactive arena + living details (turn sweep, shockwaves, low-LP alarm, field ambience, idle life)
       ...(BOARD_V4 ? [createReactLayer(ctx)] : []),
+      ...(this.volcano ? [this.volcano] : []),
+      ...(this.tideLayer ? [this.tideLayer] : []),
     ];
+    if (this.volcano && opts.theme === 'volcano') {
+      void this.calm.setTheme('volcano', false, opts.volcanoFrom ?? null);
+      void this.volcano.setTheme('volcano', false, opts.volcanoFrom ?? null);
+    }
     // the board is built dark for the intro (BoardView lights:false): the layers start dark too
     if (opts.lights === false) for (const l of this.layers) void l.setLights?.(false, false);
     if (NT_DEBUG > 0) drawNtDebug(scene, ctx.add);
@@ -131,7 +145,17 @@ export class BoardViewNt implements ArenaViewApi {
   }
 
   setTheme(theme: ArenaTheme, animate = true, from: PlayerId | null = null): Promise<void> {
+    if (this.volcano) return Promise.all([this.calm.setTheme(theme, animate, from), this.volcano.setTheme(theme, animate, from)]).then(() => undefined);
     return this.calm.setTheme(theme, animate, from);
+  }
+
+  get tide(): boolean {
+    return this.tideLayer?.on ?? false;
+  }
+
+  /** Gelgit Körfezi: the stage floods from `from`'s field seal (or drains back into it). */
+  setTide(on: boolean, animate = true, from: PlayerId | null = null): Promise<void> {
+    return this.tideLayer ? this.tideLayer.setTide(on, animate, from) : Promise.resolve();
   }
 
   async setLights(on: boolean, animate = true): Promise<void> {

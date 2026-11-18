@@ -21,9 +21,8 @@ function frame(art = base, anim: (typeof MONSTER_ANIMS)[number] = 'idle', f = 0,
 }
 
 describe('relight shim (dev only)', () => {
-  it('opts in to the P2 relight sheet; the shipped magus stays mirror', () => {
+  it('opts in to the P2 relight sheet', () => {
     expect(shim.p2).toBe('relight');
-    expect(base.p2 ?? 'mirror').toBe('mirror');
   });
 
   it('P1 draws (no DrawOpts) are pixel-identical to the original art, every anim and frame', () => {

@@ -9,7 +9,7 @@
 // setSpeed / hitStop / shake below delegate to it.
 
 import Phaser from 'phaser';
-import { DEPTH, GAME_H, GAME_W, LOOK_V3 } from '../view/layout';
+import { DEPTH, GAME_H, GAME_W } from '../view/layout';
 import { PixelCanvas } from '../art/pixel';
 import { showClock } from '../duel/showclock';
 
@@ -84,7 +84,7 @@ export const WORLD_FLASH_DEPTH = DEPTH.HUD - 1;
  * Without the look switch (v1, and the v2 arena) the game stays exactly as it was: a flash sits at
  * the depth its caller gives, so one in the HUD band washes the HUD, hand and banners as before.
  */
-export const FLASH_WASHES_HUD: boolean = !LOOK_V3;
+export const FLASH_WASHES_HUD: boolean = false;
 
 /**
  * The depth of the old full-screen flashes, which sat on the overlay band (DEPTH.OVERLAY − 1),

@@ -98,6 +98,15 @@ const ST1: Record<string, Scenario> = {
     },
     steps: [act('tidal_bay', 0)],
   },
+  st1BayEbb: {
+    desc: 'Gelgit Körfezi leaves: Arınma Dalgası destroys it, the tide ebbs back into the seal, the auras end',
+    stage: {
+      zones: Z5,
+      p0: { hand: ['purging_wave'], monsters: [null, 'ember_wolf', 'stone_sentinel'] },
+      p1: { field: 'tidal_bay', monsters: [null, 'coral_serpent', 'storm_hawk'] },
+    },
+    steps: [act('purging_wave', 0, { target: card(1, 'field', 0) })],
+  },
   st1Cavern: {
     desc: 'Gölge Mağarası: KARANLIK / TOPRAK +300, IŞIK -300 across both fields',
     stage: {

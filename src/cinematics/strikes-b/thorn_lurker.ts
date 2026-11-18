@@ -24,7 +24,6 @@ import type { SfxName, SfxOpts } from '../../audio/sfx';
 import type { GameEvent } from '../../engine/types';
 import { fx, registerCardHook, registerStrike } from '../api';
 import {
-  ARENA_V2,
   E,
   Sparks,
   TAU,
@@ -249,10 +248,6 @@ async function thornStrike(s: StrikeArgs): Promise<void> {
     // arena v2: the magenta thorns along the crawling vines catch the light — a faint glow strip
     // follows the vine front over the floor
     const thornGlow = lightBeam(sc, root, root, PAL.mag3, 0, { air: false, floor: { from: root, to: root }, floorWidth: 8, intensity: 0.6, shimmer: 0.5 });
-    if (ARENA_V2) void animate(sc, grow, (t) => {
-      const f = vlerp(root, floor, E.outQ(t));
-      thornGlow.setEnds(root, f, { from: root, to: f });
-    });
     impactP = thornVines(sc, root, hitPt, {
       grow,
       lift,
@@ -616,10 +611,6 @@ registerCardHook('thorn_lurker', 'effect', async (ctx) => {
   // wide bridge)
   const bMs = travelMs(vlen(vsub(at, from)), 0, 2.6, 300, 460, 640);
   const ridge = lightPool(sc, from.x, from.y, { color: PAL.mag3, spill: PAL.leaf2, radius: 16, intensity: 0.8, anim: 'flicker', fadeIn: 80 });
-  if (ARENA_V2) void animate(sc, bMs, (t) => {
-    const p = vlerp(from, at, 0.35 * t + 0.65 * t * t);
-    ridge.setPosition(p.x, p.y);
-  }).then(() => ridge.fadeOut(200));
   await burrow(sc, from, at, bMs);
   void ctx.focus({ x: at.x, y: at.y - 18 }, { zoom: 1.08, ms: 260, pan: 0.35 });
   // erupt, wrap, crush — then it shatters inside the vines

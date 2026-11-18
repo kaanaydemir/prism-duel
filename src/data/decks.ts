@@ -37,7 +37,8 @@ export function detectDeckPool(): DeckPool {
     let deck: unknown = g.__NEON_DECK;
     if (typeof location !== 'undefined' && typeof URLSearchParams !== 'undefined') {
       const q = new URLSearchParams(location.search);
-      if (look !== 'v1' && look !== 'v3') look = q.get('look');
+      // Browser default look is v3 (same rule as layout.ts detectLook): no ?look param means v3.
+      if (look !== 'v1' && look !== 'v3') look = q.get('look') === 'v1' ? 'v1' : 'v3';
       if (deck !== 'expanded' && deck !== 'default') deck = q.get('deck');
     }
     return look === 'v3' && deck === 'expanded' ? 'expanded' : 'default';

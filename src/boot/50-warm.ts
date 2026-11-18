@@ -14,7 +14,6 @@
 // an event observer, imported lazily like the warming).
 import { CARDS, isMonster, type MonsterId } from '../data/cards';
 import { warmP2Sheet } from '../art/textures';
-import { LOOK_V3 } from '../view/layout';
 import type { BootStep } from './types';
 import { bootSheetPlan } from './20-monsters';
 
@@ -28,7 +27,7 @@ const step: BootStep = {
     void import('../duel/warm')
       .then((m) => m.warmFirstUse(scene, { sync, ids }))
       .catch((e) => console.error('[boot] warm failed', e));
-    if (LOOK_V3 && !sync)
+    if (!sync)
       void import('../cinematics/_core/registry')
         .then((r) =>
           r.registerObserver((ev, ctx) => {

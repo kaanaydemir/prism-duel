@@ -18,7 +18,7 @@ import { lightBeam, lightFlash, lightPool } from '../../view/light';
 import { shake, wait } from '../../vfx/core';
 import { Raster, Sparks, boltPath, chasm, floorRing, onFrame, run } from '../../vfx/setpieces';
 import { fx, registerCardHook } from '../api';
-import { ARENA_V2, TK, type EvOf, all, guardRemap, lerpXY, live, rnd, rr, seed } from '../battle/_kit';
+import { TK, type EvOf, all, guardRemap, lerpXY, live, rnd, rr, seed } from '../battle/_kit';
 import { trapExit, trapOpening } from './_opening';
 // ---- the v3 look (lane A5-A step A-5, V3_A5_A): ./_chasm_v3.ts (docs/v3/A5_PLAN.md §3.4)
 import { V3_A5_A } from '../../view/v3flags';
@@ -157,7 +157,7 @@ registerCardHook(
       void shake(sc, 260, 1);
       // (arena v2: the crack has further to run across the wider board)
       const fd = Math.hypot(home.x - from.x, home.y - from.y);
-      await fissure(sc, { x: from.x, y: from.y + 2 }, home, ARENA_V2 ? Math.min(460, Math.max(280, 140 + fd * 1.1)) : 280);
+      await fissure(sc, { x: from.x, y: from.y + 2 }, home, 280);
     }
     // the monster flinches as the ground under it gives way
     if (u) {

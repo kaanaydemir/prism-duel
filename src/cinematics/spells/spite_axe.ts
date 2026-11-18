@@ -71,7 +71,7 @@ import { PAL } from '../../art/palette';
 import { currentAtk } from '../../engine/query';
 import { crackPath } from '../../art/spellmotifs-v3';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
-import { DEPTH, LOOK_V3, type XY, panelRect, zoneXY } from '../../view/layout';
+import { DEPTH, type XY, panelRect, zoneXY } from '../../view/layout';
 import { shake, wait } from '../../vfx/core';
 import { E, Raster, freeze, lerp, onFrame, qbez, run, spriteBox } from '../../vfx/setpieces';
 import { frameRGBA } from '../../art/atlas';
@@ -309,7 +309,6 @@ async function dirtRing(sc: Phaser.Scene, ras: Raster, at: XY, r0: number, n: nu
 // ================================================================ ACTIVATE
 
 registerCardHook(ID, 'activate', async (ctx: ActCtx) => {
-  if (!LOOK_V3) return ctx.base();
   const ev = ctx.ev;
   const sc = ctx.scene;
   const run0 = fx.resolutionRun(ctx);
@@ -343,7 +342,6 @@ registerCardHook(ID, 'activate', async (ctx: ActCtx) => {
 const forging = new Set<Uid>();
 
 registerCardHook(ID, 'equip', async (ctx: EquipCtx) => {
-  if (!LOOK_V3) return ctx.base();
   const ev = ctx.ev;
   const u = ctx.unit(ev.targetUid);
   const ci = ctx.findType('statChange', (e) => e.uid === ev.targetUid, { until: (e) => e.type !== 'statChange' });
@@ -1321,7 +1319,7 @@ function claimTiles(ctx: AnyCtx): void {
   field.release = (uid: Uid) => {
     const r = orig(uid);
     const c = lastCtx;
-    if (ownRelease > 0 || !LOOK_V3 || !c || !r.tile || !r.tile.active) return r;
+    if ((ownRelease > 0) || !c || !r.tile || !r.tile.active) return r;
     if ((r.tile.cardId ?? c.state.cards[uid]?.cardId) !== ID) return r;
     const tile = r.tile;
     LAST_ZONE.set(uid, { player: tile.player, zone: -1, at: { x: R(tile.home.x), y: R(tile.home.y) } });
@@ -1340,7 +1338,6 @@ function releaseOwn(ctx: AnyCtx, uid: Uid): { tile: TileCard | null; unit: Monst
 }
 
 registerObserver((_ev, ctx) => {
-  if (!LOOK_V3) return;
   try {
     claimTiles(ctx);
     ensureAuras(ctx);
@@ -1362,8 +1359,8 @@ registerEvent(
   'statChange',
   async (ctx) => {
     const e = ctx.ev as StatEv;
-    if (LOOK_V3 && e.atk < e.prevAtk && LAUNCH.has(e.uid)) await LAUNCH.get(e.uid);
-    if (LOOK_V3 && e.atk < e.prevAtk) {
+    if ((e.atk < e.prevAtk) && LAUNCH.has(e.uid)) await LAUNCH.get(e.uid);
+    if (e.atk < e.prevAtk) {
       // played BEFORE its axe's return (a mass wipe's pass plays the stat first): the return scene rolls it at the
       // launch, the aura stays on until then
       const aura = [...AURAS.values()].find((a) => a.unit.uid === e.uid);
@@ -1483,7 +1480,6 @@ function emberCrumble(sc: Phaser.Scene, img: Phaser.GameObjects.Image, pc: { w: 
 }
 
 registerCardHook(ID, 'destroyed', async (ctx: DestroyCtx) => {
-  if (!LOOK_V3) return ctx.base();
   const ev = ctx.ev;
   if (ev.location !== 'spellTrap') return ctx.base();
   const field = ctx.views.field;
@@ -1502,7 +1498,7 @@ const LAST_ZONE = new Map<Uid, { player: PlayerId; zone: number; at: XY }>();
 
 registerLaneE(
   'toDeck',
-  (ctx) => LOOK_V3 && ctx.ev.from === 'spellTrap' && ctx.ev.cardId === ID,
+  (ctx) => (ctx.ev.from === 'spellTrap') && ctx.ev.cardId === ID,
   (ctx) => returnScene(ctx),
 );
 

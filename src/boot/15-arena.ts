@@ -1,8 +1,6 @@
-import { buildArenaSharedTextures, buildArenaTextures } from '../art/arena';
-import { buildArenaV2Textures } from '../art/arena-v2';
+import { buildArenaSharedTextures } from '../art/arena';
 import { buildCalmTextures } from '../view/board-calm/textures';
 import { ARENA_NT } from '../view/board-nt/flag';
-import { ARENA_V2, LOOK_V3 } from '../view/layout';
 import type { BootStep } from './types';
 
 /**
@@ -18,9 +16,7 @@ const step: BootStep = {
   order: 15,
   build: (scene) => {
     // the Neon Tower arena draws its own slab and background: its calm engine needs only the pad / mask atlas (J1: ~1.3 MB not uploaded)
-    if (LOOK_V3) buildCalmTextures(scene, ARENA_NT ? { slab: false, bg: false } : {});
-    else if (ARENA_V2) buildArenaV2Textures(scene);
-    else buildArenaTextures(scene);
+    buildCalmTextures(scene, ARENA_NT ? { slab: false, bg: false } : {});
     buildArenaSharedTextures(scene);
   },
 };

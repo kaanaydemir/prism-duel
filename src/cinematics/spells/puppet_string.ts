@@ -46,7 +46,7 @@ import type { CardId } from '../../data/cards';
 import type { GameEvent, GameState, PlayerId, Uid } from '../../engine/types';
 import { PAL } from '../../art/palette';
 import { PixelCanvas } from '../../art/pixel';
-import { BOARD_COLS, BOARD_ROWS, DEPTH, LOOK_V3, type Rect, type XY, isoToScreen, screenToIso, unitDepth, zoneXY } from '../../view/layout';
+import { BOARD_COLS, BOARD_ROWS, DEPTH, type Rect, type XY, isoToScreen, screenToIso, unitDepth, zoneXY } from '../../view/layout';
 import { KEEP_OUT, SCREENS } from '../../view/board-nt/layout-nt';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import type { FieldView } from '../../duel/FieldView';
@@ -1691,7 +1691,6 @@ async function lastSpark(sc: Phaser.Scene, from: XY, to: XY, ms: number): Promis
 // The activation: the common v3 opening, the orb to the cross point, then the take (the controlChange event,
 // played through the lane-E dispatcher below with the orb hint); the spent card leaves meanwhile.
 registerCardHook(ID, 'activate', async (ctx: ActCtx) => {
-  if (!LOOK_V3) return ctx.base();
   const ev = ctx.ev;
   const sc = ctx.scene;
   const run0 = fx.resolutionRun(ctx);
@@ -1728,13 +1727,13 @@ registerCardHook(ID, 'activate', async (ctx: ActCtx) => {
 
 registerLaneE(
   'controlChange',
-  (ctx) => LOOK_V3 && ctx.ev.reason === 'take' && ctx.ev.sourceUid !== null && ctx.cardId(ctx.ev.sourceUid) === ID,
+  (ctx) => (ctx.ev.reason === 'take') && ctx.ev.sourceUid !== null && ctx.cardId(ctx.ev.sourceUid) === ID,
   (ctx) => takeScene(ctx),
 );
 
 registerLaneE(
   'controlChange',
-  (ctx) => LOOK_V3 && ctx.ev.reason === 'return' && (ctx.ev.sourceUid === null ? borrowedByPuppet(ctx.state, ctx.ev.uid) : ctx.cardId(ctx.ev.sourceUid) === ID),
+  (ctx) => (ctx.ev.reason === 'return') && (ctx.ev.sourceUid === null ? borrowedByPuppet(ctx.state, ctx.ev.uid) : ctx.cardId(ctx.ev.sourceUid) === ID),
   (ctx) => returnScene(ctx),
 );
 
@@ -1743,7 +1742,7 @@ registerEvent(
   'destroy',
   async (ctx: DestroyCtx) => {
     const ev = ctx.ev;
-    if (!LOOK_V3 || ev.reason !== 'rule' || ev.location !== 'monster' || ev.sourceUid !== null || !borrowedByPuppet(ctx.state, ev.uid)) return ctx.base();
+    if ((ev.reason !== 'rule') || ev.location !== 'monster' || ev.sourceUid !== null || !borrowedByPuppet(ctx.state, ev.uid)) return ctx.base();
     try {
       await noRoomScene(ctx);
     } catch (e) {

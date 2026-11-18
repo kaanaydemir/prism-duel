@@ -48,6 +48,54 @@ function shown(s: Unit): boolean {
   return s.active && s.visible && s.alpha > 0.3;
 }
 
+const SIGIL_W = 60;
+const SIGIL_H = 30;
+const SIGIL_RX = 24;
+const SIGIL_RY = 12;
+
+/**
+ * The fire sigil (Volkan Arenası's mark on a blessed FIRE monster): a molten iso ring with a deep red lip, an inner dotted ring,
+ * six runes (short bright arcs) circling it, a slow heartbeat that brightens the whole ring. `step` 3 … 1 = igniting / cooling
+ * (dimmer, fewer runes), 0 = burning.
+ */
+export function paintSigil(r: Raster, cx: number, cy: number, el: number, step: number): void {
+  const beat = (el % 1400) / 1400;
+  const pulse = step > 0 ? 0 : beat < 0.08 ? 2 : beat < 0.22 ? 1 : 0;
+  // a 3-px molten band: deep red outer lip, the hot middle, a darker inner edge (one step hotter on the heartbeat)
+  const band = (rx: number, ry: number, tone: number): void => {
+    const N = Math.ceil(rx * 5);
+    for (let a = 0; a < N; a++) {
+      const th = (a / N) * Math.PI * 2;
+      r.px(Math.round(cx + Math.cos(th) * rx), Math.round(cy + Math.sin(th) * ry), tone);
+    }
+  };
+  const T = [PAL.fire0, PAL.fire1, PAL.fire2, PAL.fire3, PAL.fire4, PAL.gold4] as const;
+  const lv = (n: number): number => T[Math.max(0, Math.min(5, n + pulse - step))];
+  band(SIGIL_RX + 1, SIGIL_RY + 0.5, lv(1));
+  band(SIGIL_RX, SIGIL_RY, lv(3));
+  band(SIGIL_RX - 1, SIGIL_RY - 0.5, lv(2));
+  // the inner dotted ring
+  if (step < 3) {
+    const N = 40;
+    for (let a = 0; a < N; a += 2) {
+      const th = (a / N) * Math.PI * 2 - el / 2400;
+      r.px(Math.round(cx + Math.cos(th) * (SIGIL_RX - 5)), Math.round(cy + Math.sin(th) * (SIGIL_RY - 2.5)), lv(1));
+    }
+  }
+  if (step >= 3) return;
+  // runes: six bright arcs circling the band (one turn every 3.6 s), the head of each white-hot
+  const runes = step > 0 ? 3 : 6;
+  const rot = (el / 3600) * Math.PI * 2;
+  for (let k = 0; k < runes; k++) {
+    const a0 = rot + (k / runes) * Math.PI * 2;
+    for (let j = 0; j < 6; j++) {
+      const th = a0 - j * 0.06;
+      const c = j === 0 ? (pulse ? PAL.white : PAL.gold4) : j < 3 ? PAL.fire4 : PAL.fire3;
+      for (const d of [0, -1]) r.px(Math.round(cx + Math.cos(th) * (SIGIL_RX + d)), Math.round(cy + Math.sin(th) * (SIGIL_RY + d / 2)), c);
+    }
+  }
+}
+
 /** FIRE on the volcano field (see the header). */
 export function flameAuraV3(scene: Phaser.Scene, unit: MonsterUnit): Disposable {
   const s = unit.sprite;
@@ -57,6 +105,8 @@ export function flameAuraV3(scene: Phaser.Scene, unit: MonsterUnit): Disposable 
   const H = 30;
   const front = new Raster(scene, 0, 0, W, H, s.depth + 0.5);
   const back = new Raster(scene, 0, 0, W, H, s.depth - 0.5);
+  // the volcano's sigil under its feet (a molten ring, its runes circling; drawn on the floor, under the body)
+  const sigil = new Raster(scene, 0, 0, SIGIL_W, SIGIL_H, s.depth - 0.7);
   let light: LightHandle | null = null;
   const embers: { x: number; y: number; born: number; life: number; drift: number }[] = [];
   let nextEmber = 260;
@@ -71,6 +121,7 @@ export function flameAuraV3(scene: Phaser.Scene, unit: MonsterUnit): Disposable 
     stop();
     front.destroy();
     back.destroy();
+    sigil.destroy();
     const l = light;
     light = null;
     if (l && l.alive) void l.fadeOut(220);
@@ -89,10 +140,18 @@ export function flameAuraV3(scene: Phaser.Scene, unit: MonsterUnit): Disposable 
     }
     front.img.setDepth(s.depth + 0.5);
     back.img.setDepth(s.depth - 0.5);
+    sigil.img.setDepth(s.depth - 0.7);
+    sigil.begin();
+    if (sil) {
+      const h = unit.home;
+      sigil.moveTo(Math.round(h.x) - SIGIL_W / 2, Math.round(h.y) - SIGIL_H / 2);
+      paintSigil(sigil, Math.round(h.x), Math.round(h.y), el, step);
+    }
+    sigil.end();
     // the pad's firelight (faint; breathes) once the body is shown
     if (!light && sil && dying < 0) {
       const h = unit.home;
-      light = lightPool(scene, h.x, h.y, { color: PAL.fire3, spill: PAL.fire1, radius: 15, floorY: h.y, intensity: 0.45, anim: 'breathe', fadeIn: 240 });
+      light = lightPool(scene, h.x, h.y, { color: PAL.fire3, spill: PAL.fire1, radius: 20, floorY: h.y, intensity: 0.75, anim: 'flicker', fadeIn: 240 });
     }
     if (light && dying >= 0) {
       const l = light;

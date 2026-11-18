@@ -12,7 +12,6 @@
 // globalThis.__NEON_MOTION = 'reduced' | 'full' before this module loads. It is a v3 setting: in v1
 // it is always false (v1 stays exactly as it is).
 
-import { LOOK_V3 } from '../layout';
 
 // ---------------------------------------------------------------- reduced motion
 
@@ -48,7 +47,7 @@ function detectReducedMotion(): boolean {
   } catch {
     /* ignore */
   }
-  return resolveReducedMotion({ look: LOOK_V3, mediaReduce, param, override });
+  return resolveReducedMotion({ look: true, mediaReduce, param, override });
 }
 
 /** Reduced motion is asked for (v3 only; decided once at module init). */

@@ -10,7 +10,6 @@ import { battleNumbers, battlePlates, currentAtk, currentDef } from '../../engin
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import { registerObserver } from '../api';
 import type { CinematicContext } from '../api';
-import { LOOK_V3 } from '../../view/layout';
 
 /** Units whose plate shows battle-only numbers right now. */
 const tinted = new Set<MonsterUnit>();
@@ -54,8 +53,6 @@ export function restoreBattlePlates(state: Parameters<typeof currentAtk>[0]): vo
   }
 }
 
-if (LOOK_V3) {
-  registerObserver((ev, ctx) => {
-    if (ev.type === 'attackNegated' || ev.type === 'phaseChange' || ev.type === 'turnStart' || ev.type === 'gameOver') restoreBattlePlates(ctx.stateNext);
-  });
-}
+registerObserver((ev, ctx) => {
+  if (ev.type === 'attackNegated' || ev.type === 'phaseChange' || ev.type === 'turnStart' || ev.type === 'gameOver') restoreBattlePlates(ctx.stateNext);
+});

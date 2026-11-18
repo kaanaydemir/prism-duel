@@ -52,7 +52,7 @@ import { AX, GY, skeleton } from '../../art/monsters-v3/steppe_spiralhorn-rig';
 import { AF, DEATH_FOLD, DEATH_GRASS0, DEATH_WIND0, framePoints, framePose } from '../../art/monsters-v3/steppe_spiralhorn-anims';
 import { APEX_PITCH } from '../../audio/v3/steppe_spiralhorn';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
-import { DEPTH, LOOK_V3, unitDepth, type XY } from '../../view/layout';
+import { DEPTH, unitDepth, type XY } from '../../view/layout';
 import { lightFlash } from '../../view/light';
 import { shake } from '../../vfx/core';
 import { animate, onFrame, setCombatSfx, sleep, stopTime } from '../../vfx/combat';
@@ -526,7 +526,6 @@ async function blocked(s: StrikeArgs, stop: XY, home: XY, depth0: number, pan: n
 registerStrike(
   ID,
   async (s: StrikeArgs) => {
-    if (!LOOK_V3) return s.base?.();
     const u = s.attacker;
     if (!u.has('attack') || !u.has('summon')) return s.base?.();
     await sicrayis(s);
@@ -539,7 +538,7 @@ registerCardHook(
   ID,
   'attackDeclare',
   async (ctx) => {
-    if (LOOK_V3) warmPoses(ID, ctx.ev.player as PlayerId, ['death', 'hitHeavy']);
+    warmPoses(ID, ctx.ev.player as PlayerId, ['death', 'hitHeavy']);
     return ctx.base();
   },
   { priority: 20, name: 'kartc:steppe_spiralhorn:warm' },
@@ -551,7 +550,6 @@ registerCardHook(
   ID,
   'defend',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     const ev = ctx.ev;
     const sc = ctx.scene;
     const u = ev.targetUid !== null ? ctx.unit(ev.targetUid) : null;
@@ -584,14 +582,12 @@ registerCardHook(
 );
 
 // the horns come down into the pike fence: the clack on the last in-between frame of the guard
-if (LOOK_V3) {
-  registerObserver((ev: GameEvent, ctx) => {
-    if (ev.type !== 'positionChange' || ev.position !== 'defense') return;
-    const u = ctx.unit(ev.uid);
-    if (!u || u.cardId !== ID) return;
-    atFrame(u, 'toGuard', 3, () => play('sshGuardClack', { volume: 0.55, pan: panAt(u.home.x), pitch: 1.08 }), { maxMs: 2000 });
-  });
-}
+registerObserver((ev: GameEvent, ctx) => {
+  if (ev.type !== 'positionChange' || ev.position !== 'defense') return;
+  const u = ctx.unit(ev.uid);
+  if (!u || u.cardId !== ID) return;
+  atFrame(u, 'toGuard', 3, () => play('sshGuardClack', { volume: 0.55, pan: panAt(u.home.x), pitch: 1.08 }), { maxMs: 2000 });
+});
 
 // ================================================================ summon: the gust, the grass wave, the long bound
 
@@ -732,7 +728,7 @@ registerCardHook(
   ID,
   'summon',
   async (ctx) => {
-    if (!LOOK_V3 || ctx.ev.from === 'field') return ctx.base();
+    if (ctx.ev.from === 'field') return ctx.base();
     await runSummon(ctx as SummonCtx, async () => undefined, steppeEntrance);
   },
   { name: 'kartc:steppe_spiralhorn:summon' },
@@ -840,7 +836,6 @@ registerCardHook(
   ID,
   'destroyed',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     const c = ctx as CinematicContext<Extract<GameEvent, { type: 'destroy' }>>;
     if (c.ev.location !== 'monster' || sourceOwnsDeath(c as never)) return ctx.base();
     const u = ctx.views.field.unit(c.ev.uid);
