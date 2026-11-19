@@ -2,13 +2,19 @@
 // (MONSTERS / SPELLS / TRAPS), laid out as lines (a section header, then rows of `perRow` entries),
 // and the scroll / keyboard maths over those lines. No Phaser here: tests/deck/builder_model.test.ts.
 
-import { CARDS, type CardId } from '../../data/cards';
+import { CARDS, isFusionMonster, type CardId } from '../../data/cards';
 import { copiesOf } from '../../data/decks';
 import { sortPool } from './pool';
 
-export type DeckSection = 'monster' | 'spell' | 'trap';
-export const SECTIONS: readonly DeckSection[] = ['monster', 'spell', 'trap'];
-export const SECTION_LABEL: Record<DeckSection, string> = { monster: 'MONSTERS', spell: 'SPELLS', trap: 'TRAPS' };
+/** 'fusion' (additive): the Fusion Deck — Fusion Monsters, listed last and counted on their own (0..FUSION_DECK_MAX). */
+export type DeckSection = 'monster' | 'spell' | 'trap' | 'fusion';
+export const SECTIONS: readonly DeckSection[] = ['monster', 'spell', 'trap', 'fusion'];
+export const SECTION_LABEL: Record<DeckSection, string> = { monster: 'MONSTERS', spell: 'SPELLS', trap: 'TRAPS', fusion: 'FUSION DECK' };
+
+/** The section a card belongs to. */
+export function sectionOf(id: CardId): DeckSection {
+  return isFusionMonster(id) ? 'fusion' : CARDS[id].kind;
+}
 
 export interface DeckEntry {
   id: CardId;
@@ -30,15 +36,15 @@ export interface LineMetrics {
 export function deckSections(cards: readonly CardId[]): Record<DeckSection, DeckEntry[]> {
   const ids = [...new Set(cards)].filter((id) => CARDS[id]);
   const sorted = sortPool(ids.map((id) => CARDS[id]), 'level').map((d) => d.id);
-  const out: Record<DeckSection, DeckEntry[]> = { monster: [], spell: [], trap: [] };
-  for (const id of sorted) out[CARDS[id].kind].push({ id, n: copiesOf(cards, id) });
+  const out: Record<DeckSection, DeckEntry[]> = { monster: [], spell: [], trap: [], fusion: [] };
+  for (const id of sorted) out[sectionOf(id)].push({ id, n: copiesOf(cards, id) });
   return out;
 }
 
 /** Every distinct card in list order (monsters, spells, traps): the deck cursor indexes this. */
 export function deckEntries(cards: readonly CardId[]): DeckEntry[] {
   const s = deckSections(cards);
-  return [...s.monster, ...s.spell, ...s.trap];
+  return [...s.monster, ...s.spell, ...s.trap, ...s.fusion];
 }
 
 /** Header + rows per non-empty section. */

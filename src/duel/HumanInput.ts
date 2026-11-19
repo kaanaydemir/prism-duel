@@ -31,14 +31,14 @@
 // in the inspect panel (inspect.showPile: counts only, nothing hidden).
 
 import Phaser from 'phaser';
-import { CARDS, cardDef, isMonster, isSpell, isTrap, tributesFor, type CardId } from '../data/cards';
+import { CARDS, cardDef, fusionMaterials, isMonster, isSpell, isTrap, tributesFor, type CardId } from '../data/cards';
 import { currentAtk, currentDef, describePending, isMainPhase, legalActions } from '../engine';
 import { freeMonsterZones, freeSpellTrapZones } from '../engine/query';
 import type { Action, GameState, PlayerId, Uid, ZoneKind, ZoneRef } from '../engine/types';
 import type { MonsterUnit } from './MonsterUnit';
 import { PAL, PLAYER_COLOR } from '../art/palette';
 import { sfx } from '../audio/sfx';
-import { GAME_W, LOOK_V3, panelRect, type BoardSpot, type XY } from '../view/layout';
+import { FUSION_ZONE, GAME_W, LOOK_V3, fusionDeckXY, panelRect, type BoardSpot, type XY } from '../view/layout';
 import { V3_A6_B } from '../view/v3flags';
 import { AimMarks, SelectMark, ackClick, rejectClick } from '../view/v3/TargetMarks';
 import { gravePanelOpen, openGravePanel } from '../view/v3/GravePanel';
@@ -160,6 +160,11 @@ export class HumanInput {
       const hp = this.hoverPick;
       const hit = LOOK_V3 && hp && hp.x === p.x && hp.y === p.y && hp.ctx === this.zoneHover && hp.st === this.state && hp.mode === this.mode ? hp.hit : this.pick(p.x, p.y);
       if (!hit) return;
+      // a click inspects what it lands on too (touch has no hover): your own set cards show their real face
+      if (LOOK_V3) {
+        this.hoverKey = '';
+        this.hover(p.x, p.y);
+      }
       if (V3_A6_B) {
         this.lastClick = { x: p.x, y: p.y };
         // K11: any graveyard opens its panel (idle, a pick, the computer's turn — not a cinematic)
@@ -511,6 +516,75 @@ export class HumanInput {
     return null;
   }
 
+  /**
+   * Prism Fusion: (1) which Fusion Monster — asked only when more than one can be made; (2) the materials — asked only when
+   * the choice matters (identical hand cards are interchangeable: they are never asked one by one). Each pick shows the
+   * remaining candidate materials (HAND / FIELD n) in the CardPicker; the options narrow until one way is left.
+   */
+  private async fusionMaterialsFlow(cands: Extract<Action, { type: 'activateSpell' }>[], spellId: CardId): Promise<Action | null> {
+    const s = this.state!;
+    const p = this.player;
+    const me = s.players[p];
+    type Fu = Extract<NonNullable<Extract<Action, { type: 'activateSpell' }>['target']>, { kind: 'fusion' }>;
+    const tgt = (a: Extract<Action, { type: 'activateSpell' }>) => a.target as Fu;
+    const spell = CARDS[spellId].name;
+    // 1. the Fusion Monster
+    const fusionIds = [...new Set(cands.map((a) => tgt(a).fusionUid))];
+    let fu = fusionIds[0];
+    if (fusionIds.length > 1) {
+      this.setMode('cards');
+      const pick = await pickCard(this.scene, `${spell}: which Fusion Monster?`, fusionIds.map((u) => ({ uid: u, cardId: s.cards[u].cardId, owner: p, label: 'FUSION DECK' })), {
+        subtitle: 'It is Special Summoned from your Fusion Deck',
+      });
+      if (pick === null) return null;
+      fu = pick;
+    }
+    let list = cands.filter((a) => tgt(a).fusionUid === fu);
+    const fusionName = CARDS[s.cards[fu].cardId].name;
+    // the material signature: field uids as they are, hand cards by card id (copies in the hand are the same choice)
+    const sig = (a: Extract<Action, { type: 'activateSpell' }>, taken: readonly Uid[] = []) =>
+      tgt(a)
+        .materials.filter((u) => !taken.includes(u))
+        .map((u) => (me.hand.includes(u) ? `h:${s.cards[u].cardId}` : `f:${u}`))
+        .sort()
+        .join(',');
+    const taken: Uid[] = [];
+    const need = tgt(list[0]).materials.length;
+    while (new Set(list.map((a) => sig(a, taken))).size > 1 && taken.length < need) {
+      // the cards still to choose from: one per hand card id, every field card
+      const left = new Map<string, Uid>();
+      for (const a of list)
+        for (const u of tgt(a).materials) {
+          if (taken.includes(u)) continue;
+          const k = me.hand.includes(u) ? `h:${s.cards[u].cardId}` : `f:${u}`;
+          if (!left.has(k)) left.set(k, u);
+        }
+      this.setMode('cards');
+      const pick = await pickCard(
+        this.scene,
+        `${fusionName}: choose material ${taken.length + 1} of ${need}`,
+        [...left.values()].map((u) => {
+          const z = me.monsters.findIndex((m) => m?.uid === u);
+          return { uid: u, cardId: s.cards[u].cardId, owner: p, label: z >= 0 ? `FIELD ${z + 1}` : 'HAND' };
+        }),
+        { subtitle: 'The materials go to your Graveyard' },
+      );
+      if (pick === null) return null;
+      // a hand pick stands for any copy of that card in the hand
+      const handId = me.hand.includes(pick) ? s.cards[pick].cardId : null;
+      const pickUid = (a: Extract<Action, { type: 'activateSpell' }>): Uid | undefined =>
+        handId ? tgt(a).materials.find((u) => !taken.includes(u) && me.hand.includes(u) && s.cards[u].cardId === handId) : tgt(a).materials.includes(pick) ? pick : undefined;
+      const next = list.filter((a) => pickUid(a) !== undefined);
+      if (!next.length) return null;
+      const chosen = pickUid(next[0])!;
+      taken.push(chosen);
+      list = next.filter((a) => tgt(a).materials.includes(chosen));
+    }
+    // prefer the way that keeps the most of the board: hand materials first
+    list.sort((a, b) => tgt(b).materials.filter((u) => me.hand.includes(u)).length - tgt(a).materials.filter((u) => me.hand.includes(u)).length);
+    return list[0] ?? null;
+  }
+
   /** batch 2: Kutup Hükümdarı — the three pieces to tribute (asked only when there is a choice). */
   private async fusionParams(cands: Extract<Action, { type: 'specialSummon' }>[], cardId: CardId): Promise<Action | null> {
     if (cands.length === 1) return cands[0];
@@ -667,6 +741,7 @@ export class HumanInput {
     const withTarget = cands.filter((a) => a.target);
     if (!withTarget.length) return cands[0];
     const first = withTarget[0].target!;
+    if (first.kind === 'fusion') return this.fusionMaterialsFlow(withTarget, cardId);
     if (first.kind === 'graveyard') {
       const uids = [...new Set(withTarget.map((a) => (a.target as { uid: Uid }).uid))];
       this.setMode('cards');
@@ -799,6 +874,13 @@ export class HumanInput {
         return s.players[opp].monsters.some(Boolean) ? 'No opponent monster you can take control of' : 'Your opponent has no monsters';
       case 'void_eye':
         return 'No monster on the field to destroy';
+      case 'prism_fusion': {
+        const fd = s.players[p].fusionDeck ?? [];
+        if (!fd.length) return 'Your Fusion Deck is empty';
+        if (s.players[p].noSummonTurn === s.turn) return 'You cannot Summon any more monsters this turn';
+        const need = fusionMaterials(s.cards[fd[0]].cardId);
+        return `You need the Fusion Materials in your hand or on your field (${need.map((m) => CARDS[m].name).join(' + ')})`;
+      }
       case 'sweeping_gale':
         return 'Your opponent has no Spell/Trap cards';
       case 'auger_lance':
@@ -1227,7 +1309,13 @@ export class HumanInput {
       if (this.framePixelAlpha(s, fx, fy) > 0) hits.push({ player: u.player, spot: 'monster', index: u.zone });
     }
     const z = this.views.board.zoneAt(w.x, w.y);
-    const tile: Pick | null = z ? { player: z.player, spot: z.spot, index: z.index } : null;
+    let tile: Pick | null = z ? { player: z.player, spot: z.spot, index: z.index } : null;
+    // fusion: the Fusion Deck pad (arena v4) — reported as that player's 'banish' corner spot (it owns that corner)
+    if (FUSION_ZONE)
+      for (const fp of [0, 1] as PlayerId[]) {
+        const c = fusionDeckXY(fp);
+        if (Math.abs(w.x - c.x) / 2 + Math.abs(w.y - (c.y - 2)) <= 13) tile = { player: fp, spot: 'banish', index: 0 };
+      }
     const valid = this.validPick();
     if (valid) {
       if (LOOK_V3) {
@@ -1317,14 +1405,16 @@ export class HumanInput {
       const slot = ps.monsters[h.index];
       if (!slot) return back();
       const id = s.cards[slot.uid].cardId;
-      if (!slot.faceUp) return v.inspect.show(h.player === v.hand.owner ? id : null);
+      // your own face-down monster: the real card, marked Set; the opponent's: a generic back in its owner's tone
+      if (!slot.faceUp) return h.player === v.hand.owner ? v.inspect.show(id, { set: true }) : v.inspect.show(null, { owner: h.player });
       return v.inspect.show(id, this.plateStats(s, slot.uid, v.field.unit(slot.uid)));
     }
     if (h.spot === 'spellTrap') {
       const st = ps.spellTraps[h.index];
       if (!st) return back();
       const id = s.cards[st.uid].cardId;
-      return v.inspect.show(st.faceUp || h.player === v.hand.owner ? id : null);
+      if (st.faceUp) return v.inspect.show(id);
+      return h.player === v.hand.owner ? v.inspect.show(id, { set: true }) : v.inspect.show(null, { owner: h.player });
     }
     if (h.spot === 'field') {
       const fs = ps.fieldSpell;
@@ -1335,6 +1425,14 @@ export class HumanInput {
       if (g.length) return v.inspect.show(s.cards[g[g.length - 1]].cardId);
       // v3 (K12): an empty graveyard says so ("Mezarlık · 0 kart")
       if (V3_A6_B && showPile(v.inspect, 'graveyard', h.player, 0)) return;
+      return back();
+    }
+    // fusion: the Fusion Deck — its owner sees the top Fusion Monster (marked by the pile words when empty), the opponent
+    // only its count
+    if (FUSION_ZONE && h.spot === 'banish') {
+      const fd = ps.fusionDeck ?? [];
+      if (h.player === v.hand.owner && fd.length) return v.inspect.show(s.cards[fd[fd.length - 1]].cardId);
+      if (showPile(v.inspect, 'fusion', h.player, fd.length)) return;
       return back();
     }
     // v3 (K12 / S-9): a deck shows its count, never its cards

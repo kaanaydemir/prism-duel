@@ -337,7 +337,7 @@ function hitPose(f: number): Pose {
     case 4:
       return lerpPose(pose(reel(1)), idlePose(0), 0.7);
     default:
-      return lerpPose(pose(reel(1)), idlePose(0), 0.92);
+      return idlePose(0);
   }
 }
 const HIT_HOLDS = [50, 60, 80, 100, 110, 130];
@@ -357,7 +357,7 @@ function hitHeavyPose(f: number): Pose {
     case 5:
       return lerpPose(pose(reel(1.4, { hy: 2, hx: -2 })), idlePose(0), 0.72);
     default:
-      return lerpPose(pose(reel(1.4)), idlePose(0), 0.94);
+      return idlePose(0);
   }
 }
 const HIT_HEAVY_HOLDS = [50, 60, 90, 110, 110, 130, 140];
@@ -378,7 +378,7 @@ function hitMagicPose(f: number): Pose {
     case 5:
       return lerpPose(pose(reel(0.7)), idlePose(0), 0.75);
     default:
-      return lerpPose(pose(reel(0.7)), idlePose(0), 0.94);
+      return idlePose(0);
   }
 }
 const HIT_MAGIC_HOLDS = [50, 60, 70, 90, 100, 120, 140];

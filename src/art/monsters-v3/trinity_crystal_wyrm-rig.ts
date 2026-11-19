@@ -31,6 +31,7 @@ import {
   W,
   add,
   clamp,
+  bbOf,
   composite,
   crease,
   despeckle,
@@ -307,12 +308,17 @@ const HEADS: readonly HeadDef[] = [
   { s: 1.02, off: [36, -3], ha: 0.12, base: [8, -4], w0: 10, w1: 7, up: [10, -4], far: false },
 ];
 
+/** The highest pivot row of each head (its crown reaches ~16 / 13 / 10 px above it). */
+const HEAD_MIN_Y = [20, 16, 14];
+
 /** The head pivot of head i (whole px: a head never moves by a fraction — its planes would crawl). */
 export function headPos(P: Pose, i: number): V {
   const R = rig(P);
   const d = HEADS[i];
   const hd = P.h[i];
-  return rnd(add(add(R.chest, rotV(d.off, (P.lean + P.chestLean) * 0.5)), [hd.dx, hd.dy]));
+  const q = rnd(add(add(R.chest, rotV(d.off, (P.lean + P.chestLean) * 0.5)), [hd.dx, hd.dy]));
+  // a rearing head stops short of the frame's top (its crown keeps the 2-px margin)
+  return [q[0], Math.max(q[1], HEAD_MIN_Y[i])];
 }
 export function headAngle(P: Pose, i: number): number {
   return HEADS[i].ha + P.h[i].da;
@@ -481,29 +487,48 @@ function drawWing(r: WingRig, far: boolean, P: Pose): PixelCanvas {
       for (let i = 1; i < cv.length; i++) L += len(sub(cv[i], cv[i - 1]));
       return L;
     });
+    const SEGS: number[] = [];
+    const SEG_CURVE: number[] = [];
+    curves.forEach((cv, ci) => {
+      let acc = 0;
+      for (let i = 1; i < cv.length; i++) {
+        const dx = cv[i][0] - cv[i - 1][0];
+        const dy = cv[i][1] - cv[i - 1][1];
+        const sl = Math.hypot(dx, dy);
+        SEGS.push(cv[i - 1][0], cv[i - 1][1], dx, dy, sl, acc);
+        SEG_CURVE.push(ci);
+        acc += sl;
+      }
+    });
     const hits: number[] = [];
-    for (let y = 0; y < H; y++)
-      for (let x = 0; x < W; x++) {
+    const BB = bbOf(c);
+    for (let y = BB.y0; y <= BB.y1; y++)
+      for (let x = BB.x0; x <= BB.x1; x++) {
         if (!c.isOpaque(x, y)) continue;
         if (c.isOpaque(x - 1, y) && c.isOpaque(x + 1, y) && c.isOpaque(x, y - 1) && c.isOpaque(x, y + 1)) continue;
-        const q: V = [x + 0.5, y + 0.5];
+        const qx = x + 0.5;
+        const qy = y + 0.5;
         let best = Infinity;
         let bi = -1;
         let bu = 0;
-        curves.forEach((cv, ci) => {
-          let acc = 0;
-          for (let i = 1; i < cv.length; i++) {
-            const d = distSeg(q, cv[i - 1], cv[i]);
-            const sl = len(sub(cv[i], cv[i - 1]));
-            if (d < best) {
-              best = d;
-              bi = ci;
-              const ab = sub(cv[i], cv[i - 1]);
-              bu = acc + clamp(dot(sub(q, cv[i - 1]), ab) / (sl * sl || 1), 0, 1) * sl;
-            }
-            acc += sl;
+        for (let k = 0; k < SEGS.length; k += 6) {
+          const ax = SEGS[k];
+          const ay = SEGS[k + 1];
+          const dx = SEGS[k + 2];
+          const dy = SEGS[k + 3];
+          const sl = SEGS[k + 4];
+          const l2 = sl * sl || 1;
+          const tt = Math.max(0, Math.min(1, ((qx - ax) * dx + (qy - ay) * dy) / l2));
+          const ex = qx - ax - dx * tt;
+          const ey = qy - ay - dy * tt;
+          const d2 = ex * ex + ey * ey;
+          if (d2 < best) {
+            best = d2;
+            bi = SEG_CURVE[k / 6];
+            bu = SEGS[k + 5] + tt * sl;
           }
-        });
+        }
+        best = Math.sqrt(best);
         if (best >= 1.6) continue;
         let nx = 0;
         let ny = 0;
@@ -538,8 +563,9 @@ function drawWing(r: WingRig, far: boolean, P: Pose): PixelCanvas {
       edgePaint(b, PAL.white, null, { lit: 0.12 });
       const hum = (x: number, y: number) => distSeg([x + 0.5, y + 0.5], S, E) < distSeg([x + 0.5, y + 0.5], E, Wr);
       const hits: number[] = [];
-      for (let y = 0; y < H; y++)
-        for (let x = 0; x < W; x++) {
+      const BB = bbOf(b);
+      for (let y = BB.y0; y <= BB.y1; y++)
+        for (let x = BB.x0; x <= BB.x1; x++) {
           const cur = b.get(x, y);
           if (cur === null || cur === PAL.white) continue;
           if (b.isOpaque(x - 1, y) && b.isOpaque(x + 1, y) && b.isOpaque(x, y - 1) && b.isOpaque(x, y + 1)) continue;
@@ -625,8 +651,9 @@ const LEG_MASK = new Uint8Array(W * H);
 
 function cleanCrumbs(p: PixelCanvas) {
   const hits: number[] = [];
-  for (let y = 1; y < H - 1; y++)
-    for (let x = 1; x < W - 1; x++) {
+  const BB = bbOf(p);
+  for (let y = Math.max(1, BB.y0); y <= Math.min(H - 2, BB.y1); y++)
+    for (let x = Math.max(1, BB.x0); x <= Math.min(W - 2, BB.x1); x++) {
       if (KEEP[y * W + x]) continue;
       const c = p.get(x, y);
       if (c === null || c === PAL.ink) continue;
@@ -663,8 +690,10 @@ function castShadow(p: PixelCanvas, layer: PixelCanvas, off: V = [2, 2]) {
   const ox = -LIGHT.side * off[0];
   const oy = off[1];
   const hits: number[] = [];
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
+  const B0 = bbOf(layer);
+  const BB = { x0: Math.max(0, B0.x0 - 3), y0: Math.max(0, B0.y0 - 3), x1: Math.min(W - 1, B0.x1 + 3), y1: Math.min(H - 1, B0.y1 + 3) };
+  for (let y = BB.y0; y <= BB.y1; y++)
+    for (let x = BB.x0; x <= BB.x1; x++) {
       if (layer.isOpaque(x, y) || !p.isOpaque(x, y)) continue;
       if (!layer.isOpaque(x - ox, y - oy)) continue;
       const to = SHADOW[p.get(x, y)!];
@@ -785,8 +814,9 @@ function drawHead(p: PixelCanvas, P: Pose, i: number) {
     const axis = sub(front, back);
     const al = len(axis) || 1;
     const jawLine = [J(-2, 1.4), J(19, 1.4)];
-    for (let y = 0; y < H; y++)
-      for (let x = 0; x < W; x++) {
+    const BB = bbOf(c);
+    for (let y = BB.y0; y <= BB.y1; y++)
+      for (let x = BB.x0; x <= BB.x1; x++) {
         if (!c.isOpaque(x, y)) continue;
         const q: V = [x + 0.5, y + 0.5];
         const along = ((q[0] - back[0]) * axis[0] + (q[1] - back[1]) * axis[1]) / (al * al);
@@ -813,8 +843,9 @@ function drawHead(p: PixelCanvas, P: Pose, i: number) {
     const down = rotV([0, 1], ha + jawA);
     const hits: number[] = [];
     const side = far ? PAL.night3 : PAL.steel;
-    for (let y = 0; y < H; y++)
-      for (let x = 0; x < W; x++) {
+    const BB = bbOf(c);
+    for (let y = BB.y0; y <= BB.y1; y++)
+      for (let x = BB.x0; x <= BB.x1; x++) {
         if (c.get(x, y) !== side) continue;
         if (!c.isOpaque(x + Math.round(down[0]), y + Math.round(down[1])) || !c.isOpaque(x, y + 1)) hits.push(x, y);
       }
@@ -918,8 +949,9 @@ function drawHead(p: PixelCanvas, P: Pose, i: number) {
     const fc = gf.render(0, false);
     // the free trailing edge: prism dashes
     const trail: V[] = [T(-14.6, -8.0), T(-9.6, -4.4), T(-12.6, -1.2)];
-    for (let y = 0; y < H; y++)
-      for (let x = 0; x < W; x++) {
+    const BB = bbOf(fc);
+    for (let y = BB.y0; y <= BB.y1; y++)
+      for (let x = BB.x0; x <= BB.x1; x++) {
         if (!fc.isOpaque(x, y)) continue;
         if (fc.isOpaque(x - 1, y) && fc.isOpaque(x + 1, y) && fc.isOpaque(x, y - 1) && fc.isOpaque(x, y + 1)) continue;
         const q: V = [x + 0.5, y + 0.5];
@@ -982,7 +1014,7 @@ function tailPath(P: Pose): V[] {
   for (let i = 0; i < base.length; i++) {
     const k = i / (base.length - 1);
     const a = base[i] - P.tailLift * k * k + Math.sin((P.tail - i * 0.07) * Math.PI * 2) * P.tailAmp * (0.3 + k);
-    pts.push(add(pts[i], polar(a, 3.25)));
+    pts.push(add(pts[i], polar(a, 3.05)));
   }
   for (let i = 1; i < pts.length; i++) {
     const k = i / (pts.length - 1);
@@ -1124,8 +1156,9 @@ const COLD: Record<number, number> = {
 function drainLight(p: PixelCanvas, P: Pose) {
   const o = corePoint(P);
   const front = (1 - P.drain) * 90 - 4;
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
+  const BB = bbOf(p);
+  for (let y = BB.y0; y <= BB.y1; y++)
+    for (let x = BB.x0; x <= BB.x1; x++) {
       const c = p.get(x, y);
       if (c === null) continue;
       if (Math.hypot(x + 0.5 - o[0], y + 0.5 - o[1]) <= front) continue;

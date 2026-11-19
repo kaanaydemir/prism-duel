@@ -503,6 +503,27 @@ export function composite(dst: PixelCanvas, layer: PixelCanvas, seam: SeamFn = s
     }
 }
 
+
+/** The opaque bounding box of a layer, padded by 1 px and clamped to the frame (loops walk only it). */
+export function bbOf(c: PixelCanvas): { x0: number; y0: number; x1: number; y1: number } {
+  const d = c.data;
+  let x0 = W;
+  let y0 = H;
+  let x1 = -1;
+  let y1 = -1;
+  for (let y = 0; y < H; y++) {
+    const row = y * W * 4 + 3;
+    for (let x = 0; x < W; x++)
+      if (d[row + x * 4]) {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        y1 = y;
+      }
+  }
+  return { x0: Math.max(0, x0 - 1), y0: Math.max(0, y0 - 1), x1: Math.min(W - 1, x1 + 1), y1: Math.min(H - 1, y1 + 1) };
+}
+
 /** Mark a layer's opaque pixels in a mask. */
 export function maskOf(c: PixelCanvas, into: Uint8Array) {
   into.fill(0);
@@ -560,8 +581,9 @@ export function edgePaint(c: PixelCanvas, hi: number | null, lo: number | null, 
   const dark = o.dark ?? -0.35;
   const open = o.open ?? ((x: number, y: number) => !c.isOpaque(x, y));
   const hits: number[] = [];
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
+  const BB = bbOf(c);
+  for (let y = BB.y0; y <= BB.y1; y++)
+    for (let x = BB.x0; x <= BB.x1; x++) {
       const cur = c.get(x, y);
       if (cur === null) continue;
       if (!(open(x - 1, y) || open(x + 1, y) || open(x, y - 1) || open(x, y + 1))) continue;
@@ -585,8 +607,9 @@ export function rimLight(c: PixelCanvas, dst: PixelCanvas, cols: readonly number
   const open = (x: number, y: number) => !inL(x, y) && !dst.isOpaque(x, y);
   const s = -LIGHT.side; // the shadow side: +1 = right (P1 light from the left)
   const hits: number[] = [];
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
+  const BB = bbOf(c);
+  for (let y = BB.y0; y <= BB.y1; y++)
+    for (let x = BB.x0; x <= BB.x1; x++) {
       if (!inL(x, y)) continue;
       // the diagonal corner too: on a staircase contour the rim stays one continuous line
       if (!(open(x + s, y) || open(x, y + 1) || open(x + s, y + 1))) continue;

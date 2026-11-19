@@ -323,7 +323,8 @@ function shiftStep(st: Action | UiStep, LANE_SHIFT: number): Action | UiStep {
     if (!r || typeof r !== 'object') return r;
     const q = { ...(r as Record<string, unknown>) };
     if (typeof q.index === 'number' && (q.zone === 'monster' || q.zone === 'spellTrap')) q.index += LANE_SHIFT;
-    if (typeof q.toZone === 'number') q.toZone += LANE_SHIFT;
+    // (a fusion target is read from the live legal list: its toZone is already the real zone)
+    if (typeof q.toZone === 'number' && q.kind !== 'fusion') q.toZone += LANE_SHIFT;
     if (q.ref) q.ref = ref(q.ref);
     return q;
   };

@@ -32,6 +32,8 @@ export interface InspectStats {
   def?: number;
   /** v3 (lane A6-A): a face-down card's owner — its back is shown in that player's tone (S-2). */
   owner?: PlayerId;
+  /** fusion lane: the card lies SET (face-down) on its owner's field and is shown to its owner: the type line says so. */
+  set?: boolean;
 }
 
 const ADD = Phaser.BlendModes.ADD;

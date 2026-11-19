@@ -23,7 +23,9 @@ export const STRIP_ART_H = 16;
 export const SPELL_WORD: Record<string, string> = { normal: 'Normal', equip: 'Equip', field: 'Field', continuous: 'Cont.', quick: 'Quick' };
 
 function kindRampOf(id: CardId): Ramp {
-  return KIND_RAMP[CARDS[id].kind];
+  // fusion: a Fusion Monster's frame is the prism violet (FRAME_V3 'fusion')
+  const d = CARDS[id];
+  return d.kind === 'monster' && d.fusion ? RAMPS.void : KIND_RAMP[d.kind];
 }
 
 /** Ink outline + one kind trim ring (light top-left, dark bottom-right), chamfered corners. */

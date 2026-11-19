@@ -16,13 +16,13 @@
 // Presentation hooks for step 2 (fly-in, drag & drop, add / remove feedback): ./fx.ts.
 
 import Phaser from 'phaser';
-import { ATTRIBUTE_COLOR, KIND_RAMP, PAL } from '../../art/palette';
+import { ATTRIBUTE_COLOR, KIND_RAMP, PAL, RAMPS } from '../../art/palette';
 import { ATTRIBUTE_NAMES, CARDS, MAGNET_PIECE_IDS, SEAL_IDS, isMonster, type Attribute, type CardId } from '../../data/cards';
 import { cardArtKey, cardIsoKey } from '../../art/cards';
 import type { TrimName } from '../../art/frame-v3';
 import { PixelCanvas } from '../../art/pixel';
 import { sfx } from '../../audio/sfx';
-import { CURVE_BUCKETS, DECK_HIGH_LEVEL, DECK_MAX, DECK_MIN, addBlocker, autoFillDeck, classicDeck, copiesOf, deckStats, isSealCard, isSingleCopy, maxCopies, presetDecks, validateDeck } from '../../data/decks';
+import { CURVE_BUCKETS, DECK_HIGH_LEVEL, DECK_MAX, DECK_MIN, addBlocker, autoFillDeck, classicDeck, copiesOf, deckStats, isSealCard, isSingleCopy, maxCopies, presetDecks, validateDeck, splitDeck, FUSION_DECK_MAX } from '../../data/decks';
 import { measureText, pixelText, wrapText } from '../../ui/text';
 import { Button } from '../../view/Button';
 import { GAME_H, GAME_W } from '../../view/layout';
@@ -719,9 +719,9 @@ export class DeckScene extends Phaser.Scene {
     this.detEmpty = pixelText(this, DET_X + DET_W / 2, MAIN_Y + 120, 'Point at a card\nto see it here.', { size: 'sm', color: PAL.steel, originX: 0.5, align: 'center' }).setDepth(10).setVisible(false);
   }
 
-  private artFrameTex(kind: 'monster' | 'spell' | 'trap'): string {
+  private artFrameTex(kind: 'monster' | 'spell' | 'trap' | 'fusion'): string {
     return canvasTexture(this, `deck2:artframe:${kind}`, () => {
-      const R = KIND_RAMP[kind];
+      const R = kind === 'fusion' ? RAMPS.void : KIND_RAMP[kind];
       const p = new PixelCanvas(92, 72);
       p.rect(0, 0, 92, 72, PAL.ink);
       p.frame(1, 1, 90, 70, R[2]);
@@ -753,7 +753,7 @@ export class DeckScene extends Phaser.Scene {
     const d = CARDS[id];
     this.shownId = id;
     this.detBg.setTexture(panelV3(this, d.kind, DET_W, MAIN_H, 76));
-    this.detFrame.setTexture(this.artFrameTex(d.kind));
+    this.detFrame.setTexture(this.artFrameTex(d.kind === 'monster' && d.fusion ? 'fusion' : d.kind));
     this.detArt.setTexture(cardArtKey(id));
     const cx = DET_X + DET_W / 2;
     // name: md when it fits, otherwise sm on up to two lines
@@ -798,7 +798,12 @@ export class DeckScene extends Phaser.Scene {
     const noteFull = this.noteOf(id);
     const bottom = MAIN_Y + MAIN_H - 6;
     const note = (full: boolean) => [`In deck: ${n}/${max}`, ...(full && noteFull ? wrapText(noteFull, 'sm', DET_W - 14) : [])];
-    const words = d.kind === 'monster' && !d.text ? `"${d.flavor}"` : d.text;
+    const words =
+      d.kind === 'monster' && d.fusion
+        ? `Fusion: ${d.fusion.materials.map((m) => CARDS[m].name).join(' + ')}. Goes to the Fusion Deck (max ${FUSION_DECK_MAX}). "${d.flavor}"`
+        : d.kind === 'monster' && !d.text
+          ? `"${d.flavor}"`
+          : d.text;
     const body = wrapText(words, 'sm', DET_W - 12);
     let noteLines = note(true);
     const rows = (k: number) => Math.floor((bottom - y - k * 10 - 3) / 10);
@@ -1701,7 +1706,8 @@ export class DeckScene extends Phaser.Scene {
     this.updateCaret();
     // header
     const v = validateDeck(d.cards);
-    const n = d.cards.length;
+    // the Fusion Deck is not part of the main deck's count (its section shows n/5)
+    const n = splitDeck(d.cards).main.length;
     this.deckTitle.setText(`DECK ${this.slot + 1} · ${n} / ${n <= DECK_MIN ? DECK_MIN : DECK_MAX}`).setTint(v.ok ? PAL.gold3 : PAL.white);
     this.deckState.setText(n === 0 ? 'EMPTY' : v.ok ? 'READY' : 'DRAFT').setTint(v.ok ? PAL.gold3 : PAL.steel);
     this.deckOk.setVisible(v.ok).setX(this.deckState.x - Math.ceil(measureText('READY', 'sm').w) - 12);
@@ -1724,11 +1730,11 @@ export class DeckScene extends Phaser.Scene {
       const y = LIST_Y + ly;
       if (line.kind === 'head') {
         const h = this.heads[hi++];
-        const R = KIND_RAMP[line.section];
+        const R = line.section === 'fusion' ? RAMPS.void : KIND_RAMP[line.section];
         h.icon.setPosition(LIST_X, y + 2).setTint(R[3]).setVisible(true);
         h.label.setText(SECTION_LABEL[line.section]).setPosition(LIST_X + 10, y).setTint(R[3]).setVisible(true);
         const lw = Math.ceil(measureText(SECTION_LABEL[line.section], 'sm').w);
-        h.count.setText(String(line.copies)).setPosition(LIST_X + LIST_W, y).setVisible(true);
+        h.count.setText(line.section === 'fusion' ? `${line.copies}/${FUSION_DECK_MAX}` : String(line.copies)).setPosition(LIST_X + LIST_W, y).setVisible(true);
         h.rule.setPosition(LIST_X + 14 + lw, y + 6).setSize(Math.max(1, LIST_W - lw - 32), 1).setFillStyle(R[0]).setVisible(true);
         continue;
       }
@@ -1798,7 +1804,7 @@ export class DeckScene extends Phaser.Scene {
   }
 
   private renderFooter(): void {
-    const n = this.cur.cards.length;
+    const n = splitDeck(this.cur.cards).main.length; // the Fusion Deck is not in the stack
     // the stack: one card back per ~3 cards, on a soft light pool
     const layers = n ? Math.min(this.stack.length, 1 + Math.round((n / DECK_MAX) * (this.stack.length - 1))) : 0;
     this.stack.forEach((img, i) => img.setVisible(i < layers).setPosition(DK_X + 44, STACK_BASE - Math.round(i * 1.5)));

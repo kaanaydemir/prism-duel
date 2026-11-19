@@ -36,7 +36,7 @@ import { createCardV3, type CardV3 } from './CardV3';
 import { EASE, breathOf, pxMove } from './handV3';
 import { REDUCED_MOTION } from './motion';
 
-export type PileKind = 'deck' | 'graveyard' | 'hand';
+export type PileKind = 'deck' | 'graveyard' | 'hand' | 'fusion';
 
 /** Show `player`'s pile of `kind` (count cards) in the inspect panel; false = not handled (lane A6-A off). */
 export function showPile(inspect: InspectPanel, kind: PileKind, player: PlayerId, count: number): boolean {
@@ -83,6 +83,7 @@ function capY(size: TextSize, capTop: number): number {
 export function trimFor(id: CardId | null, owner: PlayerId | null): TrimName {
   if (id) {
     const d = cardDef(id);
+    if (d.kind === 'monster' && d.fusion) return 'fusion';
     return d.kind === 'monster' ? 'monster' : d.kind === 'spell' ? 'spell' : 'trap';
   }
   return owner === null ? 'neutral' : owner === 0 ? 'p1' : 'p2';
@@ -174,6 +175,9 @@ export function paintEmptySlot(): PixelCanvas {
 export function cardWords(id: CardId | null): { name: string; type: string; text: string; flavor: boolean } {
   if (!id) return { name: 'Face-down Card', type: 'Hidden', text: 'This card is hidden from the opponent.', flavor: false };
   const d = cardDef(id);
+  // a Fusion Monster: its materials head the text box (as on the card), then its flavour
+  if (isMonster(d) && d.fusion)
+    return { name: d.name, type: `Fusion · ${d.race} ★${d.level}`, text: `${d.fusion.materials.map((m) => cardDef(m).name).join(' + ')}${d.text ? `. ${d.text}` : ''}`, flavor: false };
   if (isMonster(d)) return { name: d.name, type: `${ATTRIBUTE_NAMES[d.attribute]} / ${d.race} ★${d.level}`, text: d.text || `"${d.flavor}"`, flavor: !d.text };
   if (isSpell(d)) return { name: d.name, type: `Spell · ${SPELL_TYPE[d.spellType] ?? 'Normal'}`, text: d.text, flavor: false };
   return { name: d.name, type: 'Trap · Normal', text: d.text, flavor: false };
@@ -183,6 +187,7 @@ export function cardWords(id: CardId | null): { name: string; type: string; text
 export function pileWords(kind: PileKind, player: PlayerId, count: number): { name: string; type: string; text: string } {
   const who = `PLAYER ${player + 1}`;
   if (kind === 'deck') return { name: `Deck · ${count} card${count === 1 ? '' : 's'}`, type: who, text: count ? 'Cards to draw are face-down; their order is hidden.' : 'No cards left in the Deck.' };
+  if (kind === 'fusion') return { name: `Fusion Deck · ${count} card${count === 1 ? '' : 's'}`, type: who, text: count ? 'Fusion Monsters wait here; only a fusion spell Summons them. Hidden from the opponent.' : 'The Fusion Deck is empty.' };
   if (kind === 'hand') return { name: `Opponent's Hand · ${count} card${count === 1 ? '' : 's'}`, type: who, text: "Your opponent's hand is hidden from you." };
   return { name: `Graveyard · ${count} card${count === 1 ? '' : 's'}`, type: who, text: count ? 'The Graveyard is public.' : 'The Graveyard is empty.' };
 }
@@ -277,7 +282,7 @@ export class InspectPanelV3 {
     this.hideTimer?.remove();
     this.hideTimer = null;
     const owner = stats.owner ?? null;
-    const key = cardId ? `c:${cardId}` : `c:-:${owner ?? '-'}`;
+    const key = cardId ? `c:${cardId}${stats.set ? ':set' : ''}` : `c:-:${owner ?? '-'}`;
     if (this.shown && key === this.current) {
       if (stats.atk !== this.currentStats.atk || stats.def !== this.currentStats.def) {
         this.currentStats = { ...stats };
@@ -297,6 +302,8 @@ export class InspectPanelV3 {
     if (owner !== null) this.card.setPlayerTint(owner);
     this.card.setCard(cardId).setFaceUp(cardId !== null);
     const w = cardWords(cardId);
+    // your own set card: the real card, its type line marked "Set" (the opponent only ever sees a back)
+    if (cardId && stats.set) w.type = `${w.type} · Set`;
     this.fillText(w.name, w.type, w.text, w.flavor, !!cardId && isMonster(cardDef(cardId)));
     this.fillStats(cardId, false);
     this.enter(first, token);
