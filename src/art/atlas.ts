@@ -296,7 +296,7 @@ export function stagePlan(stage: StageSpec | null | undefined): SheetPlan {
   const card = (uid: Uid | null | undefined): CardId | null => (uid ? s.cards[uid].cardId : null);
   const places = (p: PlayerId): Uid[][] => {
     const ps = s.players[p];
-    return [ps.monsters.flatMap((m) => (m ? [m.uid] : [])), ps.hand, ps.graveyard, ps.deck];
+    return [ps.monsters.flatMap((m) => (m ? [m.uid] : [])), ps.hand, ps.graveyard, ps.deck, ps.fusionDeck ?? []]; // fusion: the Fusion Deck summons onto the field too
   };
   const p1: MonsterId[] = [];
   const p2: MonsterId[] = [];
