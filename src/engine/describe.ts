@@ -100,6 +100,7 @@ export function describeEvent(state: GameState, ev: GameEvent, batch?: readonly 
         case 'special':
           if (ev.from === 'token') return `${playerName(ev.player)} Summons a ${cardName(ev.cardId)} Token.`;
           if (ev.from === 'hand') return `${playerName(ev.player)} Special Summons ${cardName(ev.cardId)} from the hand!`;
+          if (ev.from === 'fusionDeck') return `${playerName(ev.player)} Fusion Summons ${cardName(ev.cardId)}!`;
           return `${playerName(ev.player)} Special Summons ${cardName(ev.cardId)} from the Graveyard!`;
         case 'flip':
           return `${playerName(ev.player)} Flip Summons ${cardName(ev.cardId)}!`;
@@ -197,6 +198,10 @@ export function describeEvent(state: GameState, ev: GameEvent, batch?: readonly 
       return `${cardName(ev.cardId)} fades away.`;
     case 'decision':
       return null;
+    case 'fusionSummon':
+      return `${playerName(ev.player)} fuses ${ev.materials.map((m) => cardName(m.cardId)).join(' + ')}!`;
+    case 'toFusionDeck':
+      return `${cardName(ev.cardId)} returns to ${playerName(ev.owner, 'gen')} Fusion Deck.`;
     case 'hatsShuffled':
       return `${playerName(ev.player)} hides their monster under the hats and shuffles!`;
     case 'hatChosen':

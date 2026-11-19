@@ -452,6 +452,72 @@ export function uidAt(s: GameState, ref: ZoneRef): Uid | null {
   return ps.fieldSpell?.uid ?? null;
 }
 
+// ---------------------------------------------------------------------------
+// Fusion (prism_fusion)
+// ---------------------------------------------------------------------------
+
+/** `p`'s Fusion Deck (empty when absent). */
+export function fusionDeckOf(s: GameState, p: PlayerId): Uid[] {
+  return s.players[p].fusionDeck ?? [];
+}
+
+/** One way to Fusion Summon: the Fusion Monster, the materials (sorted uids) and the zone it arrives in. */
+export interface FusionOption {
+  fusionUid: Uid;
+  materials: Uid[];
+  toZone: number;
+}
+
+/**
+ * Every legal Fusion Summon of `p` right now (prism_fusion's targets): for each distinct Fusion Monster in the Fusion Deck
+ * (the first copy of each id), every set of cards in `p`'s hand or on `p`'s field (face-up or face-down; no tokens, no hats,
+ * no borrowed monsters — they are not `p`'s to send) matching its material list, with the lowest Monster Zone free once
+ * the field materials left. A set needing a zone when none would be free is skipped. `exceptUid`: the spell itself.
+ */
+export function fusionOptions(s: GameState, p: PlayerId, exceptUid: Uid | null = null): FusionOption[] {
+  const me = s.players[p];
+  const out: FusionOption[] = [];
+  const seen = new Set<string>();
+  const pool: { uid: Uid; zone: number | null }[] = [
+    ...me.hand.filter((u) => u !== exceptUid).map((uid) => ({ uid, zone: null as number | null })),
+    ...me.monsters.flatMap((m, zone) => (m && !m.token && !m.hat && !m.borrowed && s.cards[m.uid]?.owner === p ? [{ uid: m.uid, zone }] : [])),
+  ];
+  for (const fu of fusionDeckOf(s, p)) {
+    const d = CARDS[s.cards[fu].cardId];
+    if (!isMonster(d) || !d.fusion || seen.has(d.id)) continue;
+    seen.add(d.id);
+    const need = d.fusion.materials;
+    // pick, for each material slot in order, a distinct pool card of that id (slots of the same id pick increasing indices)
+    const picks: number[] = [];
+    const rec = (k: number): void => {
+      if (k === need.length) {
+        const mats = picks.map((i) => pool[i]);
+        const freed = mats.flatMap((m) => (m.zone === null ? [] : [m.zone]));
+        const free = me.monsters.flatMap((m, z) => (!m || freed.includes(z) ? [z] : []));
+        if (!free.length) return;
+        out.push({ fusionUid: fu, materials: mats.map((m) => m.uid).sort(asc), toZone: Math.min(...free) });
+        return;
+      }
+      const prevSame = k > 0 && need[k - 1] === need[k] ? picks[k - 1] : -1;
+      for (let i = prevSame + 1; i < pool.length; i++) {
+        if (picks.includes(i) || s.cards[pool[i].uid].cardId !== need[k]) continue;
+        picks.push(i);
+        rec(k + 1);
+        picks.pop();
+      }
+    };
+    rec(0);
+  }
+  // the same material set can be reached through different slot orders of mixed lists: keep one
+  const keys = new Set<string>();
+  return out.filter((o) => {
+    const k = `${o.fusionUid}|${o.materials.join(',')}`;
+    if (keys.has(k)) return false;
+    keys.add(k);
+    return true;
+  });
+}
+
 /** All k-combinations of `arr` (order preserved). */
 export function combinations<T>(arr: readonly T[], k: number): T[][] {
   const out: T[][] = [];
@@ -503,7 +569,9 @@ export function normalizeAction(s: GameState, a: Action): Action {
             ? { kind: 'monster', ref: { player: a.target.ref.player, zone: a.target.ref.zone, index: a.target.ref.index } }
             : a.target.kind === 'card'
               ? { kind: 'card', ref: { player: a.target.ref.player, zone: a.target.ref.zone, index: a.target.ref.index } }
-              : { kind: 'graveyard', uid: a.target.uid, toZone: a.target.toZone };
+              : a.target.kind === 'fusion'
+                ? { kind: 'fusion', fusionUid: a.target.fusionUid, materials: [...(a.target.materials ?? [])].sort(asc), toZone: a.target.toZone }
+                : { kind: 'graveyard', uid: a.target.uid, toZone: a.target.toZone };
       }
       return out;
     }

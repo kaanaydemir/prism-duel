@@ -748,6 +748,13 @@ function drawTextBox(p: PixelCanvas, def: CardDef, ramp: Ramp, accent: Ramp): vo
 function drawLevelRow(p: PixelCanvas, def: CardDef, ramp: Ramp): void {
   const y = 11;
   if (isMonster(def)) {
+    if (def.level > 7) {
+      // fusion: Lv 12 does not fit the row — one star and the number
+      drawStar(p, 40, y);
+      const s = String(def.level);
+      drawDigits(p, 40 - 2 - s.length * 4, y, s, PAL.gold4, PAL.ink);
+      return;
+    }
     for (let i = 0; i < def.level; i++) drawStar(p, 40 - i * 6, y);
     return;
   }

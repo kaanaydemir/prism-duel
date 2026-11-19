@@ -27,7 +27,7 @@ export const FLOOR_FRAMES = {
   /** arena v4 step 3: the Field Spell seal of `player` — `theme` 'none' (empty; `lv` 0, `boost` 0 / 1) or the active field's theme at light level `lv` 1..3 */
   seal: (player: 0 | 1, theme: SealTheme, lv = 0, boost = 0) => `seal:${player}:${theme}:${lv}:${boost}`,
   /** arena v4 step 3: the raised deck / graveyard pad of `player` (a pad, not an inset play tile) */
-  pile: (player: 0 | 1, kind: 'deck' | 'graveyard', state = SLOT_EMPTY, boost = 0) => `pile:${player}:${kind}:${state}:${boost}`,
+  pile: (player: 0 | 1, kind: 'deck' | 'graveyard' | 'fusion', state = SLOT_EMPTY, boost = 0) => `pile:${player}:${kind}:${state}:${boost}`,
 };
 
 /** Arena v4 step 3: the light theme of a face-up Field Spell ('none' = empty seal). */
@@ -336,7 +336,7 @@ function sealFrame(player: 0 | 1, theme: SealTheme, lv: number, boost: number): 
   return p;
 }
 
-function pileFrame(player: 0 | 1, kind: 'deck' | 'graveyard', state: number, boost: number): PixelCanvas {
+function pileFrame(player: 0 | 1, kind: 'deck' | 'graveyard' | 'fusion', state: number, boost: number): PixelCanvas {
   const p = new PixelCanvas(64, 32);
   const { cx, cy } = slotCentre();
   const own = player === 0 ? NT_PAL.blue : NT_PAL.red;
@@ -365,6 +365,12 @@ function pileFrame(player: 0 | 1, kind: 'deck' | 'graveyard', state: number, boo
       else c = on ? own[0] : PAL.stone2;
       p.set(i, j, c);
     }
+  if (kind === 'fusion') {
+    // the Fusion Deck: an engraved PRISM — a small upright iso triangle with three light rays fanning out of its right face
+    // (the Prism Fusion motif) — in violet grooves when the pile holds cards, plain stone ones when it is empty
+    paintPrismGlyph(p, cx, cy, player === 1, inside, on);
+    return p;
+  }
   if (kind === 'deck') {
     // two stacked iso card outlines (engraved)
     const glyph: Mask = (i, j) => {
@@ -381,6 +387,48 @@ function pileFrame(player: 0 | 1, kind: 'deck' | 'graveyard', state: number, boo
   // slab), not a faint groove — readable at 1×; P2's stands upright for P2 (rotated 180°, its light still from the upper left)
   paintHeadstone(p, cx, cy, player === 1, inside);
   return p;
+}
+
+/** The Fusion Deck pad's prism glyph (whole pixels round the pad centre; `flip` = rotated 180° for the far player). */
+function paintPrismGlyph(p: PixelCanvas, cx: number, cy: number, flip: boolean, inside: Mask, lit: boolean): void {
+  const ox = Math.floor(cx);
+  const oy = Math.floor(cy);
+  // 15 × 9 px, v = 0 the middle row: 'P' prism face (lit), 'S' its shaded side, 'R' a ray, 'B' the base groove
+  const G = [
+    '...P...........',
+    '..PPS......RR..',
+    '..PPS....RR....',
+    '.PPPSS.RR......',
+    '.PPPSSRRRRRRRR.',
+    'PPPPSSS.RR.....',
+    'PPPPSSS...RR...',
+    'BBBBBBB.....RR.',
+  ];
+  const H = G.length;
+  const W = G[0].length;
+  const at = (u: number, v: number): string => {
+    const uu = flip ? -u : u;
+    const vv = flip ? -v : v;
+    const row = G[vv + (H >> 1)];
+    return row?.[uu + (W >> 1)] ?? '.';
+  };
+  const rayA = lit ? PAL.void3 : PAL.stone0;
+  const rayB = lit ? PAL.void4 : NT_PAL.ink;
+  for (let v = -6; v <= 6; v++)
+    for (let u = -9; u <= 9; u++) {
+      const i = ox + u;
+      const j = oy + v;
+      if (!inside(i, j)) continue;
+      const c = at(u, v);
+      if (c === 'P') p.set(i, j, lit ? PAL.mist : PAL.stone4);
+      else if (c === 'S') p.set(i, j, lit ? PAL.void2 : PAL.stone2);
+      else if (c === 'B') p.set(i, j, NT_PAL.ink);
+      else if (c === 'R') p.set(i, j, (u + v) % 2 === 0 ? rayB : rayA);
+      else if (at(u - 1, v) === 'P' || at(u, v - 1) === 'P' || at(u + 1, v) === 'S') {
+        // ink outline round the prism body
+        if (at(u - 1, v) === 'P' || at(u, v + 1) === 'P' || at(u, v - 1) === 'P') p.set(i, j, NT_PAL.ink);
+      }
+    }
 }
 
 /** The graveyard pad's headstone (whole pixels round the pad centre; `flip` = rotated 180° for the far player). */
@@ -477,7 +525,7 @@ export function buildFloorArt(): FloorArt {
     for (const player of [0, 1] as const) {
       for (const boost of [0, 1]) list.push([FLOOR_FRAMES.seal(player, 'none', 0, boost), sealFrame(player, 'none', 0, boost)]);
       for (const th of SEAL_THEMES) for (let lv = 1; lv <= 3; lv++) list.push([FLOOR_FRAMES.seal(player, th, lv), sealFrame(player, th, lv, 0)]);
-      for (const kind of ['deck', 'graveyard'] as const)
+      for (const kind of ['deck', 'graveyard', 'fusion'] as const)
         for (const state of [SLOT_EMPTY, SLOT_OCCUPIED]) for (const boost of [0, 1]) list.push([FLOOR_FRAMES.pile(player, kind, state, boost), pileFrame(player, kind, state, boost)]);
     }
   for (let b = 0; b < 4; b++) for (let r = 0; r < 4; r++) list.push([FLOOR_FRAMES.emblem(b, r), emblemCanvas(b, r)]);

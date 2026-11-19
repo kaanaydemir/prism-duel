@@ -9,7 +9,7 @@ import { buildCalmArt, calmZones } from '../board-calm/art';
 import { PAL, RAMPS } from '../../art/palette';
 import type { FieldView } from '../../duel/FieldView';
 import type { GameEvent, PlayerId } from '../../engine/types';
-import { BANISH_PAD, BOARD_V4, type BoardSpot, zoneXY } from '../layout';
+import { BANISH_PAD, BOARD_V4, FUSION_ZONE, type BoardSpot, fusionDeckXY, zoneXY } from '../layout';
 import { CENTER_EMBLEM, NT_COLS, NT_DEPTH, NT_ROWS, PLATE_OUTLINE, PLATE_X0, PLATE_X1, PLATE_Y0, PLATE_Y1, ntIso } from './layout-nt';
 import { mulberry32 } from '../../art/pixel';
 import { TEX } from '../../vfx/core';
@@ -285,6 +285,8 @@ export function createFloorLayer(ctx: NtCtx): NtLayer {
     themeAt: number;
     fromLv: number;
     lv: number;
+    /** fusion: the Fusion Deck pad (FUSION_ZONE) */
+    fusion?: boolean;
   }
   // owner decision 2026-11-02: back to the fb7243b board top — the smooth stone-flag texture over the plate and the smooth,
   // thin slot lines (the pixel-dither version read as "dotted"). The thick stage, daises and side walls of h3 stay.
@@ -303,6 +305,15 @@ export function createFloorLayer(ctx: NtCtx): NtLayer {
     const img = ctx.add(scene.add.image(c.x - 32, c.y - 16, slotKey, shown).setOrigin(0).setDepth(NT_DEPTH.floor + 0.25));
     return { img, player: z.player, spot: z.spot, index: z.index, pile, state: SLOT_EMPTY, boost: 0, shown, theme: 'none' as SealTheme, themeAt: -1e9, fromLv: 0, lv: 0 };
   });
+  // fusion: the Fusion Deck pad of each player (arena v4: under the Field seal, layout.fusionDeckXY), a raised pile pad with
+  // the engraved prism; it is the slot of the (otherwise undrawn) banish corner, so its spot reads 'banish' + fusion: true
+  if (FUSION_ZONE)
+    for (const player of [0, 1] as PlayerId[]) {
+      const c = fusionDeckXY(player);
+      const shown = FLOOR_FRAMES.pile(player, 'fusion', SLOT_EMPTY, 0);
+      const img = ctx.add(scene.add.image(c.x - 32, c.y - 16, slotKey, shown).setOrigin(0).setDepth(NT_DEPTH.floor + 0.25));
+      slots.push({ img, player, spot: 'banish', index: 0, pile: true, state: SLOT_EMPTY, boost: 0, shown, theme: 'none', themeAt: -1e9, fromLv: 0, lv: 0, fusion: true });
+    }
   // arena v4 step 3: the non-play slots are raised pads (field seal, deck / graveyard plates), not inset tiles
   function frameOf(player: PlayerId, spot: BoardSpot, pile: boolean, state: number, boost: number, theme: SealTheme, lv: number): string {
     if (BOARD_V4 && spot === 'field') return theme === 'none' || lv <= 0 ? FLOOR_FRAMES.seal(player, 'none', 0, boost) : FLOOR_FRAMES.seal(player, theme, lv);
@@ -343,6 +354,7 @@ export function createFloorLayer(ctx: NtCtx): NtLayer {
   const stateOf = (z: Slot, f: FieldView): number => {
     try {
       if (z.spot === 'deck' || z.spot === 'graveyard') return f.pile(z.player, z.spot).count > 0 ? SLOT_OCCUPIED : SLOT_EMPTY;
+      if (z.fusion) return (f.fusionPile(z.player)?.count ?? 0) > 0 ? SLOT_OCCUPIED : SLOT_EMPTY;
       if (z.spot === 'banish') return SLOT_EMPTY;
       const e = f.entry(z.player, z.spot, z.index);
       if (!e) return SLOT_EMPTY;
@@ -417,7 +429,7 @@ export function createFloorLayer(ctx: NtCtx): NtLayer {
       }
       for (const z of slots) {
         if (BOARD_V4 && z.spot === 'field') z.lv = sealLevel(z, t);
-        const name = frameOf(z.player, z.spot, z.pile, z.state, z.boost, z.theme === 'none' && z.lv > 0 ? lastTheme(z) : z.theme, z.lv);
+        const name = z.fusion ? FLOOR_FRAMES.pile(z.player, 'fusion', z.state === SLOT_EMPTY ? SLOT_EMPTY : SLOT_OCCUPIED, z.boost) : frameOf(z.player, z.spot, z.pile, z.state, z.boost, z.theme === 'none' && z.lv > 0 ? lastTheme(z) : z.theme, z.lv);
         if (name !== z.shown) {
           z.img.setFrame(name);
           z.shown = name;

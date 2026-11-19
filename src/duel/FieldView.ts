@@ -18,7 +18,7 @@ import type { GameState, PlayerId, Position, Uid } from '../engine/types';
 import { volcanoActive } from '../engine/query';
 import type { CardOrientation } from '../art/cards';
 import { TileCard } from '../view/TileCard';
-import { LOOK_V3, type XY } from '../view/layout';
+import { FUSION_ZONE, LOOK_V3, type XY } from '../view/layout';
 import { MonsterUnit } from './MonsterUnit';
 import { installUnitVariants, syncSlotVariant, syncUidVariants } from './unit-variant';
 import { PileView, type PileKind } from './PileView';
@@ -49,6 +49,8 @@ export class FieldView {
   readonly scene: Phaser.Scene;
   private readonly entries = new Map<string, ZoneEntry>();
   private readonly piles: Record<PlayerId, Record<PileKind, PileView>>;
+  /** The Fusion Deck piles (arena v4 only, FUSION_ZONE; null elsewhere). */
+  private readonly fusionPiles: Record<PlayerId, PileView> | null;
   private pendingSync = false;
   private lastState: GameState | null = null;
   /** Units that left the field but are still fading (lookups by uid still find them). */
@@ -60,6 +62,7 @@ export class FieldView {
       0: { deck: new PileView(scene, 0, 'deck'), graveyard: new PileView(scene, 0, 'graveyard') },
       1: { deck: new PileView(scene, 1, 'deck'), graveyard: new PileView(scene, 1, 'graveyard') },
     };
+    this.fusionPiles = FUSION_ZONE ? { 0: new PileView(scene, 0, 'fusion'), 1: new PileView(scene, 1, 'fusion') } : null;
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroy());
   }
 
@@ -98,6 +101,11 @@ export class FieldView {
 
   pile(player: PlayerId, kind: PileKind): PileView {
     return this.piles[player][kind];
+  }
+
+  /** A player's Fusion Deck pile, or null when the board shows none (FUSION_ZONE off: v1 look, calm arena, 3+3). */
+  fusionPile(player: PlayerId): PileView | null {
+    return this.fusionPiles ? this.fusionPiles[player] : null;
   }
 
   // ================================================================ cinematic helpers
@@ -298,6 +306,7 @@ export class FieldView {
       this.piles[p].deck.set(ps.deck.length, null);
       const g = ps.graveyard;
       this.piles[p].graveyard.set(g.length, g.length ? state.cards[g[g.length - 1]].cardId : null);
+      this.fusionPiles?.[p].set(ps.fusionDeck?.length ?? 0, null);
     }
     for (const [k, e] of [...this.entries]) if (!seen.has(k)) this.dispose(e, false);
     // magic_hat: hats over the hatted slots (decoy tokens and the hidden monster)
@@ -312,6 +321,7 @@ export class FieldView {
     for (const p of [0, 1] as PlayerId[]) {
       this.piles[p].deck.destroy();
       this.piles[p].graveyard.destroy();
+      this.fusionPiles?.[p].destroy();
     }
   }
 

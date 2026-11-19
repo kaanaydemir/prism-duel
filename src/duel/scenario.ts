@@ -52,6 +52,8 @@ export interface SideSpec {
   field?: CardId | null;
   lp?: number;
   normalSummonUsed?: boolean;
+  /** Fusion Monsters in the Fusion Deck (fusion: prism_fusion stages). */
+  fusionDeck?: CardId[];
 }
 
 export interface StageSpec {
@@ -142,6 +144,7 @@ export function buildStage(o: StageSpec = {}): GameState {
       ps.spellTraps[i] = slot;
     });
     if (side.field) ps.fieldSpell = { uid: mk(side.field, p), faceUp: true, setTurn: -1, equippedTo: null };
+    if (side.fusionDeck?.length) ps.fusionDeck = side.fusionDeck.map((id) => mk(id, p));
   }
   return s;
 }

@@ -76,7 +76,9 @@ export type SpellEffect =
   | 'strawTokens' // straw_decoys (quick): Special Summon Straw Decoy tokens (free zones - 1, at least 1)
   | 'equipAtk800Return' // spite_axe: +800 ATK; leaving the field it goes to the top of its owner's deck instead, owner takes 500
   | 'handRefreshBoth' // page_turner: both players discard their hands and draw as many
-  | 'diceBoost100'; // lucky_die: roll a die: your face-up monsters get +100 x the roll ATK/DEF this turn
+  | 'diceBoost100' // lucky_die: roll a die: your face-up monsters get +100 x the roll ATK/DEF this turn
+  // ---- fusion ----
+  | 'fusionSummon'; // prism_fusion: send the listed Fusion Materials from hand / field to the GY, Special Summon the Fusion Monster from the Fusion Deck
 
 export type TrapEffect =
   | 'attackDestroyAllAttackPosition' // mirror_barrier
@@ -141,6 +143,8 @@ export type MonsterId =
   | 'polar_anvil'
   | 'polar_coil'
   | 'polar_sovereign'
+  // fusion (Fusion Deck only; Special Summoned by prism_fusion)
+  | 'trinity_crystal_wyrm'
   /** Token of straw_decoys: outside the pool (never in ALL_CARDS / decks), only ever created on the field. */
   | 'straw_decoy_token';
 
@@ -174,7 +178,9 @@ export type SpellId =
   | 'straw_decoys'
   | 'spite_axe'
   | 'page_turner'
-  | 'lucky_die';
+  | 'lucky_die'
+  // fusion
+  | 'prism_fusion';
 
 export type TrapId =
   | 'mirror_barrier'
@@ -212,6 +218,11 @@ export interface MonsterCardDef {
   retired?: boolean;
   /** A token (straw_decoy_token): created on the field by an effect; never in ALL_CARDS, a deck or a graveyard. */
   token?: boolean;
+  /**
+   * A Fusion Monster: it lives in the Fusion Deck (never the main deck or the hand), cannot be Normal Summoned / Set and is
+   * Special Summoned only by a fusion spell (prism_fusion) by sending `materials` (card ids, one entry per copy) to the GY.
+   */
+  fusion?: { materials: MonsterId[] };
 }
 
 export interface SpellCardDef {
@@ -1137,8 +1148,39 @@ const SPELLS_B2: SpellCardDef[] = [
   },
 ];
 
+/** Fusion Monsters (Fusion Deck only). Original designs. */
+const MONSTERS_FUSION: MonsterCardDef[] = [
+  {
+    id: 'trinity_crystal_wyrm',
+    kind: 'monster',
+    name: 'Trinity Crystal Wyrm',
+    attribute: 'LIGHT',
+    race: 'Dragon',
+    level: 12,
+    atk: 4500,
+    def: 3800,
+    effect: 'none',
+    text: '',
+    flavor: 'Three crystal wyrms sang the same note until their facets fused into one living prism. Its single breath splits the dawn into every colour at once.',
+    ace: true,
+    fusion: { materials: ['crystal_wyrm', 'crystal_wyrm', 'crystal_wyrm'] },
+  },
+];
+
+/** The fusion spell(s). */
+const SPELLS_FUSION: SpellCardDef[] = [
+  {
+    id: 'prism_fusion',
+    kind: 'spell',
+    spellType: 'normal',
+    name: 'Prism Fusion',
+    effect: 'fusionSummon',
+    text: 'Send Fusion Materials listed on a Fusion Monster from your hand or field to the Graveyard, then Special Summon that Fusion Monster from your Fusion Deck.',
+  },
+];
+
 /** The 20 original cards (DEFAULT_DECK) followed by the expanded roster; new cards are only ever appended. */
-export const ALL_CARDS: CardDef[] = [...MONSTERS, ...SPELLS, ...TRAPS, ...MONSTERS_B1, ...SPELLS_B1, ...TRAPS_B1, ...MONSTERS_B2, ...SPELLS_B2];
+export const ALL_CARDS: CardDef[] = [...MONSTERS, ...SPELLS, ...TRAPS, ...MONSTERS_B1, ...SPELLS_B1, ...TRAPS_B1, ...MONSTERS_B2, ...SPELLS_B2, ...MONSTERS_FUSION, ...SPELLS_FUSION];
 
 /** Every card definition, tokens included (tokens are never in ALL_CARDS). */
 export const CARDS: Record<CardId, CardDef> = Object.fromEntries([...ALL_CARDS, ...TOKENS].map((c) => [c.id, c])) as Record<
@@ -1147,8 +1189,10 @@ export const CARDS: Record<CardId, CardDef> = Object.fromEntries([...ALL_CARDS, 
 >;
 
 /** Every monster id (tokens included: they need art); the pool is COLLECTIBLE_CARDS. */
-export const MONSTER_IDS: MonsterId[] = [...MONSTERS, ...MONSTERS_B1, ...MONSTERS_B2, ...TOKENS].map((m) => m.id);
-export const SPELL_IDS: SpellId[] = [...SPELLS, ...SPELLS_B1, ...SPELLS_B2].map((s) => s.id);
+export const MONSTER_IDS: MonsterId[] = [...MONSTERS, ...MONSTERS_B1, ...MONSTERS_B2, ...TOKENS, ...MONSTERS_FUSION].map((m) => m.id);
+export const SPELL_IDS: SpellId[] = [...SPELLS, ...SPELLS_B1, ...SPELLS_B2, ...SPELLS_FUSION].map((s) => s.id);
+/** Every Fusion Monster id (the Fusion Deck pool). */
+export const FUSION_MONSTER_IDS: MonsterId[] = MONSTERS_FUSION.map((m) => m.id);
 export const TRAP_IDS: TrapId[] = [...TRAPS, ...TRAPS_B1].map((t) => t.id);
 export const ALL_CARD_IDS: CardId[] = ALL_CARDS.map((c) => c.id);
 
@@ -1156,6 +1200,18 @@ export const ALL_CARD_IDS: CardId[] = ALL_CARDS.map((c) => c.id);
 export function isTokenId(id: string): boolean {
   const d = (CARDS as Record<string, CardDef | undefined>)[id];
   return !!d && d.kind === 'monster' && d.token === true;
+}
+
+/** True for a Fusion Monster (it belongs in the Fusion Deck, never the main deck or the hand). */
+export function isFusionMonster(idOrDef: string | CardDef): boolean {
+  const d = typeof idOrDef === 'string' ? (CARDS as Record<string, CardDef | undefined>)[idOrDef] : idOrDef;
+  return !!d && d.kind === 'monster' && !!d.fusion;
+}
+
+/** The Fusion Materials of a Fusion Monster (card ids, one per copy); [] for any other card. */
+export function fusionMaterials(id: string): MonsterId[] {
+  const d = (CARDS as Record<string, CardDef | undefined>)[id];
+  return d && d.kind === 'monster' && d.fusion ? [...d.fusion.materials] : [];
 }
 
 /** True for a card that was taken out of the game (`retired`): it exists, but is never offered. */

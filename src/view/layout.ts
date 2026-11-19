@@ -650,3 +650,29 @@ export const BANISH_PAD: boolean = !BOARD_V4;
 export function panelRect(player: PlayerId): Rect {
   return player === 0 ? UI.p1Panel : UI.p2Panel;
 }
+
+// ---------------------------------------------------------------- Fusion Deck pile (additive, fusion)
+//
+// The Fusion Deck (Extra Deck) has a pile on the board only in arena v4 (FUSION_ZONE; the v1 look, the calm arena and the
+// 3+3 board show none — its count is still in the state). It sits on the LEFT, under the Field Spell seal, in the corner
+// between the seal and the first spell/trap zone (the unused banish corner, nudged 16 px onto the stage so the pad never
+// overhangs the stage's cut corner): P1 (140, 134), P2 the 180° rotation (500, 186). The pad is the deck / graveyard pad
+// shape (48 × 24, ZONE_SHAPE_HALF.pile); its count tag goes beside the stack on the board side (P1 right, P2 left).
+
+/** True when the board shows the Fusion Deck pile (arena v4). */
+export const FUSION_ZONE: boolean = BOARD_V4;
+
+/** Screen centre (whole px) of a player's Fusion Deck pad (arena v4 values; meaningful only when FUSION_ZONE). */
+export function fusionDeckXY(player: PlayerId): XY {
+  const p1 = { x: 140, y: 134 };
+  return player === 0 ? p1 : { x: 640 - p1.x, y: 320 - p1.y };
+}
+
+/**
+ * Where the Fusion Deck pile's count tag goes (see pileTagAnchor): in the free corner under the pad's outer-lower edge, between
+ * the pad, the stage's cut corner and the first spell/trap zone — P1 x 117.., y 140..148; P2 the 180° rotation (right edge 523,
+ * y 171..179).
+ */
+export function fusionTagAnchor(player: PlayerId): TagAnchor {
+  return player === 0 ? { x: 117, y: 140, align: 'left' } : { x: 640 - 117, y: 320 - 140 - PILE_TAG_H, align: 'right' };
+}

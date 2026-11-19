@@ -69,6 +69,7 @@ export const DEATH_PRESETS: Record<MonsterId, DeathPreset> = {
   polar_anvil: { material: 'stone', accent: 'crystal' },
   polar_coil: { material: 'stone', accent: 'stone' },
   polar_sovereign: { material: 'stone', accent: 'crystal' },
+  trinity_crystal_wyrm: { material: 'crystal', accent: 'crystal' }, // fusion: the art lane may refine
   straw_decoy_token: { material: 'plant', accent: 'plant' },
 };
 

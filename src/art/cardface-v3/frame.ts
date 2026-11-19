@@ -66,12 +66,13 @@ const BODY_SPLIT = 34;
 
 /** The kind's ramp (monster gold, spell teal, trap magenta) — the trim's ramp. */
 export function kindRampV3(def: CardDef): Ramp {
-  return KIND_RAMP[def.kind];
+  return isMonster(def) && def.fusion ? RAMPS.void : KIND_RAMP[def.kind];
 }
 
 /** The kind's trim (FRAME_V3: monster gold2 / gold3, spell teal2 / teal3, trap mag2 / mag3). */
 export function kindTrimV3(def: CardDef): Trim {
-  return FRAME_V3.trims[def.kind];
+  // fusion: a Fusion Monster wears the prism-violet frame (FRAME_V3 'fusion')
+  return isMonster(def) && def.fusion ? FRAME_V3.trims.fusion : FRAME_V3.trims[def.kind];
 }
 
 function isAce(def: CardDef): boolean {
@@ -229,6 +230,13 @@ function paintPlate(p: PixelCanvas, def: CardDef): void {
 
 function paintRow(p: PixelCanvas, def: CardDef): void {
   if (isMonster(def)) {
+    // fusion: more stars than the row holds (Trinity Crystal Wyrm, Lv 12) read as one star and the number
+    if (def.level > 7) {
+      paintStar(p, 40, ROW_Y);
+      const s = String(def.level);
+      digits(p, 40 - 2 - s.length * 4, ROW_Y, s, PAL.gold4, PAL.ink);
+      return;
+    }
     for (let i = 0; i < def.level; i++) paintStar(p, 40 - i * 6, ROW_Y);
     return;
   }

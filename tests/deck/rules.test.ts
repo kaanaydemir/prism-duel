@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { ALL_CARDS, COLLECTIBLE_CARDS, CARDS, DEFAULT_DECK, SEAL_IDS, isMonster, type CardId } from '../../src/data/cards';
 import {
-  DECK_MAX, DECK_MIN, DECK_SIZE, EXPANDED_POOL, MAX_COPIES, PRESET_DEFS, RETIRED_SUBSTITUTES, addBlocker, autoFillDeck, buildPreset, classicDeck, copiesOf, deckStats, expandedDeck, isSealCard, maxCopies, maxHigh, minMonsters, missingPins, presetById, presetDecks, repairDeck, validateDeck,
+  DECK_MAX, DECK_MIN, DECK_SIZE, EXPANDED_POOL, MAX_COPIES, PRESET_DEFS, RETIRED_SUBSTITUTES, addBlocker, autoFillDeck, buildPreset, classicDeck, copiesOf, deckStats, expandedDeck, isSealCard, maxCopies, maxHigh, minMonsters, missingPins, presetById, presetDecks, repairDeck, validateDeck, splitDeck,
 } from '../../src/data/decks';
 import { newGame } from '../../src/engine';
 import { isRetired } from '../../src/data/cards';
 import { visibleIds } from '../../src/scenes/deck/pool';
 
-const monsters = COLLECTIBLE_CARDS.filter(isMonster);
+const monsters = COLLECTIBLE_CARDS.filter(isMonster).filter((m) => !m.fusion); // Fusion Monsters live in the Fusion Deck
 const high = monsters.filter((m) => m.level >= 7).map((m) => m.id);
 const low = monsters.filter((m) => m.level < 7 && !SEAL_IDS.includes(m.id as never)).map((m) => m.id);
 const back = COLLECTIBLE_CARDS.filter((c) => !isMonster(c)).map((c) => c.id);
@@ -185,7 +185,7 @@ describe('preset decks', () => {
     for (const p of presetDecks()) {
       const v = validateDeck(p.cards);
       expect(v.ok, `${p.name}: ${v.issues.map((i) => i.text).join(' | ')}`).toBe(true);
-      expect(p.cards).toHaveLength(DECK_SIZE);
+      expect(splitDeck(p.cards).main).toHaveLength(DECK_SIZE); // + the Fusion Deck (outside the 40)
       for (const id of p.cards) expect(CARDS[id]).toBeTruthy();
     }
   });
@@ -227,7 +227,8 @@ describe('expanded sampler (CPU, 40 cards)', () => {
   it('24 monsters + 16 spells/traps, valid, seeded, respects copy limits', () => {
     for (let seed = 0; seed < 40; seed++)
       for (const side of [0, 1] as const) {
-        const d = expandedDeck(seed, side);
+        const all = expandedDeck(seed, side);
+        const d = splitDeck(all).main; // the Fusion Deck (Trinity Crystal Wyrm with crystal_wyrm) comes after the 40
         expect(d).toHaveLength(40);
         expect(d.filter((id) => CARDS[id].kind === 'monster')).toHaveLength(24);
         const v = validateDeck(d);

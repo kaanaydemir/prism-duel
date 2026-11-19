@@ -14,6 +14,7 @@ import {
   extraSummonAvailable,
   freeMonsterZones,
   freeSpellTrapZones,
+  fusionOptions,
   attackLocked,
   monsterDefOf,
   spellTrapRefs,
@@ -70,6 +71,7 @@ export function legalActions(s: GameState): Action[] {
         const d = defOf(s, uid);
         if (!isMonster(d)) continue;
         if (d.effect === 'magnetFusion') continue; // polar_sovereign: Special Summon only (double_offering does not open it)
+        if (d.fusion) continue; // a Fusion Monster: only a fusion spell Special Summons it (it never stays in a hand by the rules)
         if (extraOnly && d.level > 4) continue;
         const n = tributeNeed(s, p, d.level);
         for (const combo of combinations(fieldUids, n)) {
@@ -293,6 +295,13 @@ function pushSpellActivations(
       break;
     case 'diceBoost100':
       if (me.monsters.some((m) => m && m.faceUp)) out.push({ type: 'activateSpell', player: p, uid });
+      break;
+    // ---- fusion ----
+    case 'fusionSummon':
+      // a Special Summon: straw_decoys' own-turn lock forbids it; the Normal Summon right is not touched
+      if (!summonAllowed(s, p)) break;
+      for (const f of fusionOptions(s, p, uid))
+        out.push({ type: 'activateSpell', player: p, uid, target: { kind: 'fusion', fusionUid: f.fusionUid, materials: [...f.materials], toZone: f.toZone } });
       break;
   }
 }

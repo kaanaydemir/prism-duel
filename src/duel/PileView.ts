@@ -18,11 +18,13 @@ import { PixelCanvas, mix } from '../art/pixel';
 import { addStaticCanvas } from '../art/textures';
 import type { PlayerId } from '../engine/types';
 import { pixelText } from '../ui/text';
-import { BOARD_V4, DEPTH, type XY, pileTagAnchor, tagLeft, zoneXY } from '../view/layout';
+import { BOARD_V4, DEPTH, type XY, fusionDeckXY, fusionTagAnchor, pileTagAnchor, tagLeft, zoneXY } from '../view/layout';
 import { V3_A6_A } from '../view/v3flags';
 import { tween, wait } from '../vfx/core';
 
 export type PileKind = 'deck' | 'graveyard';
+/** A PileView's kind: 'fusion' = the Fusion Deck (arena v4 only, FieldView.fusionPile; face-down backs, a violet count tag). */
+export type PileViewKind = PileKind | 'fusion';
 
 const MAX_LAYERS = 9;
 /** v3: one layer per card up to this many (the stack's height reads the count card by card). */
@@ -70,7 +72,7 @@ function pileEdgeKey(scene: Phaser.Scene, player: PlayerId, lit: number, shade: 
 export class PileView {
   readonly scene: Phaser.Scene;
   readonly player: PlayerId;
-  readonly kind: PileKind;
+  readonly kind: PileViewKind;
   readonly home: XY;
   private layers: Phaser.GameObjects.Image[] = [];
   private readonly label: Phaser.GameObjects.BitmapText;
@@ -78,11 +80,11 @@ export class PileView {
   private n = 0;
   private top: CardId | null = null;
 
-  constructor(scene: Phaser.Scene, player: PlayerId, kind: PileKind) {
+  constructor(scene: Phaser.Scene, player: PlayerId, kind: PileViewKind) {
     this.scene = scene;
     this.player = player;
     this.kind = kind;
-    this.home = zoneXY(player, kind);
+    this.home = kind === 'fusion' ? fusionDeckXY(player) : zoneXY(player, kind);
     this.tag = scene.add.graphics().setDepth(DEPTH.CARD_ON_TILE + 5);
     this.label = pixelText(scene, 0, 0, '0', { size: 'sm', color: PAL.mist, originX: 0.5, originY: 0.5 }).setDepth(DEPTH.CARD_ON_TILE + 6);
     this.render();
@@ -145,6 +147,7 @@ export class PileView {
     if (n <= 0) return 0;
     if (V3_A6_A) {
       if (this.kind === 'deck') return n >= 4 ? V3_MAX_LAYERS : Math.min(V3_MAX_LAYERS, Math.max(3, n + 2));
+      if (this.kind === 'fusion') return Math.min(V3_MAX_LAYERS, n + 1); // 1..5 cards: one layer each over an ink contact line
       return Math.min(V3_MAX_LAYERS, n);
     }
     return Math.min(MAX_LAYERS, Math.ceil(n / 2));
@@ -180,14 +183,17 @@ export class PileView {
     const s = String(this.n);
     const w = s.length * 4 + 5;
     // arena v4: the deck / graveyard pads sit on the board's corners — the tag goes beside the stack (layout.pileTagAnchor)
-    const anchor = BOARD_V4 ? pileTagAnchor(this.player, this.kind) : null;
+    const anchor = this.kind === 'fusion' ? fusionTagAnchor(this.player) : BOARD_V4 ? pileTagAnchor(this.player, this.kind) : null;
     const x = anchor ? tagLeft(anchor, w) : Math.round(this.home.x - w / 2);
     const y = anchor ? anchor.y : Math.round(this.home.y + 8);
     this.tag.clear();
     if (this.n > 0) {
+      // the Fusion Deck's tag wears the fusion violet (its owner's colour stays on the pad's clips)
+      const top = this.kind === 'fusion' ? PAL.void3 : R[1];
+      const bot = this.kind === 'fusion' ? PAL.void1 : R[0];
       this.tag.fillStyle(PAL.ink, V3_A6_A ? 1 : 0.85).fillRect(x, y, w, 9);
-      this.tag.fillStyle(R[1], 1).fillRect(x + 1, y, w - 2, 1);
-      this.tag.fillStyle(R[0], 1).fillRect(x + 1, y + 8, w - 2, 1);
+      this.tag.fillStyle(top, 1).fillRect(x + 1, y, w - 2, 1);
+      this.tag.fillStyle(bot, 1).fillRect(x + 1, y + 8, w - 2, 1);
     }
     this.label.setText(s);
     this.label.setPosition(anchor ? x + Math.floor(w / 2) : Math.round(this.home.x), y + 5);

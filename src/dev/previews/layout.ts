@@ -95,7 +95,7 @@ function applyCornerContract(scene: Phaser.Scene, piles: PileView[]): void {
   for (const pile of piles) {
     const pv = pile as unknown as { tag: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.BitmapText };
     const w = tagWidth(pile.count);
-    const a = pileTagAnchor(pile.player, pile.kind);
+    const a = pileTagAnchor(pile.player, pile.kind as "deck" | "graveyard");
     const x = tagLeft(a, w);
     // PileView draws the tag graphics at (round(home.x − w/2), round(home.y + 8)): shift it
     pv.tag.setPosition(x - Math.round(pile.home.x - w / 2), a.y - Math.round(pile.home.y + 8));
@@ -279,7 +279,7 @@ const preview: DevPreview = {
       // deck-corner contract spots: pile count tags (2 digits) and, in v2, the deck-corner pylons
       for (const pile of piles) {
         const w = tagWidth(10);
-        const a = pileTagAnchor(pile.player, pile.kind);
+        const a = pileTagAnchor(pile.player, pile.kind as "deck" | "graveyard");
         g.lineStyle(1, PAL.gold2, 0.9).strokeRect(tagLeft(a, w) - 0.5, a.y - 0.5, w + 1, PILE_TAG_H + 1);
       }
       if (ARENA_V2)

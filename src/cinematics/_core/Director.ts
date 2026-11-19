@@ -451,6 +451,10 @@ export function hookKeys(ev: GameEvent, s: GameState): [CardId, CardHookKind][] 
     case 'attackNegated':
       push(cardOf(s, ev.byUid), 'negate');
       break;
+    case 'fusionSummon':
+      push(ev.cardId, 'fusion');
+      push(ev.spellCardId, 'fusionSpell');
+      break;
     default:
       break;
   }

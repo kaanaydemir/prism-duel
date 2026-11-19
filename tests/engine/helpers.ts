@@ -37,6 +37,8 @@ export interface Side {
   field?: CardId | null;
   lp?: number;
   normalSummonUsed?: boolean;
+  /** Fusion Monsters in the Fusion Deck. */
+  fusionDeck?: CardId[];
 }
 
 export interface ScenarioOpts {
@@ -115,6 +117,7 @@ export function scenario(o: ScenarioOpts = {}): GameState {
       ps.spellTraps[i] = slot;
     });
     if (side.field) ps.fieldSpell = { uid: mk(side.field, p), faceUp: true, setTurn: -1, equippedTo: null };
+    if (side.fusionDeck?.length) ps.fusionDeck = side.fusionDeck.map((id) => mk(id, p));
   }
   return s;
 }
@@ -228,6 +231,11 @@ export function checkInvariants(s: GameState): void {
     for (const u of ps.graveyard) {
       put(u, `gy${p}`);
       assert(s.cards[u].owner === p, 'graveyard owner');
+    }
+    for (const u of ps.fusionDeck ?? []) {
+      put(u, `fusionDeck${p}`);
+      assert(s.cards[u].owner === p, 'fusion deck owner');
+      assert((CARDS[s.cards[u].cardId] as { fusion?: unknown }).fusion, 'non-fusion card in the Fusion Deck');
     }
     for (const u of ps.banished ?? []) {
       put(u, `banished${p}`);

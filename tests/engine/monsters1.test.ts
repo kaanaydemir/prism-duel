@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { apply, battleNumbers, currentAtk, legalActions, newGame, type Action, type GameEvent, type GameState, type PlayerId } from '../../src/engine';
 import { ALL_CARDS, CARDS, DEFAULT_DECK, SEAL_IDS, isMonster, type CardId } from '../../src/data/cards';
-import { DECK_SIZE, EXPANDED_POOL, decksFor, detectDeckPool, expandedDeck } from '../../src/data/decks';
+import { DECK_SIZE, EXPANDED_POOL, decksFor, detectDeckPool, expandedDeck, splitDeck } from '../../src/data/decks';
 import { checkEvents, checkInvariants, checkInvariantsRelaxed, isListed, play, scenario, seq, uidOf, type ScenarioOpts } from './helpers';
 
 const atk = (s: GameState, id: CardId, owner?: PlayerId) => currentAtk(s, uidOf(s, id, owner));
@@ -470,16 +470,16 @@ describe('ownSpellBurn300 (dusk_sorcerer)', () => {
 
 describe('deck pool', () => {
   it('the sampler: 40 cards (24 monsters + 16 spells/traps, copy limits respected), deterministic and different per side/seed', () => {
-    const d = expandedDeck(7, 0);
+    const d = splitDeck(expandedDeck(7, 0)).main; // the Fusion Deck part (if any) comes after the main deck
     expect(d).toHaveLength(DECK_SIZE);
     expect(DECK_SIZE).toBe(40);
     expect(d.filter((id) => CARDS[id].kind === 'monster')).toHaveLength(24);
     expect(d.filter((id) => CARDS[id].kind !== 'monster')).toHaveLength(16);
     expect(d.filter((id) => { const c = CARDS[id]; return c.kind === 'monster' && c.level >= 7; }).length).toBeLessThanOrEqual(8);
     for (const id of new Set(d)) expect(d.filter((x) => x === id).length).toBeLessThanOrEqual(id.startsWith('seal_') ? 1 : 3);
-    expect(expandedDeck(7, 0)).toEqual(d);
-    expect(expandedDeck(7, 1)).not.toEqual(d);
-    expect(expandedDeck(8, 0)).not.toEqual(d);
+    expect(splitDeck(expandedDeck(7, 0)).main).toEqual(d);
+    expect(splitDeck(expandedDeck(7, 1)).main).not.toEqual(d);
+    expect(splitDeck(expandedDeck(8, 0)).main).not.toEqual(d);
     expect(EXPANDED_POOL).toHaveLength(ALL_CARDS.filter((c) => !c.retired).length); // the pool follows the roster minus retired cards
     expect(EXPANDED_POOL).not.toContain('dusk_sorcerer');
     expect(decksFor('default', 1)).toBeUndefined();
@@ -495,7 +495,7 @@ describe('deck pool', () => {
   it('newGame({ pool: "expanded" }) plays; the default still deals the 20 original cards', () => {
     const g = newGame({ seed: 5, pool: 'expanded' }).state;
     checkInvariants(g);
-    expect(Object.values(g.cards).filter((c) => c.owner === 0)).toHaveLength(40);
+    expect(Object.values(g.cards).filter((c) => c.owner === 0)).toHaveLength(40 + (g.players[0].fusionDeck?.length ?? 0));
     const d = newGame({ seed: 5 }).state;
     expect(Object.values(d.cards).every((c) => DEFAULT_DECK.includes(c.cardId))).toBe(true);
     expect(Object.keys(d.cards)).toHaveLength(40);

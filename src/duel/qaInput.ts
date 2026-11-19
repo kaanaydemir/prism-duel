@@ -57,6 +57,10 @@ export function uiPoint(scene: Phaser.Scene, views: DuelViews, at: UiTarget): XY
     const pile = views.field.pile(at.pile[0], at.pile[1]);
     return worldToScreen(views, pile.topXY());
   }
+  if ('fusion' in at) {
+    const pile = views.field.fusionPile(at.fusion);
+    return pile ? worldToScreen(views, pile.topXY()) : null;
+  }
   if ('button' in at) {
     const hud = views.hud as unknown as Record<string, unknown>;
     const name = { battle: 'battleButton', endTurn: 'endTurnButton', menu: 'menuButton' }[at.button];

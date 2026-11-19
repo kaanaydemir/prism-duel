@@ -23,6 +23,10 @@ function detach(s: GameState, uid: Uid): void {
     for (let z = 0; z < ps.monsters.length; z++) if (ps.monsters[z]?.uid === uid) ps.monsters[z] = null;
     for (let z = 0; z < ps.spellTraps.length; z++) if (ps.spellTraps[z]?.uid === uid) ps.spellTraps[z] = null;
     if (ps.fieldSpell?.uid === uid) ps.fieldSpell = null;
+    if (ps.fusionDeck) {
+      i = ps.fusionDeck.indexOf(uid);
+      if (i >= 0) ps.fusionDeck.splice(i, 1);
+    }
   }
 }
 
@@ -301,6 +305,11 @@ export function applyEvent(s: GameState, ev: GameEvent): void {
     case 'massDestroy':
     case 'coinToss':
     case 'diceRoll':
+    case 'fusionSummon': // announce only: the materials' toGraveyard and the summon that follow move the cards
+      return;
+    case 'toFusionDeck':
+      detach(s, ev.uid);
+      (s.players[ev.owner].fusionDeck ??= []).push(ev.uid);
       return;
     case 'decision':
       s.pending = structuredClone(ev.pending);
@@ -375,6 +384,7 @@ export function stateDiff(a: GameState, b: GameState): string[] {
     });
     if (ids(pa.spellTraps) !== ids(pb.spellTraps)) out.push(`p${p}.st [${ids(pa.spellTraps)}]≠[${ids(pb.spellTraps)}]`);
     if ((pa.fieldSpell?.uid ?? -1) !== (pb.fieldSpell?.uid ?? -1)) out.push(`p${p}.field`);
+    if ((pa.fusionDeck?.length ?? 0) !== (pb.fusionDeck?.length ?? 0)) out.push(`p${p}.fusionDeck ${pa.fusionDeck?.length ?? 0}≠${pb.fusionDeck?.length ?? 0}`);
   }
   if (a.phase !== b.phase) out.push(`phase ${a.phase}≠${b.phase}`);
   if (a.turn !== b.turn) out.push(`turn ${a.turn}≠${b.turn}`);

@@ -21,6 +21,8 @@ import type { StageSpec } from './scenario';
 
 export interface ScenarioApi {
   uid(cardId: CardId, owner?: PlayerId): number;
+  /** The acting player's legal actions now (additive, fusion: steps that need a full action, e.g. a material set). */
+  legal?(): Action[];
 }
 
 /** Where a UI step points (screen space; resolved when the step runs: src/duel/qaInput.ts uiPoint). */
@@ -33,6 +35,8 @@ export type UiTarget =
   | { unit: [PlayerId, number] }
   /** A deck / graveyard pile's top. */
   | { pile: [PlayerId, 'deck' | 'graveyard'] }
+  /** A player's Fusion Deck pile (arena v4; additive, fusion). */
+  | { fusion: PlayerId }
   /** A HUD button. */
   | { button: 'battle' | 'endTurn' | 'menu' }
   /** The row of the open action menu with this option id (e.g. 'activateSpell', 'setMonster'). */

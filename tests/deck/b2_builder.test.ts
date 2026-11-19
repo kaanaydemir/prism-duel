@@ -20,7 +20,7 @@ describe('builder grid with the new cards', () => {
     for (const id of B2) expect(all, id).toContain(id);
     expect(all).not.toContain('straw_decoy_token');
     expect(all).toHaveLength(COLLECTIBLE_CARDS.length);
-    expect(all.length).toBe(80); // owner decision 1: no Yaldızlı Kafes, the pool is 80
+    expect(all.length).toBe(82); // owner decision 1: no Yaldızlı Kafes, the pool is 80; + fusion (Prism Fusion, Trinity Crystal Wyrm)
   });
 
   it('quick spells are under the Büyü filter; the polar family under TOPRAK', () => {

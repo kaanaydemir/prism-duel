@@ -10,7 +10,7 @@
 // <= 20% of the deck.
 // These rules apply to the builder / pickers only: the engine still starts a game with ANY deck.
 
-import { ALL_CARDS, CARDS, COLLECTIBLE_CARDS, DEFAULT_DECK, SEAL_IDS, isMonster, isRetired, type Attribute, type CardDef, type CardId, type MonsterCardDef } from './cards';
+import { ALL_CARDS, CARDS, COLLECTIBLE_CARDS, DEFAULT_DECK, SEAL_IDS, fusionMaterials, isFusionMonster, isMonster, isRetired, type Attribute, type CardDef, type CardId, type MonsterCardDef } from './cards';
 import { makeRng } from '../engine/rng';
 
 export type DeckPool = 'default' | 'expanded';
@@ -25,6 +25,33 @@ export const MAX_COPIES = 3;
 export const SEAL_COPIES = 1;
 /** Sampler split of a 40-card deck. */
 export const DECK_MONSTERS = 24;
+/**
+ * The Fusion Deck (Extra Deck): 0..FUSION_DECK_MAX Fusion Monsters, kept in the same saved list as the main deck but never
+ * counted in its size / ratios (the engine routes them to PlayerState.fusionDeck).
+ */
+export const FUSION_DECK_MAX = 5;
+
+/** A deck list split into its main deck and its Fusion Deck (order kept). */
+export function splitDeck<T extends string>(ids: readonly T[]): { main: T[]; fusion: T[] } {
+  const main: T[] = [];
+  const fusion: T[] = [];
+  for (const id of ids) (isFusionMonster(id) ? fusion : main).push(id);
+  return { main, fusion };
+}
+
+/** Main-deck cards (no Fusion Monsters) of a pool. */
+function mainPool(pool: readonly CardDef[]): CardDef[] {
+  return pool.filter((c) => !isFusionMonster(c));
+}
+
+/**
+ * Fusion Monsters a deck would want: every one whose materials all appear in `main` (CPU / preset / sampler decks give
+ * one copy each when the main deck also runs a fusion spell, or `always`).
+ */
+export function fusionsFor(main: readonly string[], always = false): CardId[] {
+  if (!always && !main.some((id) => CARDS[id as CardId]?.kind === 'spell' && (CARDS[id as CardId] as { effect: string }).effect === 'fusionSummon')) return [];
+  return COLLECTIBLE_CARDS.filter((c) => isFusionMonster(c) && fusionMaterials(c.id).every((m) => main.includes(m))).map((c) => c.id).slice(0, FUSION_DECK_MAX);
+}
 
 /** Every card of the 'expanded' pool (monsters, spells and traps; retired cards are never in it). */
 export const EXPANDED_POOL: readonly CardId[] = COLLECTIBLE_CARDS.map((c) => c.id);
@@ -95,14 +122,16 @@ function sampleCopies(list: readonly CardId[], slots: number, rng: () => number,
  */
 export function expandedDeck(seed: number, side: 0 | 1): CardId[] {
   const rng = makeRng((seed ^ Math.imul(side + 1, 0x9e3779b1) ^ 0x5eed5eed) >>> 0);
-  const monsters = shuffleWith(COLLECTIBLE_CARDS.filter(isMonster), rng);
+  const monsters = shuffleWith(mainPool(COLLECTIBLE_CARDS).filter(isMonster), rng);
   const rest = shuffleWith(COLLECTIBLE_CARDS.filter((c) => !isMonster(c)).map((c) => c.id), rng);
   const lowDup = (id: CardId) => {
     const d = CARDS[id];
     return !isSingleCopy(id) && !(isMonster(d) && d.level >= DECK_HIGH_LEVEL);
   };
   const picked = sampleCopies(monsters.map((m) => m.id), DECK_MONSTERS, rng, lowDup);
-  return [...picked, ...sampleCopies(rest, DECK_SPELLTRAPS, rng, (id) => !isSingleCopy(id))];
+  const main = [...picked, ...sampleCopies(rest, DECK_SPELLTRAPS, rng, (id) => !isSingleCopy(id))];
+  // fusion: a deck running crystal_wyrm brings Trinity Crystal Wyrm in its Fusion Deck (after the 40, outside the main deck)
+  return [...main, ...fusionsFor(main, true)];
 }
 
 /** The two decks of a game for `pool` (undefined: the classic deck for both). */
@@ -136,7 +165,7 @@ export const DECK_MAX_HIGH = maxHigh(DECK_MIN);
 /** Level-curve buckets: levels 1..7 and "8+". */
 export const CURVE_BUCKETS = 8;
 
-export type DeckIssueCode = 'size' | 'copies' | 'unknown' | 'monsters' | 'high';
+export type DeckIssueCode = 'size' | 'copies' | 'unknown' | 'monsters' | 'high' | 'fusion';
 
 export interface DeckIssue {
   code: DeckIssueCode;
@@ -159,6 +188,8 @@ export interface DeckStats {
   over: string[];
   /** Ids that are not in the card pool (a saved deck after a card was removed, or a retired card). */
   unknown: string[];
+  /** Fusion Deck cards (Fusion Monsters; not in `size`, `monsters` or the curve). */
+  fusion: number;
 }
 
 export interface DeckCheck {
@@ -172,7 +203,7 @@ export function isCardId(id: unknown): id is CardId {
 }
 
 export function deckStats(ids: readonly string[]): DeckStats {
-  const st: DeckStats = { size: ids.length, monsters: 0, spells: 0, traps: 0, high: 0, curve: new Array<number>(CURVE_BUCKETS).fill(0), counts: {}, over: [], unknown: [] };
+  const st: DeckStats = { size: ids.length, monsters: 0, spells: 0, traps: 0, high: 0, curve: new Array<number>(CURVE_BUCKETS).fill(0), counts: {}, over: [], unknown: [], fusion: 0 };
   for (const id of ids) {
     if (!isCardId(id) || isRetired(id)) {
       if (!st.unknown.includes(id)) st.unknown.push(id);
@@ -181,7 +212,11 @@ export function deckStats(ids: readonly string[]): DeckStats {
     st.counts[id] = (st.counts[id] ?? 0) + 1;
     if (st.counts[id] > maxCopies(id) && !st.over.includes(id)) st.over.push(id);
     const d = CARDS[id];
-    if (isMonster(d)) {
+    if (isFusionMonster(d)) {
+      // the Fusion Deck: counted on its own, never in the main deck's size / ratios
+      st.fusion++;
+      st.size--;
+    } else if (isMonster(d)) {
       st.monsters++;
       if (d.level >= DECK_HIGH_LEVEL) st.high++;
       st.curve[Math.min(CURVE_BUCKETS, Math.max(1, d.level)) - 1]++;
@@ -214,6 +249,7 @@ export function validateDeck(ids: readonly string[]): DeckCheck {
   if (stats.monsters < need) issues.push({ code: 'monsters', text: `Needs at least ${need} monsters (now ${stats.monsters})` });
   const cap = maxHigh(stats.size);
   if (stats.high > cap) issues.push({ code: 'high', text: `At most ${cap} monsters of Lv ${DECK_HIGH_LEVEL}+ (now ${stats.high})` });
+  if (stats.fusion > FUSION_DECK_MAX) issues.push({ code: 'fusion', text: `Fusion Deck can hold at most ${FUSION_DECK_MAX} cards: ${stats.fusion - FUSION_DECK_MAX} too many` });
   return { ok: issues.length === 0, issues, stats };
 }
 
@@ -223,7 +259,11 @@ export function addBlocker(ids: readonly string[], id: CardId): string | null {
   const have = copiesOf(ids, id);
   const lim = maxCopies(id);
   if (have >= lim) return lim === 1 ? 'This card is already in the deck (max 1)' : `Max ${lim} copies of this card (already ${have})`;
-  if (ids.length >= DECK_MAX) return `Deck is full (${DECK_MAX}/${DECK_MAX})`;
+  if (isFusionMonster(id)) {
+    const f = ids.filter((x) => isFusionMonster(x)).length;
+    return f >= FUSION_DECK_MAX ? `Fusion Deck is full (${FUSION_DECK_MAX}/${FUSION_DECK_MAX})` : null;
+  }
+  if (ids.length - ids.filter((x) => isFusionMonster(x)).length >= DECK_MAX) return `Deck is full (${DECK_MAX}/${DECK_MAX})`;
   const d = CARDS[id];
   if (d && isMonster(d) && d.level >= DECK_HIGH_LEVEL) {
     const cap = maxHigh(ids.length + 1);
@@ -244,7 +284,7 @@ export const RETIRED_SUBSTITUTES: Partial<Record<CardId, readonly CardId[]>> = {
 /** The card that replaces one copy of the retired `id` in a deck holding `have` copies; null when none fits. */
 export function retiredSubstitute(id: CardId, have: Readonly<Record<string, number>>): CardId | null {
   const d = CARDS[id];
-  const band = (c: CardDef) => (isMonster(c) && isMonster(d) ? (c.level >= DECK_HIGH_LEVEL) === (d.level >= DECK_HIGH_LEVEL) && !isSealCard(c.id) : c.kind === d.kind);
+  const band = (c: CardDef) => (isMonster(c) && isMonster(d) ? (c.level >= DECK_HIGH_LEVEL) === (d.level >= DECK_HIGH_LEVEL) && !isSealCard(c.id) && isFusionMonster(c) === isFusionMonster(d) : c.kind === d.kind);
   const fallback = COLLECTIBLE_CARDS.filter((c) => c.kind === d.kind && band(c)).map((c) => c.id);
   for (const s of [...(RETIRED_SUBSTITUTES[id] ?? []), ...fallback]) if (isCardId(s) && !isRetired(s) && (have[s] ?? 0) < maxCopies(s)) return s;
   return null;
@@ -288,7 +328,10 @@ export function repairDeck(raw: unknown): { cards: CardId[]; missing: number; re
       replaced++;
       id = sub;
     }
-    if (cards.length >= DECK_MAX) trimmed++;
+    // the main deck is cut at DECK_MAX, the Fusion Deck at FUSION_DECK_MAX (each counted on its own)
+    const fusion = isFusionMonster(id);
+    const n = cards.filter((x) => isFusionMonster(x) === fusion).length;
+    if (n >= (fusion ? FUSION_DECK_MAX : DECK_MAX)) trimmed++;
     else cards.push(id);
   }
   return { cards, missing, repeats, trimmed, replaced };
@@ -314,9 +357,11 @@ function shuffled<T>(list: readonly T[], seed: number): T[] {
  */
 export function autoFillDeck(current: readonly string[], seed: number, pool: readonly CardDef[] = COLLECTIBLE_CARDS, target: number = DECK_SIZE): CardId[] {
   const goal = Math.max(DECK_MIN, Math.min(DECK_MAX, Math.floor(target)));
-  const deck: CardId[] = repairDeck(current).cards.slice(0, goal);
+  // the Fusion Deck part is kept as it is (it never counts toward the goal); only the main deck is filled
+  const split = splitDeck(repairDeck(current).cards);
+  const deck: CardId[] = split.main.slice(0, goal);
   const st = () => deckStats(deck);
-  const free = shuffled(pool.filter((c) => !isRetired(c.id)), seed);
+  const free = shuffled(mainPool(pool).filter((c) => !isRetired(c.id)), seed);
   const take = (pred: (c: CardDef) => boolean): boolean => {
     for (let copies = 0; copies < MAX_COPIES; copies++) {
       const c = free.find((x) => pred(x) && copiesOf(deck, x.id) === copies && addBlocker(deck, x.id) === null);
@@ -333,7 +378,7 @@ export function autoFillDeck(current: readonly string[], seed: number, pool: rea
   for (let k = 0; k < backRows && deck.length < goal; k++) if (!take((c) => !isMonster(c))) break;
   while (deck.length < goal) if (!take((c) => isMonster(c))) break;
   while (deck.length < goal) if (!take(() => true)) break;
-  return deck;
+  return [...deck, ...split.fusion];
 }
 
 // ======================================================================== preset decks
@@ -366,10 +411,10 @@ export interface Preset {
 export const PRESET_DEFS: readonly PresetDef[] = [
   { id: 'ates', name: 'Fire Assault', blurb: 'High ATK and fast attacks that burn through.', role: 'aggro', attribute: 'FIRE', pins: ['magma_titan', 'ember_wolf', 'storm_hawk', 'shade_assassin', 'judgment_bolt', 'dragon_blade', 'volcano_arena', 'scrap_raiders', 'spite_axe'], backRow: 6 },
   { id: 'su', name: 'Water Control', blurb: 'Traps, piercing damage and patient defense.', role: 'control', attribute: 'WATER', pins: ['coral_serpent', 'tide_golem', 'mirror_barrier', 'chains_of_light', 'chasm_trap', 'thorn_lurker', 'tide_harpooner', 'reed_heron', 'tidal_bay', 'auger_lance'], backRow: 8 },
-  { id: 'isik', name: 'Light Support', blurb: 'Gain LP, bring cards back, play the long game.', role: 'support', attribute: 'LIGHT', pins: ['crystal_wyrm', 'lumen_sprite', 'volt_lizard', 'hourglass_imp', 'healing_spring', 'soul_recall', 'well_pail', 'winnow_sieve', 'reflection_archer'], backRow: 7 },
+  { id: 'isik', name: 'Light Support', blurb: 'Gain LP, bring cards back, play the long game.', role: 'support', attribute: 'LIGHT', pins: ['crystal_wyrm', 'lumen_sprite', 'volt_lizard', 'hourglass_imp', 'healing_spring', 'soul_recall', 'well_pail', 'winnow_sieve', 'reflection_archer', 'prism_fusion'], backRow: 7 },
   { id: 'muhur', name: 'Dark Seal', blurb: 'Gather the Five Seals in hand and win at once.', role: 'seal', attribute: 'DARK', pins: [...SEAL_IDS, 'wisp_imp', 'steel_silencer', 'soul_recall'], backRow: 5 },
   { id: 'toprak', name: 'Earth Defense', blurb: 'Thick DEF, sturdy guards: slow but certain.', role: 'defense', attribute: 'EARTH', pins: ['stone_sentinel', 'shield_titan', 'thorn_lurker', 'windmane_knight', 'mirror_barrier', 'healing_spring', 'mudgrasp_spirit', 'straw_decoys'], backRow: 7 },
-  { id: 'dengeli', name: 'Balanced', blurb: 'A bit of every element; an answer for everything.', role: 'balanced', pins: ['crystal_wyrm', 'abyss_magus', 'magma_titan', 'coral_serpent', 'ember_wolf', 'judgment_bolt', 'mirror_barrier', 'void_eye', 'puppet_string'], backRow: 7 },
+  { id: 'dengeli', name: 'Balanced', blurb: 'A bit of every element; an answer for everything.', role: 'balanced', pins: ['crystal_wyrm', 'abyss_magus', 'magma_titan', 'coral_serpent', 'ember_wolf', 'judgment_bolt', 'mirror_barrier', 'void_eye', 'puppet_string', 'prism_fusion'], backRow: 7 },
   // batch 2: the polar fusion deck (docs/v3/YENI_KARTLAR.md §1 "Mıknatıs"): pieces x2, the Sovereign, revive + decoys to keep pieces alive
   { id: 'miknatis', name: 'Magnet', blurb: 'Line up the three Polar pieces, summon Polar Sovereign.', role: 'defense', attribute: 'EARTH', pins: ['polar_needle', 'polar_anvil', 'polar_coil', 'polar_sovereign', 'soul_recall', 'straw_decoys'], backRow: 7 },
 ];
@@ -451,12 +496,21 @@ function copyOrder<T extends CardDef>(list: T[], spread: number, copies: (c: T) 
 
 /** Builds one preset from `pool`: pins first, then back row and monsters by role score; stable order. */
 export function buildPreset(def: PresetDef, poolIn: readonly CardDef[] = COLLECTIBLE_CARDS): Preset {
-  const pool = poolIn.filter((c) => !isRetired(c.id));
+  // Fusion Monsters never go into the main deck: they are added to the Fusion Deck at the end (fusionsFor)
+  const fusionPool = poolIn.filter((c) => !isRetired(c.id) && isFusionMonster(c));
+  const pool = mainPool(poolIn).filter((c) => !isRetired(c.id));
   const order = new Map(pool.map((c, i) => [c.id, i]));
   const deck: CardId[] = [];
   // pins: two copies each (one for the seals), they are the theme of the deck
   for (const id of def.pins) if (order.has(id) && addBlocker(deck, id) === null) deck.push(id);
   for (const id of def.pins) if (order.has(id) && !isSingleCopy(id) && deck.length < DECK_SIZE / 2 && addBlocker(deck, id) === null) deck.push(id);
+  // a pinned fusion spell: its pinned materials get as many copies as the Fusion Monster lists (Trinity Crystal Wyrm: 3)
+  if (def.pins.some((id) => (CARDS[id] as { effect?: string }).effect === 'fusionSummon'))
+    for (const f of fusionPool) {
+      const mats = fusionMaterials(f.id);
+      if (!mats.every((m) => def.pins.includes(m))) continue;
+      for (const m of new Set(mats)) while (copiesOf(deck, m) < mats.filter((x) => x === m).length && addBlocker(deck, m) === null) deck.push(m);
+    }
   const backScore = (c: CardDef) => (BACK_SCORE[(c as { effect: string }).effect]?.[def.role] ?? 2) + (def.attribute === 'FIRE' && (c as { effect: string }).effect === 'fieldVolcano' ? 3 : 0);
   const ranked = <T extends CardDef>(list: T[], score: (c: T) => number) => [...list].sort((a, b) => score(b) - score(a) || (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
   const all = [...pool];
@@ -483,7 +537,9 @@ export function buildPreset(def: PresetDef, poolIn: readonly CardDef[] = COLLECT
   for (let copies = 0; copies < MAX_COPIES; copies++)
     for (const c of pool) if (deck.length < DECK_SIZE && copiesOf(deck, c.id) === copies && addBlocker(deck, c.id) === null) deck.push(c.id);
   deck.sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
-  return { id: def.id, name: def.name, blurb: def.blurb, cards: deck };
+  // a preset running a fusion spell and the materials brings the Fusion Monster (one copy) in its Fusion Deck
+  const fusion = fusionsFor(deck).filter((id) => fusionPool.some((c) => c.id === id));
+  return { id: def.id, name: def.name, blurb: def.blurb, cards: [...deck, ...fusion] };
 }
 
 let presetCache: Preset[] | null = null;

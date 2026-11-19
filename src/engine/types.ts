@@ -128,6 +128,11 @@ export interface PlayerState {
   banished?: Uid[];
   /** straw_decoys activated on its own turn: no other monster may be summoned (normal, tribute, set, flip, special) on this turn. */
   noSummonTurn?: number;
+  /**
+   * The Fusion Deck (Extra Deck): Fusion Monsters, never drawn, hidden from the opponent except its count. A Fusion Monster
+   * that would go to the hand or the deck comes back here instead. Absent = empty (keeps older states byte-identical).
+   */
+  fusionDeck?: Uid[];
 }
 
 export type ZoneKind = 'monster' | 'spellTrap' | 'field';
@@ -199,7 +204,13 @@ export type SpellTarget =
   /** soul_recall: a monster card in either graveyard plus your empty monster zone to summon into. */
   | { kind: 'graveyard'; uid: Uid; toZone: number }
   /** purging_wave: a Spell/Trap (or field spell) of the opponent; `ref.zone` is 'spellTrap' or 'field'. */
-  | { kind: 'card'; ref: ZoneRef };
+  | { kind: 'card'; ref: ZoneRef }
+  /**
+   * prism_fusion: Special Summon `fusionUid` (in the activator's Fusion Deck) by sending `materials` (uids in the activator's
+   * hand or on their field, sorted ascending) to the GY; it arrives in `toZone` (the lowest Monster Zone free once the
+   * materials left).
+   */
+  | { kind: 'fusion'; fusionUid: Uid; materials: Uid[]; toZone: number };
 
 export type Action =
   /** Normal or Tribute Summon from hand in face-up attack position. */
@@ -262,8 +273,8 @@ export type GameEvent =
       zone: number;
       method: 'normal' | 'tribute' | 'special' | 'flip';
       position: Position;
-      /** 'token': a token created by an effect (straw_decoys). */
-      from: 'hand' | 'graveyard' | 'field' | 'token';
+      /** 'token': a token created by an effect (straw_decoys). 'fusionDeck': a Fusion Summon (prism_fusion). */
+      from: 'hand' | 'graveyard' | 'field' | 'token' | 'fusionDeck';
       /** For special summons: the card that caused it (soul_recall, straw_decoys, a splitting polar_sovereign). */
       sourceUid: Uid | null;
     }
@@ -411,6 +422,28 @@ export type GameEvent =
   | { type: 'banish'; owner: PlayerId; uid: Uid; cardId: CardId; from: 'graveyard'; sourceUid: Uid | null }
   /** A token leaves the field (it never reaches a graveyard; its CardInstance is dropped). */
   | { type: 'tokenVanish'; player: PlayerId; uid: Uid; cardId: CardId; zone: number; cause: 'battle' | 'effect' | 'rule' }
+  // ---- fusion ----
+  /**
+   * prism_fusion resolves: announced BEFORE anything moves (the cinematic stages the whole fusion from it). Followed, in order,
+   * by one `toGraveyard` per material (from 'hand' zone null, or 'monster' with its zone; field materials' equips are destroyed
+   * by rule after their monster), the `summon` of the Fusion Monster (method 'special', from 'fusionDeck', sourceUid = the
+   * spell) and the spell's own `toGraveyard` (from 'resolved').
+   */
+  | {
+      type: 'fusionSummon';
+      player: PlayerId;
+      /** The fusion spell (prism_fusion). */
+      spellUid: Uid;
+      spellCardId: CardId;
+      /** The Fusion Monster and the zone it arrives in. */
+      uid: Uid;
+      cardId: CardId;
+      zone: number;
+      /** Every material, in the order they go to the GY: where it was (hand: zone null; monster: its zone, face-up or not). */
+      materials: { uid: Uid; cardId: CardId; from: 'hand' | 'monster'; zone: number | null; faceUp: boolean }[];
+    }
+  /** A Fusion Monster goes back to its owner's Fusion Deck (bounced from the field, or shuffled back from the GY) instead of the hand / deck. */
+  | { type: 'toFusionDeck'; owner: PlayerId; uid: Uid; cardId: CardId; from: 'monster' | 'graveyard'; zone: number | null }
   /** A pending decision opened (UI cue). */
   | { type: 'decision'; pending: PendingDecision }
   | { type: 'responseDeclined'; player: PlayerId }
@@ -430,8 +463,13 @@ export interface NewGameOptions {
   seed: number;
   /** Defaults to a seeded coin flip. */
   firstPlayer?: PlayerId;
-  /** Defaults to DEFAULT_DECK for both players. Order is shuffled with the seed. */
+  /**
+   * Defaults to DEFAULT_DECK for both players. Order is shuffled with the seed. Fusion Monster ids in a list go to that player's
+   * Fusion Deck (in list order) instead of the main deck.
+   */
   decks?: [CardId[], CardId[]];
+  /** Extra Fusion Deck cards per player (added after the Fusion Monsters found in `decks`). */
+  fusionDecks?: [CardId[], CardId[]];
   /** Testing: skip shuffling so deck order is exactly as given (decks[i][0] is drawn first). */
   noShuffle?: boolean;
   /** 3 (default) or 5 monster + spell/trap zones per player. */

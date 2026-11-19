@@ -78,6 +78,14 @@ export interface CardHookEvents {
   discard: EventOf<'discard'>;
   /** `attackNegated`, keyed by the negating card (ev.byUid). */
   negate: EventOf<'attackNegated'>;
+  /**
+   * `fusionSummon`, keyed by the FUSION MONSTER (ev.cardId) — its fusion cinematic. The event comes before anything moves;
+   * the handler owns the materials' `toGraveyard` events, the Fusion Monster's `summon` and the spell's own `toGraveyard`
+   * that follow (consume / play them). The built-in placeholder is the event handler named 'fusionSummon'.
+   */
+  fusion: EventOf<'fusionSummon'>;
+  /** `fusionSummon`, keyed by the fusion SPELL (ev.spellCardId: prism_fusion) — consulted after 'fusion'. */
+  fusionSpell: EventOf<'fusionSummon'>;
 }
 
 export type CardHookKind = keyof CardHookEvents;
@@ -104,6 +112,8 @@ export const HOOK_KEYS: readonly CardHookKind[] = [
   'lpGain',
   'discard',
   'negate',
+  'fusion',
+  'fusionSpell',
 ];
 
 /** Priority of every built-in default handler. */

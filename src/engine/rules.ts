@@ -5,7 +5,7 @@
 // ("tasks") onto `state.internal.queue`. `run()` drains the queue in order; a task may open a
 // PendingDecision, which pauses the queue until the decision is answered by a later action.
 
-import { CARDS, DEFAULT_DECK, MAGNET_PIECE_IDS, isMonster, isSpell, isTrap, type CardId } from '../data/cards';
+import { CARDS, DEFAULT_DECK, MAGNET_PIECE_IDS, isFusionMonster, isMonster, isSpell, isTrap, type CardId } from '../data/cards';
 import { decksFor, detectDeckPool } from '../data/decks';
 import {
   EngineError,
@@ -129,8 +129,19 @@ export function newGame(opts: NewGameOptions): ApplyResult {
   for (const p of PLAYERS) {
     for (const id of decks[p]) {
       if (!CARDS[id]) throw new EngineError(`unknown card id ${String(id)}`);
+      if (isFusionMonster(id)) continue; // Fusion Monsters go to the Fusion Deck (below, after both main decks: main uids stay as before)
       s.cards[uid] = { uid, cardId: id, owner: p };
       s.players[p].deck.push(uid);
+      uid++;
+    }
+  }
+  for (const p of PLAYERS) {
+    const extra = [...decks[p].filter((id) => isFusionMonster(id)), ...(opts.fusionDecks?.[p] ?? [])];
+    for (const id of extra) {
+      if (!CARDS[id]) throw new EngineError(`unknown card id ${String(id)}`);
+      if (!isFusionMonster(id)) throw new EngineError(`not a Fusion Monster: ${String(id)}`);
+      s.cards[uid] = { uid, cardId: id, owner: p };
+      (s.players[p].fusionDeck ??= []).push(uid);
       uid++;
     }
   }
@@ -706,6 +717,15 @@ class Resolver {
       return;
     }
     const owner = this.s.cards[slot.uid].owner;
+    if (isFusionMonster(this.cardId(slot.uid))) {
+      // a Fusion Monster never goes to the hand: back to its owner's Fusion Deck
+      this.withStats(() => {
+        this.ps(p).monsters[index] = null;
+        this.toFusionDeck(slot.uid, 'monster', index);
+        this.dropEquips(slot.uid);
+      });
+      return;
+    }
     this.withStats(() => {
       this.ps(p).monsters[index] = null;
       this.ps(owner).hand.push(slot.uid);
@@ -713,6 +733,13 @@ class Resolver {
       this.dropEquips(slot.uid);
     });
     if (recheckSeals) this.checkSeals();
+  }
+
+  /** A Fusion Monster (already off the field / out of the graveyard) goes back to its owner's Fusion Deck. */
+  private toFusionDeck(uid: Uid, from: 'monster' | 'graveyard', zone: number | null): void {
+    const owner = this.s.cards[uid].owner;
+    (this.ps(owner).fusionDeck ??= []).push(uid);
+    this.emit({ type: 'toFusionDeck', owner, uid, cardId: this.cardId(uid), from, zone });
   }
 
   /** Remove the queued battle of `attackerUid` (the attack was negated). */
@@ -1043,6 +1070,51 @@ class Resolver {
   }
 
   /**
+   * prism_fusion resolves: `fusionSummon` (the whole fusion, before anything moves), the materials to the GY (hand ones, then
+   * field ones by zone; their equips by rule), the Fusion Monster from the Fusion Deck to `toZone` (face-up attack, a Special
+   * Summon: the Normal Summon stays unused). The summon window / triggers go to `after` (they run once the spell has left).
+   * Materials that are gone by resolution (not possible today: nothing chains here but a negation) cancel the summon.
+   */
+  private fusionFromSpell(p: PlayerId, spellUid: Uid, fusionUid: Uid, materials: Uid[], toZone: number, after: Task[]): void {
+    const s = this.s;
+    const ps = this.ps(p);
+    const fdeck = ps.fusionDeck ?? [];
+    if (!fdeck.includes(fusionUid)) return;
+    const mats = materials.map((u) => {
+      const h = ps.hand.indexOf(u);
+      if (h >= 0) return { uid: u, from: 'hand' as const, zone: null as number | null, faceUp: false };
+      const z = ps.monsters.findIndex((m) => m?.uid === u);
+      return z >= 0 ? { uid: u, from: 'monster' as const, zone: z as number | null, faceUp: ps.monsters[z]!.faceUp } : null;
+    });
+    if (mats.some((m) => m === null)) return;
+    const held = ps.monsters[toZone];
+    if (held && !materials.includes(held.uid)) return;
+    const order = (mats as NonNullable<(typeof mats)[number]>[]).sort((x, y) =>
+      x.from !== y.from ? (x.from === 'hand' ? -1 : 1) : x.from === 'hand' ? ps.hand.indexOf(x.uid) - ps.hand.indexOf(y.uid) : x.zone! - y.zone!,
+    );
+    this.emit({
+      type: 'fusionSummon', player: p, spellUid, spellCardId: this.cardId(spellUid), uid: fusionUid, cardId: this.cardId(fusionUid), zone: toZone,
+      materials: order.map((m) => ({ uid: m.uid, cardId: this.cardId(m.uid), from: m.from, zone: m.zone, faceUp: m.faceUp })),
+    });
+    this.withStats(() => {
+      for (const m of order) {
+        if (m.from === 'hand') {
+          ps.hand.splice(ps.hand.indexOf(m.uid), 1);
+          this.toGraveyard(m.uid, 'hand', null);
+        } else {
+          ps.monsters[m.zone!] = null;
+          this.toGraveyard(m.uid, 'monster', m.zone);
+          this.dropEquips(m.uid);
+        }
+      }
+      fdeck.splice(fdeck.indexOf(fusionUid), 1);
+      ps.monsters[toZone] = { uid: fusionUid, position: 'attack', faceUp: true, enteredTurn: s.turn, attacksThisTurn: 0, positionChangedTurn: -1 };
+      this.emit({ type: 'summon', player: p, uid: fusionUid, cardId: this.cardId(fusionUid), zone: toZone, method: 'special', position: 'attack', from: 'fusionDeck', sourceUid: spellUid });
+    });
+    after.push({ k: 'summonWindow', uid: fusionUid, method: 'special' }, { k: 'summonTriggers', uid: fusionUid, method: 'special' });
+  }
+
+  /**
    * polar_sovereign was destroyed: if its owner's graveyard holds all three pieces (the latest copy of each) and the
    * owner has 3 free monster zones, the three come back face-up in defense (no partial split).
    */
@@ -1355,6 +1427,10 @@ class Resolver {
           const gy = ps.graveyard;
           const picked = gy.splice(Math.max(0, gy.length - 3), 3);
           for (const u of picked) {
+            if (isFusionMonster(this.cardId(u))) {
+              this.toFusionDeck(u, 'graveyard', null); // a Fusion Monster shuffles back into the Fusion Deck, not the deck
+              continue;
+            }
             ps.deck.push(u);
             this.emit({ type: 'toDeck', owner: p, uid: u, cardId: this.cardId(u), from: 'graveyard' });
           }
@@ -1420,6 +1496,11 @@ class Resolver {
         case 'handRefreshBoth':
           this.handRefresh(p);
           break;
+        case 'fusionSummon': {
+          const t = a.target as Extract<NonNullable<typeof a.target>, { kind: 'fusion' }> | undefined;
+          if (t) this.fusionFromSpell(p, a.uid, t.fusionUid, t.materials, t.toZone, after);
+          break;
+        }
         case 'diceBoost100': {
           const value = 1 + Math.floor(nextRandom(s) * 6);
           this.emit({ type: 'diceRoll', player: p, sourceUid: a.uid, value });

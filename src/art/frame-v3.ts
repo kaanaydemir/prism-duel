@@ -33,7 +33,8 @@ export interface Trim {
   readonly dark: number;
 }
 
-export type TrimName = 'monster' | 'spell' | 'trap' | 'p1' | 'p2' | 'neutral';
+/** 'fusion' (additive, fusion): the Fusion Monster frame — the prism violet (void2 / void3). */
+export type TrimName = 'monster' | 'spell' | 'trap' | 'p1' | 'p2' | 'neutral' | 'fusion';
 
 const NEUTRAL_RAMP = [PAL.night3, PAL.night4, PAL.steel, PAL.mist, PAL.white] as const;
 
@@ -44,6 +45,7 @@ const TRIM_RAMPS: Readonly<Record<TrimName, TrimRamp>> = Object.freeze({
   p1: { ramp: PLAYER_RAMP[0], base: 2 },
   p2: { ramp: PLAYER_RAMP[1], base: 2 },
   neutral: { ramp: NEUTRAL_RAMP, base: 2 },
+  fusion: { ramp: RAMPS.void, base: 2 },
 });
 
 /**
@@ -77,6 +79,7 @@ export const FRAME_V3 = Object.freeze({
     p1: trimV3('p1'),
     p2: trimV3('p2'),
     neutral: trimV3('neutral'),
+    fusion: trimV3('fusion'),
   }) as Readonly<Record<TrimName, Trim>>,
   /** The ace corner ornament: L legs (px), tones. */
   ace: Object.freeze({ leg: 3, color: PAL.gold3, joint: PAL.gold4 }),

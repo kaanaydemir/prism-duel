@@ -531,6 +531,7 @@ function mainStep(s: GameState, legal: Action[], me: PlayerId, rng: Rng): Action
   // then develop the board, then buffs, then defensive setup.
   const steps = [
     tryFusion,
+    tryPrismFusion,
     tryWellPail,
     tryVoidEye,
     tryJester,
@@ -625,6 +626,29 @@ function boardValue(s: GameState, p: PlayerId, me: PlayerId): number {
 
 /** polar_sovereign: always fuse when the three pieces stand. */
 const tryFusion: Step = (s, legal) => legal.find((a) => a.type === 'specialSummon') ?? null;
+
+/**
+ * prism_fusion: fuse when the Fusion Monster is worth clearly more than what the materials give up. A high-level material
+ * still in the hand is nearly dead weight (it needs tributes), a low one keeps some value; a field material costs most of its
+ * board value. Among the ways, the cheapest (hand materials first) wins.
+ */
+const tryPrismFusion: Step = (s, legal, me, rng) => {
+  const acts = spellActs(s, legal, 'fusionSummon');
+  const ps = s.players[me];
+  const pick = bestWithScore(acts, rng, (a) => {
+    if (a.target?.kind !== 'fusion') return -Infinity;
+    const f = monsterDefOf(s, a.target.fusionUid);
+    if (!f) return -Infinity;
+    let cost = 0;
+    for (const u of a.target.materials) {
+      const d = monsterDefOf(s, u);
+      if (ps.hand.includes(u)) cost += d && d.level >= 7 ? 400 : keepValue(s, me, u) * 0.5;
+      else cost += ownValue(s, u) * 0.6;
+    }
+    return f.atk - cost;
+  });
+  return pick && pick.score >= 1500 ? pick.item : null;
+};
 
 /** well_pail: free cards, play it early while the deck is healthy. */
 const tryWellPail: Step = (s, legal, me) => {

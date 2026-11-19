@@ -83,7 +83,7 @@ describe('batch 2 card data (exactly as the spec)', () => {
   it('new cards are appended after the batch-1 roster', () => {
     const i = ALL_CARDS.findIndex((c) => c.id === 'tide_harpooner');
     expect(ALL_CARDS[i - 1].id).toBe('magic_hat');
-    expect(ALL_CARDS.filter(isMonster).length).toBe(27 + 15);
+    expect(ALL_CARDS.filter(isMonster).length).toBe(27 + 15 + 1); // + the fusion roster (trinity_crystal_wyrm)
   });
 });
 
