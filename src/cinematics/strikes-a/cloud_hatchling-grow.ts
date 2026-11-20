@@ -22,7 +22,7 @@ import { warmVariant } from '../../art/variants';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import { setUnitVariant, variantOf } from '../../duel/unit-variant';
 import type { GameEvent, Uid } from '../../engine/types';
-import { DEPTH, LOOK_V3, type XY } from '../../view/layout';
+import { DEPTH, type XY } from '../../view/layout';
 import { lightFlash, lightPool } from '../../view/light';
 import { shake } from '../../vfx/core';
 import type { CinematicContext } from '../_core/types';
@@ -478,10 +478,8 @@ function wedge(px: Px, c: XY, a0: number, a1: number, len: number): void {
   }
 }
 
-if (LOOK_V3) {
-  registerCardHook(ID, 'effect', hatchGrowV3, { name: 'strikes-a:cloud_hatchling:grow' });
-  registerObserver(warmGrownOnCoinCall);
-  registerObserver(lookUpAtCoin);
-}
+registerCardHook(ID, 'effect', hatchGrowV3, { name: 'strikes-a:cloud_hatchling:grow' });
+registerObserver(warmGrownOnCoinCall);
+registerObserver(lookUpAtCoin);
 
 

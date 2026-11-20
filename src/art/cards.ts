@@ -24,7 +24,6 @@ import { ATTRIBUTE_RAMP, PAL, RAMPS, type Ramp } from './palette';
 import { PixelCanvas, mix, mulberry32, rgb } from './pixel';
 import { addStaticCanvas, monsterFrame } from './textures';
 import { CARD_ART_H, CARD_ART_W } from './types';
-import { LOOK_V3 } from '../view/layout';
 import { V3_A6_A } from '../view/v3flags';
 import { cardBackMipV3, cardBackV3, provideTodayBack } from '../view/v3/cardBack';
 // lane A5-B (V3_CARDS only): the v3 face / mini level / overlays and the v3 art registry
@@ -46,11 +45,10 @@ export const CARD_BACK_P2 = 'card:back:p2';
  * S-2 (A56.0, frozen): the v3 look keeps one back per player (`card:back:p2`, its own mip level
  * cache); v1 has the one back of today for both players.
  */
-const BACK_PER_PLAYER = LOOK_V3;
 
 /** S-2: texture key of `player`'s upright back. v1: always CARD_BACK. */
 export function cardBackKey(player: PlayerId = 0): string {
-  return BACK_PER_PLAYER && player === 1 ? CARD_BACK_P2 : CARD_BACK;
+  return (player === 1) ? CARD_BACK_P2 : CARD_BACK;
 }
 /** White card silhouette (48×68) — tint/ADD for flashes. */
 export const CARD_SIL = 'card:sil';
@@ -1074,7 +1072,7 @@ export function cardBackCanvas(player: PlayerId = 0): PixelCanvas {
  * faces ignore it); v1 shares one back mip between the players.
  */
 export function cardMip(id: CardId | 'back', player: PlayerId = 0): CardMip {
-  const key = id === 'back' && BACK_PER_PLAYER && player === 1 ? 'back:p2' : id;
+  const key = (id === 'back') && player === 1 ? 'back:p2' : id;
   let m = mipCache.get(key);
   if (!m) {
     if (id === 'back') {
@@ -1560,7 +1558,7 @@ export function buildCardTextures(scene: Phaser.Scene): void {
     addTex(scene, cardFaceKey(id), cardFaceCanvas(id));
   }
   addTex(scene, CARD_BACK, cardBackCanvas(0));
-  if (BACK_PER_PLAYER) addTex(scene, CARD_BACK_P2, cardBackCanvas(1));
+  addTex(scene, CARD_BACK_P2, cardBackCanvas(1));
   const sil = silhouette(cardBackCanvas(0));
   addTex(scene, CARD_SIL, sil);
   const glow = glowRing(sil, GLOW_PAD);

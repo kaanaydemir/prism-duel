@@ -33,7 +33,7 @@ import { RUMBLE_REFERENCE } from '../../audio/v3/voices';
 import { presentationOf, registerFixtureRecipe, v3Recipe } from '../../presentation/registry';
 import type { PresentationRecipe } from '../../presentation/types';
 import { measureText, pixelText } from '../../ui/text';
-import { DEPTH, LOOK_V3 } from '../../view/layout';
+import { DEPTH } from '../../view/layout';
 import { SCENARIOS, type Scenario } from '../../duel/scenarios';
 import { duelReady } from '../../scenes/DuelScene';
 import { fixtureArt } from '../fixtures/rigkit-creature-art';
@@ -159,7 +159,7 @@ const preview: DevPreview = {
     if (!sc) {
       const r = v3Recipe(id) ?? presentationOf(id);
       const lines = [
-        `RECIPE PREVIEW — ${id}${FIXTURE_ID ? ' (fixture)' : ''}   look ${LOOK_V3 ? 'v3' : 'v1 (add &look=v3)'}   recipe ${r ? `${r.attack.type} / ${r.summon.style} / ${r.death.material}` : 'none'}`,
+        `RECIPE PREVIEW — ${id}${FIXTURE_ID ? ' (fixture)' : ''}   look ${'v3'}   recipe ${r ? `${r.attack.type} / ${r.summon.style} / ${r.death.material}` : 'none'}`,
         v3Recipe(id) ? 'the recipe is live (v3 look + v3 art): ?dev=recipe&…&s=<name>' : 'the recipe is NOT live here (it needs the v3 look and v3 art)',
       ];
       lines.forEach((l, i) => pixelText(scene, 8, 6 + i * 11, l, { size: 'sm', color: i ? PAL.mist : PAL.gold4 }).setDepth(DEPTH.DEBUG));

@@ -22,7 +22,6 @@ import { lightFlash, lightPool } from '../../view/light';
 import { registerCardHook, registerStrike } from '../api';
 import { registerContactEstimate } from '../_v3/contact-estimate';
 import {
-  ARENA_V2,
   E,
   Sparks,
   vlerp,
@@ -223,7 +222,7 @@ async function hawkStrike(s: StrikeArgs): Promise<void> {
     const coreC = { x: contact.x + rel.x, y: contact.y + rel.y };
     // climb up and a little back (anticipation): the dive then has room to corkscrew down
     // (arena v2, a far target: a lower launch — the glide below climbs on toward it)
-    const longFlight = ARENA_V2 && !s.direct && Math.abs(coreC.x - core0.x) > 90;
+    const longFlight = false;
     const apex = s.direct ? { x: core0.x - d * 6, y: core0.y - 46 } : longFlight ? { x: core0.x - d * 8, y: core0.y - 44 } : { x: core0.x - d * 8, y: Math.min(core0.y - 40, coreC.y - 24) };
     // v3: when the dive lands (climb 220 + the far target's glide + the 45 / 50 ms tuck + the 290 ms dive): the
     // battle steers the target's idle toward it (StrikeArgs.contactIn)
@@ -373,13 +372,13 @@ async function hawkStrike(s: StrikeArgs): Promise<void> {
       // ---- 6. arc back home (f7–f9), over the monsters again on a direct attack
       const from = { x: spr.x, y: spr.y };
       const retDist = vlen(vsub(home, from));
-      const lift = s.direct ? 70 : ARENA_V2 ? Math.max(40, Math.min(64, retDist * 0.3)) : 40;
+      const lift = s.direct ? 70 : 40;
       const ctrl = { x: (from.x + home.x) / 2 + back.x * 6, y: Math.min(from.y, home.y) - lift };
       void playFrom(u, 'attack', 7, { hold: true }).then(() => {
         if (!u.retired && spr.active) spr.play({ key: `mon:${u.cardId}:idle`, repeat: -1 });
       });
       let pv = from;
-      const retMs = ARENA_V2 ? travelMs(retDist, 200, 1.3, s.direct ? 460 : 380, s.direct ? 460 : 380, 600) : s.direct ? 460 : 380;
+      const retMs = s.direct ? 460 : 380;
       await animate(sc, retMs, (t) => {
         const e = E.inOutQ(t);
         const p = qbez(from, ctrl, home, e);
@@ -448,6 +447,6 @@ registerCardHook('storm_hawk', 'destroyed', (ctx) =>
 // tuck and the 290 ms dive; the strike reports the exact time once its path is chosen)
 registerContactEstimate('storm_hawk', (u, t) => {
   const dx = Math.abs(t.home.x - u.home.x);
-  const glide = ARENA_V2 && dx > 90 ? clamp((dx - 34) * 1.9 * 0.7, 200, 380) : 0;
+  const glide = 0;
   return 120 + 220 + glide + 45 + 50 + 290;
 });

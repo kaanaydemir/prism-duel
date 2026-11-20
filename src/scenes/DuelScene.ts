@@ -12,7 +12,7 @@ import type { CardId } from '../data/cards';
 import { legalActions, newGame } from '../engine';
 import { actingPlayer } from '../engine';
 import { OPENING_HAND_V3, type Action, type GameEvent, type GameState, type NewGameOptions, type PlayerId } from '../engine/types';
-import { volcanoActive } from '../engine/query';
+import { tideActive, tideOwner, volcanoActive } from '../engine/query';
 import { PAL } from '../art/palette';
 import { music, sfx } from '../audio/sfx';
 import { ActionMenu } from '../view/ActionMenu';
@@ -38,9 +38,10 @@ import { runUiStep } from '../duel/qaInput';
 import { armOnFreeze, installTestClock } from '../duel/testClock';
 import type { DuelViews } from '../duel/types';
 import { loadSettings, saveSettings, type DuelLaunch, type DuelMode, type Settings } from './launch';
-import { ARENA_V2, LANES, LOOK_V3 } from '../view/layout';
+import { LANES } from '../view/layout';
 import { resetAtDuelStart } from '../duel/seeds';
 import { ensureLightLayer } from '../view/light';
+import { wideSides } from '../view/wide';
 
 /** Everything DuelScene accepts (DuelLaunch + QA extras). */
 export interface DuelStart extends DuelLaunch {
@@ -165,7 +166,7 @@ export class DuelScene extends Phaser.Scene {
       state = buildStage(L.stage);
       before = state;
     } else {
-      const r = newGame({ seed, firstPlayer: L.firstPlayer, decks: L.decks, noShuffle: L.noShuffle, zones: LANES === 5 ? 5 : 3, ...(LOOK_V3 ? { startHand: OPENING_HAND_V3, firstPlayerDraws: true } : {}) });
+      const r = newGame({ seed, firstPlayer: L.firstPlayer, decks: L.decks, noShuffle: L.noShuffle, zones: LANES === 5 ? 5 : 3, ...({ startHand: OPENING_HAND_V3, firstPlayerDraws: true }) });
       state = r.state;
       events = r.events;
       before = rewindNewGame(state, events);
@@ -175,6 +176,7 @@ export class DuelScene extends Phaser.Scene {
 
     // ---- views
     this.cameras.main.setBackgroundColor(PAL.night0);
+    wideSides(this);
     const camera = new CameraRig(this);
     const board = new BoardView(this, { active: staged ? state.activePlayer : null, lights: skipIntro });
     const field = new FieldView(this);
@@ -195,7 +197,7 @@ export class DuelScene extends Phaser.Scene {
     // arena v2: the subtle light layer (pools under the monsters, halos, event lights, dim); the
     // v3 look: the same layer in its stepped mode (flat tone steps on the pads, no alpha).
     // It lives with the scene and is destroyed on SHUTDOWN (restart / back to title).
-    if (ARENA_V2 || LOOK_V3) ensureLightLayer(this, { field });
+    ensureLightLayer(this, { field });
     hud.onSpeed = (k) => {
       this.settings.speed = k;
       saveSettings(this.settings);
@@ -310,6 +312,8 @@ export class DuelScene extends Phaser.Scene {
       const hot = volcanoActive(state);
       if (hot !== (v.board.theme === 'volcano')) void v.board.setTheme(hot ? 'volcano' : 'normal', false);
       if (hot !== volcanoAmbienceOn(this)) void setVolcanoAmbience(this, hot);
+      const wet = tideActive(state);
+      if (wet !== v.board.tide) void v.board.setTide(wet, false, tideOwner(state));
     }
     this.controller?.input.setState(state);
   }

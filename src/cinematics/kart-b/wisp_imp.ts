@@ -57,7 +57,7 @@ import { monsterFrame } from '../../art/textures';
 import type { MonsterId } from '../../data/cards';
 import type { GameEvent, PlayerId } from '../../engine/types';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
-import { DEPTH, GAME_H, GAME_W, LOOK_V3, duelistXY, panelRect, type XY, unitDepth, zoneXY } from '../../view/layout';
+import { DEPTH, GAME_H, GAME_W, duelistXY, panelRect, type XY, unitDepth, zoneXY } from '../../view/layout';
 import { lightFlash, lightPool } from '../../view/light';
 import { shake } from '../../vfx/core';
 import { Raster } from '../../vfx/setpieces';
@@ -658,8 +658,7 @@ async function summonV3(S: Stage): Promise<void> {
   void tile.fadeOut(320);
 }
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     ID,
     'summon',
     async (ctx) => {
@@ -980,7 +979,7 @@ async function strikeV3(s: StrikeArgs): Promise<void> {
   await run;
 }
 
-if (LOOK_V3) registerStrike(ID, (s) => strikeV3(s), { priority: 20, name: 'kart-b:wisp_imp:strike' });
+registerStrike(ID, (s) => strikeV3(s), { priority: 20, name: 'kart-b:wisp_imp:strike' });
 
 // ================================================================ death bookkeeping (no material shatter)
 
@@ -1767,8 +1766,7 @@ function panelFlash(scene: Phaser.Scene, at: XY): Promise<void> {
   }).then(() => r.destroy());
 }
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     ID,
     'destroyed',
     async (ctx) => {
@@ -1793,8 +1791,7 @@ if (LOOK_V3)
     { priority: 20, name: 'kart-b:wisp_imp:death' },
   );
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     ID,
     'effect',
     async (ctx) => {
@@ -1950,8 +1947,7 @@ function featherPop(sc: Phaser.Scene, u: MonsterUnit, n: number, away: number, r
   pl.close();
 }
 
-if (LOOK_V3)
-  registerObserver((ev, ctx) => {
+registerObserver((ev, ctx) => {
     if (ev.type !== 'battle') return;
     const i0 = ctx.events.indexOf(ev);
     if (i0 < 0) return;
@@ -2083,8 +2079,7 @@ function featherBreeze(sc: Phaser.Scene, at: XY, back: number, ms: number, rnd: 
   });
 }
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     'soul_recall',
     'activate',
     async (ctx) => {

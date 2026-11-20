@@ -43,7 +43,7 @@ import type { Ramp } from '../../art/palette';
 import type { AnyMonsterAnim, MonsterArt } from '../../art/types';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import { guardPushPx, motionProfile, reactShakePx, reactStopMs, type WeightSource } from '../../duel/motion';
-import { LOOK_V3, type XY } from '../../view/layout';
+import { type XY } from '../../view/layout';
 import { hasMaterial, materialOf as materialDef, type MaterialDef } from '../../art/materials';
 import { impact as combatImpact, stopTime } from '../../vfx/combat';
 import { onFrame } from '../../vfx/setpieces';
@@ -70,7 +70,7 @@ const FLASH_COVER = [0, 0.34, 0.4, 0.45] as const;
  * the old monsters keep today's sparks and flash exactly).
  */
 export function struckSurface(u: MonsterUnit, kind: BlowKind): MaterialDef['hit'] | null {
-  if (!LOOK_V3 || !u.art.bodyPlan) return null;
+  if (!u.art.bodyPlan) return null;
   const m = materialOf(u.cardId, kind);
   return m && hasMaterial(m) ? materialDef(m).hit : null;
 }

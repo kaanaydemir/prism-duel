@@ -39,7 +39,7 @@ import { BADGE_DEPTH } from '../../duel/StatBadge';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import type { Disposable } from '../../duel/types';
 import type { GameEvent, Uid } from '../../engine/types';
-import { DEPTH, LOOK_V3, type XY, pileTagAnchor, tagLeft, unitDepth, zoneXY } from '../../view/layout';
+import { DEPTH, type XY, pileTagAnchor, tagLeft, unitDepth, zoneXY } from '../../view/layout';
 import { lightFlash, type LightHandle } from '../../view/light';
 import { Raster } from '../../vfx/setpieces';
 import { Sparks, animate, onFrame, sleep } from '../../vfx/combat';
@@ -1156,59 +1156,57 @@ function phaseBeats(ctx: Ctx<'phaseChange'>): Promise<void> {
 
 // ================================================================ registrations (v3 only)
 
-if (LOOK_V3) {
-  registerCardHook(
-    ID,
-    'summon',
-    async (ctx) => {
-      const aim = aimPending(ctx, ctx.ev.uid);
-      if (ctx.ev.from !== 'hand') {
-        // a revive (soul_recall) / a flip: the kit's own entrance, then the aim when the pick follows
-        await ctx.base();
-      } else await runSummon(ctx, async () => undefined, (S) => pourV3(S, aim));
-      const u = live(ctx.unit(ctx.ev.uid));
-      if (aim && u) startAim(ctx, u);
-    },
-    { priority: 20, name: N('summon') },
-  );
-  registerCardHook(ID, 'effect', (ctx) => sealV3(ctx), { priority: 20, name: N('effect') });
-  registerStrike(ID, (s) => cannonV3(s), { priority: 20, name: N('strike') });
-  registerCardHook(
-    ID,
-    'destroyed',
-    (ctx) => {
-      if (ctx.ev.location !== 'monster' || sourceOwnsDeath(ctx)) return ctx.base();
-      return deathOwn(ctx);
-    },
-    { priority: 20, name: N('death') },
-  );
-  registerEvent('turnStart', turnBeats, { priority: 20, name: N('seal-turn') });
-  registerEvent('phaseChange', phaseBeats, { priority: 20, name: N('seal-phase') });
-  // the seals follow the engine's truth (a staged board, a restore, a slot that left the field)
-  registerObserver((ev, ctx) => {
-    if (ev.type === 'turnStart' || ev.type === 'phaseChange') phaseSeq++;
-    // Round 3 #4: a batch that ends on this imp's pick without our summon hook (the v3 revive): aim once he is whole
-    const pd = ctx.after.pending;
-    if (pd && pd.kind === 'chooseTarget' && pd.sourceUid !== null && ctx.after.cards[pd.sourceUid]?.cardId === ID && ev.type !== 'summon') watchAim(ctx, pd.sourceUid);
-    // Round 3 #3: a sealed monster struck down in battle cracks its seal AT CONTACT; any other removal at its destroy
-    if (ev.type === 'battle') {
-      const hit: Uid[] = [];
-      if (ev.targetUid !== null && hasSeal(ev.targetUid) && (ev.result === 'targetDestroyed' || ev.result === 'bothDestroyed')) hit.push(ev.targetUid);
-      if (hasSeal(ev.attackerUid) && (ev.result === 'attackerDestroyed' || ev.result === 'bothDestroyed')) hit.push(ev.attackerUid);
-      if (hit.length) {
-        const sc = ctx.scene;
-        const onContact = (a: Uid) => {
-          if (a !== ev.attackerUid) return;
-          sc.events.off('v3:contact', onContact);
-          for (const h of hit) crackSeal(h);
-        };
-        sc.events.on('v3:contact', onContact);
-        sc.time.delayedCall(8000, () => sc.events.off('v3:contact', onContact));
-      }
+registerCardHook(
+  ID,
+  'summon',
+  async (ctx) => {
+    const aim = aimPending(ctx, ctx.ev.uid);
+    if (ctx.ev.from !== 'hand') {
+      // a revive (soul_recall) / a flip: the kit's own entrance, then the aim when the pick follows
+      await ctx.base();
+    } else await runSummon(ctx, async () => undefined, (S) => pourV3(S, aim));
+    const u = live(ctx.unit(ctx.ev.uid));
+    if (aim && u) startAim(ctx, u);
+  },
+  { priority: 20, name: N('summon') },
+);
+registerCardHook(ID, 'effect', (ctx) => sealV3(ctx), { priority: 20, name: N('effect') });
+registerStrike(ID, (s) => cannonV3(s), { priority: 20, name: N('strike') });
+registerCardHook(
+  ID,
+  'destroyed',
+  (ctx) => {
+    if (ctx.ev.location !== 'monster' || sourceOwnsDeath(ctx)) return ctx.base();
+    return deathOwn(ctx);
+  },
+  { priority: 20, name: N('death') },
+);
+registerEvent('turnStart', turnBeats, { priority: 20, name: N('seal-turn') });
+registerEvent('phaseChange', phaseBeats, { priority: 20, name: N('seal-phase') });
+// the seals follow the engine's truth (a staged board, a restore, a slot that left the field)
+registerObserver((ev, ctx) => {
+  if (ev.type === 'turnStart' || ev.type === 'phaseChange') phaseSeq++;
+  // Round 3 #4: a batch that ends on this imp's pick without our summon hook (the v3 revive): aim once he is whole
+  const pd = ctx.after.pending;
+  if (pd && pd.kind === 'chooseTarget' && pd.sourceUid !== null && ctx.after.cards[pd.sourceUid]?.cardId === ID && ev.type !== 'summon') watchAim(ctx, pd.sourceUid);
+  // Round 3 #3: a sealed monster struck down in battle cracks its seal AT CONTACT; any other removal at its destroy
+  if (ev.type === 'battle') {
+    const hit: Uid[] = [];
+    if (ev.targetUid !== null && hasSeal(ev.targetUid) && (ev.result === 'targetDestroyed' || ev.result === 'bothDestroyed')) hit.push(ev.targetUid);
+    if (hasSeal(ev.attackerUid) && (ev.result === 'attackerDestroyed' || ev.result === 'bothDestroyed')) hit.push(ev.attackerUid);
+    if (hit.length) {
+      const sc = ctx.scene;
+      const onContact = (a: Uid) => {
+        if (a !== ev.attackerUid) return;
+        sc.events.off('v3:contact', onContact);
+        for (const h of hit) crackSeal(h);
+      };
+      sc.events.on('v3:contact', onContact);
+      sc.time.delayedCall(8000, () => sc.events.off('v3:contact', onContact));
     }
-    if (ev.type === 'destroy' && hasSeal(ev.uid)) crackSeal(ev.uid);
-    if (ev.type === 'target' || ev.type === 'activate') return;
-    if (!frozenUids(ctx.stateNext).length && !sealUids().length) return;
-    reconcileSeals(ctx.scene, ctx.views, ctx.stateNext);
-  });
-}
+  }
+  if (ev.type === 'destroy' && hasSeal(ev.uid)) crackSeal(ev.uid);
+  if (ev.type === 'target' || ev.type === 'activate') return;
+  if (!frozenUids(ctx.stateNext).length && !sealUids().length) return;
+  reconcileSeals(ctx.scene, ctx.views, ctx.stateNext);
+});

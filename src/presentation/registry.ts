@@ -14,7 +14,6 @@
 
 import { MONSTER_IDS, type MonsterId } from '../data/cards';
 import { hasMonsterArtV3 } from '../art/monsters';
-import { LOOK_V3 } from '../view/layout';
 import type { PresentationRecipe } from './types';
 
 export type * from './types';
@@ -54,7 +53,7 @@ export function allRecipes(): PresentationRecipe[] {
  * monster that has v3 art; otherwise undefined — the caller answers with today's table.
  */
 export function v3Recipe(id: string | null | undefined): PresentationRecipe | undefined {
-  if (!LOOK_V3 || !isMonsterId(id) || !hasMonsterArtV3(id)) return undefined;
+  if (!isMonsterId(id) || !hasMonsterArtV3(id)) return undefined;
   return BY_ID.get(id);
 }
 

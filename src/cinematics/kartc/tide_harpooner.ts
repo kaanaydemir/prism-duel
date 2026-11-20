@@ -32,7 +32,7 @@ import { DART_LEN, exitSpray, ropeLine, splinters } from '../../art/monsters-v3/
 import type { MonsterPointName } from '../../art/types';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import type { GameEvent, PlayerId } from '../../engine/types';
-import { DEPTH, LOOK_V3, TILE_W, type XY, panelRect, unitDepth } from '../../view/layout';
+import { DEPTH, TILE_W, type XY, panelRect, unitDepth } from '../../view/layout';
 import { lightFlash, lightPool } from '../../view/light';
 import { shake } from '../../vfx/core';
 import { E, animate, onFrame, sleep } from '../../vfx/combat';
@@ -805,7 +805,7 @@ async function dropHarpoon(sc: Phaser.Scene, harp: HarpoonImg, _rope: Surface, t
   }
 }
 
-registerStrike(ID, (s) => (LOOK_V3 ? zipkinAtisi(s) : (s.base?.() ?? Promise.resolve())), { name: 'kartc:tide_harpooner:strike' });
+registerStrike(ID, (s) => (zipkinAtisi(s)), { name: 'kartc:tide_harpooner:strike' });
 
 // ================================================================ summon: the tide uncovers the conch
 
@@ -968,7 +968,7 @@ registerCardHook(
   ID,
   'summon',
   async (ctx) => {
-    if (!LOOK_V3 || ctx.ev.from === 'field') return ctx.base();
+    if (ctx.ev.from === 'field') return ctx.base();
     await runSummon(ctx, async () => undefined, tideEntrance);
   },
   { name: 'kartc:tide_harpooner:summon' },
@@ -1054,7 +1054,7 @@ registerCardHook(
   ID,
   'defend',
   (ctx) => {
-    if (LOOK_V3) watchStruck(ctx);
+    watchStruck(ctx);
     return ctx.base();
   },
   { priority: 20, name: 'kartc:tide_harpooner:struck' },
@@ -1230,7 +1230,7 @@ registerCardHook(
   ID,
   'destroyed',
   (ctx) => {
-    if (LOOK_V3 && ctx.ev.location === 'monster' && !sourceOwnsDeath(ctx)) burial(ctx);
+    if ((ctx.ev.location === 'monster') && !sourceOwnsDeath(ctx)) burial(ctx);
     return ctx.base();
   },
   { priority: 20, name: 'kartc:tide_harpooner:death' },
@@ -1243,7 +1243,6 @@ registerCardHook(
   ID,
   'statChange',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     // the plant and the wall FIRST (the cause), then the +400 outline and number (the effect): never under each other
     const u = ctx.unit(ctx.ev.uid);
     if (u) {
@@ -1262,7 +1261,6 @@ registerCardHook(
   ID,
   'flip',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     await ctx.base();
     const u = ctx.unit(ctx.ev.uid);
     if (u) await syncShroud(ctx, u, { short: true });
@@ -1276,7 +1274,7 @@ registerCardHook(
 // own hooks (the plant and the running wall), never pre-empted by a wall at rest
 const NEUTRAL_EVENTS = new Set<string>(['phaseChange', 'turnStart', 'attackDeclare', 'battle', 'draw']);
 registerObserver((ev, ctx) => {
-  if (!LOOK_V3 || !NEUTRAL_EVENTS.has(ev.type)) return;
+  if (!NEUTRAL_EVENTS.has(ev.type)) return;
   try {
     const st = ctx.state;
     for (const p of [0, 1] as const)

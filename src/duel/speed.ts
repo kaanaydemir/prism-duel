@@ -13,7 +13,6 @@
 
 import Phaser from 'phaser';
 import { showClock, type ShowClock } from './showclock';
-import { LOOK_V3 } from '../view/layout';
 
 export const FAST_FORWARD = 3;
 
@@ -30,7 +29,6 @@ export const V3_HIT_HOLD = 1.15;
 export const V3_TEMPO: number = detectTempo();
 
 function detectTempo(): number {
-  if (!LOOK_V3) return 1;
   try {
     if (typeof location !== 'undefined' && typeof URLSearchParams !== 'undefined') {
       const p = new URLSearchParams(location.search).get('tempo');

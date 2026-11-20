@@ -40,7 +40,7 @@ import type { AnyMonsterAnim } from '../../art/types';
 import type { GameEvent } from '../../engine/types';
 import type { FieldView } from '../../duel/FieldView';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
-import { DEPTH, LOOK_V3, unitDepth, zoneXY, type XY } from '../../view/layout';
+import { DEPTH, unitDepth, zoneXY, type XY } from '../../view/layout';
 import { lightFlash } from '../../view/light';
 import { TEX, shake, tween } from '../../vfx/core';
 import { animate, sleep } from '../../vfx/combat';
@@ -202,7 +202,6 @@ registerCardHook(
   ID,
   'summon',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     const ev = ctx.ev;
     if (ev.from === 'field') return ctx.base();
     const h = ctx.hints as { strawIndex?: number; strawCount?: number };
@@ -395,7 +394,7 @@ registerEvent(
   async (ctx: CinematicContext<VanishEv>) => {
     const ev = ctx.ev;
     if (ev.cardId !== ID) return ctx.base();
-    if (!LOOK_V3 || !usable(ctx.views.field.unit(ev.uid))) return placeholderVanish(ctx);
+    if (!usable(ctx.views.field.unit(ev.uid))) return placeholderVanish(ctx);
     // an effect that clears several tokens at once (a wipe): the rest of the run comes undone together, each one
     // a beat after the last, instead of one after another
     const jobs: Promise<void>[] = [vanishV3(ctx.scene, ctx.views.field, ev, { struck: ev.cause === 'battle' })];
@@ -420,7 +419,7 @@ registerEvent(
  * contact itself (the guard reaction / recoil is the hand-over), the battle goes on around it.
  */
 async function handOver(ctx: CinematicContext<BattleEv>, uid: number | null): Promise<void> {
-  if (!LOOK_V3 || uid === null) return ctx.base();
+  if (uid === null) return ctx.base();
   const sc = ctx.scene;
   const field = ctx.views.field;
   const vi = ctx.findType('tokenVanish', (e) => e.uid === uid, { until: (e) => e.type === 'attackDeclare' || e.type === 'turnStart' || e.type === 'phaseChange' });
@@ -474,7 +473,7 @@ registerEvent(
   async (ctx) => {
     const ev = ctx.ev;
     const u = ctx.views.field.unit(ev.uid);
-    if (!LOOK_V3 || !u || u.cardId !== ID || !u.sprite.active) return ctx.base();
+    if (!u || u.cardId !== ID || !u.sprite.active) return ctx.base();
     const pan = panAt(u.home.x);
     const toDef = ev.position === 'defense';
     const anim: AnyMonsterAnim = toDef ? 'toGuard' : 'fromGuard';
@@ -527,7 +526,6 @@ function feetFor(u: MonsterUnit, aim: XY, frame: number): XY {
 registerStrike(
   ID,
   async (s: StrikeArgs) => {
-    if (!LOOK_V3) return s.base?.();
     const u = s.attacker;
     const sc = s.scene;
     const spr = u.sprite;

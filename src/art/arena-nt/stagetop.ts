@@ -250,7 +250,29 @@ const tone = (i: number): Color => (i >= 4 && i <= 6 ? VIO[i - 4] : ST[Math.max(
  * id (for the mortar test against the pixel below). Rim pixels are painted by `rimTone`.
  */
 export function floorTone(x: number, y: number): Color {
+  if (GRAPHITE) return graphiteTone(x, y);
   return CALM ? calmTone(x, y) : busyTone(x, y);
+}
+
+// ---------------------------------------------------------------- owner 2026-11-17: the graphite play surface
+// Owner target (a ChatGPT concept, 2026-11-17): the play surface is a SMOOTH dark graphite slab — no flagstones, no emblem, no
+// carvings — so the monsters and the thin neon zone lines read first. The only texture: a few large, faint panel seams (1-px
+// stone0 lines on the slab's big panels, never under a zone line pattern of their own) and a soft light falloff done by the light
+// layer (warm key from the upper left). The edge is a thin metal lip with a warm gold rim (rimTone), not the carved coping.
+// The flagstone painters above stay (GRAPHITE = false) to compare.
+export const GRAPHITE = true;
+
+/** Panel seams of the graphite slab, in board units: across the lanes (u) and along the duel axis (v). */
+const SEAM_U = [-108, 108] as const;
+const SEAM_V = [-LANE_V, LANE_V] as const;
+
+function graphiteTone(x: number, y: number): Color {
+  const { u, v } = uvAt(x, y);
+  // a seam is the pixel row where the panel index changes going down the screen (clean 1-px 2:1 stairs for both families)
+  const b = uvAt(x, y + 1);
+  for (const s of SEAM_U) if ((u < s) !== (b.u < s)) return PAL.stone0;
+  for (const s of SEAM_V) if ((v < s) !== (b.v < s)) return PAL.stone0;
+  return PAL.stone1;
 }
 
 /**
@@ -420,6 +442,7 @@ export const RIM_W = 11;
  * floor: on the FAR edges the coping's inner face shows (a 2-px shaded face), on the NEAR edges a lit inner lip.
  */
 export function rimTone(d: number, side: number, along: number, x: number): Color | null {
+  if (GRAPHITE) return graphiteRim(d, side, x);
   const lit = side === 0 || side === 2 || side === 4 || side === 6;
   const far = side === 0 || side === 2 || side === 4 || side === 6 || side === 7;
   if (d < 1) return lit && x % 6 === 0 ? PAL.gold3 : lit || side === 3 || side === 5 ? PAL.gold2 : PAL.gold1;
@@ -446,6 +469,18 @@ export function rimTone(d: number, side: number, along: number, x: number): Colo
   return d < RIM_W - 1 ? PAL.stone3 : PAL.ink;
 }
 
+/**
+ * The graphite slab's edge: a 1-px warm gold rim (brighter on the key-lit far / upper-left edges, with a glint every 6 px), a
+ * 1-px dark metal bevel, a 1-px ink groove, then the slab. Inside that (d ≥ 3) the plain floor — `null` lets floorTone paint it.
+ */
+function graphiteRim(d: number, side: number, x: number): Color | null {
+  const lit = side === 0 || side === 2 || side === 4 || side === 6;
+  if (d < 1) return lit ? (x % 6 === 0 ? PAL.gold3 : PAL.gold2) : PAL.gold1;
+  if (d < 2) return lit ? PAL.earth1 : PAL.stone0;
+  if (d < 3) return PAL.ink;
+  return null;
+}
+
 // ---------------------------------------------------------------- the carved border band
 // Owner (2026-11-13): "a few carvings, super high quality". Just inside the coping runs a narrow carved frieze: two fine border
 // grooves and between them a chain of linked lozenges, each with a raised dot. Carved, not painted: every groove is a 1-px shade
@@ -454,7 +489,7 @@ export const BAND_W = 9;
 const BAND_REP = 12;
 
 export function bandTone(dd: number, side: number, along: number): Color | null {
-  if (!CALM || dd < 1 || dd >= BAND_W) return null;
+  if (GRAPHITE || !CALM || dd < 1 || dd >= BAND_W) return null;
   const lit = side === 0 || side === 2 || side === 4 || side === 6;
   // the two border grooves (outer at dd 1..2, inner at dd 7..8), each with its arris on the lit side
   if (dd < 2) return PAL.stone0;

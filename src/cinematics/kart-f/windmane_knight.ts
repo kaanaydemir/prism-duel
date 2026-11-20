@@ -40,7 +40,7 @@ import { PAL, RAMPS } from '../../art/palette';
 import { mulberry32 } from '../../art/pixel';
 import type { AnyMonsterAnim, MonsterPointName } from '../../art/types';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
-import { DEPTH, LOOK_V3, type XY, unitDepth, zoneXY } from '../../view/layout';
+import { DEPTH, type XY, unitDepth, zoneXY } from '../../view/layout';
 import { lightFlash, lightPool, type LightHandle } from '../../view/light';
 import { E, Px, Sparks, animate, onFrame, sleep, stopTime } from '../../vfx/combat';
 import { shake } from '../../vfx/core';
@@ -601,8 +601,7 @@ function untilShown(u: MonsterUnit, anim: AnyMonsterAnim, f: number, max = 3000)
 
 // ================================================================ tribute: the gale scours the tributes
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     ID,
     'tribute',
     async (ctx) => {
@@ -822,8 +821,7 @@ async function windDies(sc: Phaser.Scene, u: MonsterUnit, rnd: () => number): Pr
   px.g.destroy();
 }
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     ID,
     'summon',
     async (ctx) => {
@@ -951,8 +949,7 @@ async function stormSettle(ctx: Ctx<'statChange'>, u: MonsterUnit): Promise<void
   await chip(sc, badgePoint(u), '-500 CALMED', PAL.mist, { rise: -3, ms: 600 });
 }
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     ID,
     'statChange',
     async (ctx) => {
@@ -1001,8 +998,7 @@ function cutStormCharge(ctx: AnyCtx | null, ms = 140): void {
   }
 }
 
-if (LOOK_V3)
-  registerObserver((ev, ctx) => {
+registerObserver((ev, ctx) => {
     if (!STORM_DECL.size && !STORM_CHARGE.size) return;
     const t = ev.type;
     const uid = (ev as { uid?: Uid }).uid;
@@ -1011,8 +1007,7 @@ if (LOOK_V3)
       cutStormCharge(ctx);
   });
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     ID,
     'attackDeclare',
     async (ctx) => {
@@ -1412,8 +1407,7 @@ async function stormStrike(s: StrikeArgs): Promise<void> {
   }
 }
 
-if (LOOK_V3)
-  registerStrike(
+registerStrike(
     ID,
     (s) => {
       // the storm strike only on the summon turn's battle (the +500 on, read from the engine)
@@ -1549,8 +1543,7 @@ async function hollowArmour(ctx: Ctx<'destroy'>): Promise<void> {
   await leave;
 }
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     ID,
     'destroyed',
     (ctx) => {
@@ -1565,8 +1558,7 @@ if (LOOK_V3)
 /** Knights the observer has seen (their auras are reconciled on the board events). */
 const KNIGHTS = new Set<Uid>();
 
-if (LOOK_V3)
-  registerObserver((ev, ctx) => {
+registerObserver((ev, ctx) => {
     const t = ev.type;
     if (t !== 'phaseChange' && t !== 'turnStart' && t !== 'attackDeclare' && t !== 'battle' && t !== 'flip' && t !== 'positionChange' && t !== 'destroy' && t !== 'summon' && t !== 'statChange' && t !== 'gameOver') return;
     const s = ctx.stateNext;
@@ -1604,8 +1596,7 @@ export type { AnyCtx };
 /** Revives already scored (uid:turn): the spell's batch is seen by several events. */
 const REVIVES = new Set<string>();
 
-if (LOOK_V3)
-  registerObserver((_ev, ctx) => {
+registerObserver((_ev, ctx) => {
     // the spell (soul_recall) consumes the summon inside its own handler, so no observer ever sees it run: look ahead
     // in the batch from whatever event starts it
     const sv = ctx.events.slice(ctx.index).find((e): e is EvOf<'summon'> => e.type === 'summon' && e.from === 'graveyard' && e.cardId === ID);

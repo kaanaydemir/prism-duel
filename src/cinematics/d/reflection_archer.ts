@@ -26,7 +26,7 @@
 
 import { PAL, type Ramp } from '../../art/palette';
 import type { GameEvent } from '../../engine/types';
-import { LOOK_V3, type XY } from '../../view/layout';
+import { type XY } from '../../view/layout';
 import { lightFlash, lightPool } from '../../view/light';
 import { shake } from '../../vfx/core';
 import { sleep, stopTime } from '../../vfx/combat';
@@ -107,7 +107,6 @@ registerCardHook(
   ID,
   'summon',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     if (ctx.ev.from === 'field') return ctx.base();
     await runSummon(ctx, entranceV3, entranceV3);
   },
@@ -124,7 +123,6 @@ registerCardHook(
   ID,
   'flip',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     const ev = ctx.ev;
     const v = ctx.views;
     const field = v.field;
@@ -231,7 +229,7 @@ registerEvent(
   'positionChange',
   async (ctx) => {
     const ev = ctx.ev;
-    if (!LOOK_V3 || ctx.cardId(ev.uid) !== ID) return ctx.base();
+    if (ctx.cardId(ev.uid) !== ID) return ctx.base();
     const unit = ctx.unit(ev.uid);
     const tile = ctx.tile(ev.uid);
     const toDef = ev.position === 'defense';
@@ -285,7 +283,6 @@ registerEvent(
 registerStrike(
   ID,
   async (s: StrikeArgs) => {
-    if (!LOOK_V3) return s.base?.();
     const u = s.attacker;
     const sc = s.scene;
     seedFx(u.uid * 43 + (s.target?.uid ?? 7));
@@ -375,7 +372,6 @@ registerCardHook(
   ID,
   'destroyed',
   (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     if (ctx.ev.location !== 'monster' || sourceOwnsDeath(ctx)) return ctx.base();
     const sc = ctx.scene;
     const u = ctx.views.field.unit(ctx.ev.uid);

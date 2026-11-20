@@ -70,14 +70,6 @@ describe('v3flags (S-7)', () => {
     expect(resolveV3Flags({ look: true, a5: 'off', a6: 'b' })).toEqual({ a5a: false, a5b: false, a6a: false, a6b: true, cards: false });
   });
 
-  it('module constants: v1 default is all off, the overlay blend stays ADD', async () => {
-    const f = await freshFlags('v1');
-    expect([f.V3_A5_A, f.V3_A5_B, f.V3_A6_A, f.V3_A6_B, f.V3_CARDS]).toEqual([false, false, false, false, false]);
-    expect(f.CARD_OVERLAY_BLEND).toBe(f.BLEND_ADD);
-    f.setCardOverlaysOpaque(true);
-    expect(f.cardOverlayBlend()).toBe(f.BLEND_ADD);
-  });
-
   it('module constants: v3 with no switch turns every lane on; the blend turns NORMAL only with opaque overlays (S-5)', async () => {
     const f = await freshFlags('v3');
     expect([f.V3_A5_A, f.V3_A5_B, f.V3_A6_A, f.V3_A6_B, f.V3_CARDS]).toEqual([true, true, true, true, true]);

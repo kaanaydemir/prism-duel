@@ -18,8 +18,8 @@ import { WEIGHT_MOTION, reactShakePx, reactStopMs, type WeightSource } from '../
 import { blowSource } from '../_core/helpers';
 import type { Disposable, DuelViews } from '../../duel/types';
 import type { TileCard } from '../../view/TileCard';
-import { ARENA_V2, DEPTH, TILE_W, type XY, unitDepth } from '../../view/layout';
-import { lightDim, lightFlash, lightLayer } from '../../view/light';
+import { DEPTH, TILE_W, type XY, unitDepth } from '../../view/layout';
+import { lightDim,  lightLayer } from '../../view/light';
 import { wait } from '../../vfx/core';
 import { impact as combatImpact, stopTime } from '../../vfx/combat';
 import { Raster, Sparks, onFrame, run } from '../../vfx/setpieces';
@@ -62,10 +62,6 @@ export function rnd(): number {
 export const rr = (a: number, b: number): number => a + (b - a) * rnd();
 
 export const other = (p: PlayerId): PlayerId => (p === 0 ? 1 : 0);
-
-// ================================================================ arena geometry (v1 / v2)
-
-export { ARENA_V2 };
 /**
  * Floor scale of the arena: 1 on v1's 64×32 tiles, 1.25 on v2's 80×40 tiles. Floor rings and
  * magic circles that cover a tile are multiplied by it (v1 sizes stay exactly as tuned).
@@ -157,9 +153,7 @@ export function strikeLight(id: MonsterId): number | undefined {
  * point and a bloom around it, scaled by the blow's power. A no-op in arena v1.
  */
 export function impactLight(scene: Phaser.Scene, at: XY, floorY: number, color: number, power: 1 | 2 | 3 = 2, o: { ring?: boolean; k?: number } = {}): void {
-  if (!ARENA_V2) return;
-  const k = o.k ?? 1;
-  void lightFlash(scene, at.x, at.y, color, (34 + power * 8) * k, 260 + power * 70, { floorY, ring: o.ring ?? true, intensity: (0.75 + power * 0.18) * k });
+  return;
 }
 
 /** Wait for every promise, never reject (errors are logged). */

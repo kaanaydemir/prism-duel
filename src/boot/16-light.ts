@@ -1,8 +1,3 @@
-import { MONSTER_IDS } from '../data/cards';
-import { whenMonstersBuilt } from '../art/textures';
-import { ARENA_V2 } from '../view/layout';
-import { glowSheet } from '../view/light/glow';
-import { ensureLightTextures } from '../view/light/textures';
 import type { BootStep } from './types';
 
 /**
@@ -15,23 +10,7 @@ const step: BootStep = {
   name: 'light',
   order: 16,
   build: (scene) => {
-    if (!ARENA_V2) return;
-    ensureLightTextures(scene);
-    const textures = scene.textures;
-    void whenMonstersBuilt().then(() => {
-      let i = 0;
-      const next = () => {
-        if (i >= MONSTER_IDS.length) return;
-        try {
-          glowSheet({ textures }, MONSTER_IDS[i++]);
-        } catch (e) {
-          console.error('[light] glow prewarm failed', e);
-          return;
-        }
-        setTimeout(next, 16);
-      };
-      setTimeout(next, 16);
-    });
+    return;
   },
 };
 export default step;

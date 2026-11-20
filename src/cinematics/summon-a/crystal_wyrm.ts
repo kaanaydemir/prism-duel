@@ -14,7 +14,7 @@
 // Budget: special summon ≈ 1.1 s; with the tribute + cut-in ≈ 3.7 s.
 
 import { PAL, PLAYER_COLOR, RAMPS, type Ramp } from '../../art/palette';
-import { DEPTH, LOOK_V3, type XY } from '../../view/layout';
+import { DEPTH, type XY } from '../../view/layout';
 import { TEX, shake } from '../../vfx/core';
 import { STEX, landingDust, shockwave } from '../../vfx/summon';
 import { clearHologram, holoRamp, setHologram } from '../../vfx/hologram';
@@ -504,8 +504,7 @@ function crystalOnset(sc: Phaser.Scene, u: MonsterUnit, ms: number): Promise<voi
   });
 }
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     'crystal_wyrm',
     'flip',
     async (ctx) => {

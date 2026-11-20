@@ -26,7 +26,7 @@ import { PAL, RAMPS, type Ramp } from '../../art/palette';
 import { artFrame } from '../../art/textures';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import type { GameEvent } from '../../engine/types';
-import { DEPTH, LOOK_V3, type XY } from '../../view/layout';
+import { DEPTH, type XY } from '../../view/layout';
 import { lightFlash } from '../../view/light';
 import { shake } from '../../vfx/core';
 import { sleep } from '../../vfx/combat';
@@ -129,7 +129,6 @@ registerCardHook(
   ID,
   'summon',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     const ev = ctx.ev;
     if (ev.from === 'field') return ctx.base();
     // the sovereign's split lands its pieces itself (lane D polar_sovereign)
@@ -147,7 +146,6 @@ registerCardHook(
   ID,
   'flip',
   (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     const flipSummon = ctx.ev.cause === 'flipSummon';
     return flipV3With(
       ctx,
@@ -172,7 +170,7 @@ registerEvent(
   'positionChange',
   async (ctx) => {
     const ev = ctx.ev;
-    if (!LOOK_V3 || ctx.cardId(ev.uid) !== ID) return ctx.base();
+    if (ctx.cardId(ev.uid) !== ID) return ctx.base();
     const unit = ctx.unit(ev.uid);
     const tile = ctx.tile(ev.uid);
     const toDef = ev.position === 'defense';
@@ -223,22 +221,19 @@ registerEvent(
 // The declaration holds the first wind-up frame while the lock-on plays: the field already stirs (fieldStir), the
 // strike's field lines take over on the same low arc.
 const stirs = new Map<number, () => void>();
-if (LOOK_V3) {
-  registerObserver((ev: GameEvent, ctx) => {
-    if (ev.type !== 'attackDeclare') return;
-    const u = ctx.unit(ev.attackerUid);
-    if (!u || u.cardId !== ID || !u.sprite.active) return;
-    stirs.get(u.uid)?.();
-    stirs.set(u.uid, fieldStir(ctx.scene, u));
-  });
-}
+registerObserver((ev: GameEvent, ctx) => {
+  if (ev.type !== 'attackDeclare') return;
+  const u = ctx.unit(ev.attackerUid);
+  if (!u || u.cardId !== ID || !u.sprite.active) return;
+  stirs.get(u.uid)?.();
+  stirs.set(u.uid, fieldStir(ctx.scene, u));
+});
 
 // ================================================================ strike
 
 registerStrike(
   ID,
   async (s: StrikeArgs) => {
-    if (!LOOK_V3) return s.base?.();
     const u = s.attacker;
     const sc = s.scene;
     seedFx(u.uid * 41 + (s.target?.uid ?? 3));
@@ -351,7 +346,6 @@ registerCardHook(
   ID,
   'destroyed',
   (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     if (ctx.ev.location !== 'monster' || sourceOwnsDeath(ctx)) return ctx.base();
     const sc = ctx.scene;
     const u = ctx.views.field.unit(ctx.ev.uid);

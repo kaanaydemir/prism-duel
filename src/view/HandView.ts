@@ -28,7 +28,7 @@ import { sfx } from '../audio/sfx';
 import type { PlayerId, Uid } from '../engine/types';
 import { TEX, tween, wait } from '../vfx/core';
 import { CardSprite } from './CardSprite';
-import { ARENA_V2, CARD_H, CARD_W, DEPTH, GAME_H, UI, byArena, type XY, panelRect, zoneXY } from './layout';
+import { CARD_H, CARD_W, DEPTH, GAME_H, UI, type XY, panelRect, zoneXY } from './layout';
 import { MINI_CARD_H, MINI_CARD_W, miniCardKey, trayGlowTex } from './ui-textures';
 import { V3_A6_A } from './v3flags';
 import { miniHandBackKey } from './v3/cardBack';
@@ -63,17 +63,17 @@ const ADD = Phaser.BlendModes.ADD;
  * only the top ~42 px peek up (UI.handRestTop 318 → center 352); hovering lifts the card into
  * full view.
  */
-const BASE_Y = byArena(326, UI.handRestTop + CARD_H / 2);
+const BASE_Y = 326;
 /** Extra lift of the hovered / selected card (CardSprite.hoverLift adds 6 more). */
-const HOVER_LIFT = byArena(14, 22);
+const HOVER_LIFT = 14;
 /** Neighbours move aside by this much when a card is hovered. */
 const SPREAD = 13;
 const MAX_STEP = 52;
 const MAX_MINIS = 10;
 /** Deepest dip of the outermost cards of the fan. */
-const MAX_DIP = byArena(7, 4);
+const MAX_DIP = 7;
 /** Lift of the cards marked in a multi-select (discard). */
-const MARK_LIFT = byArena(9, 14);
+const MARK_LIFT = 9;
 /** v2: the lit tray strip the peeking hand rests on (screen-bottom glow behind the cards). */
 const TRAY_H = 14;
 
@@ -141,7 +141,6 @@ export class HandView {
       void s.sprite.punch(0.1, 160);
       this.onSelect?.(s.uid);
     });
-    if (ARENA_V2) this.buildTray();
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroy());
   }
 

@@ -15,7 +15,21 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
+// These cases were written against the calm arena (the Neon Tower arena became the default when the v1 look
+// was removed, 2026-11-17): keep them on it. vi.hoisted runs before the module imports below.
+vi.hoisted(() => {
+  (globalThis as { __NEON_ARENA_NT?: boolean }).__NEON_ARENA_NT = false;
+});
+
 vi.mock('phaser', async () => (await import('../presentation/_phaser-stub')).phaserStub());
+// The fake scenes below have no render textures: run without the real-time light layer (as these tests did
+// under the removed v1 look, where the layer was never built). Light calls return an inert handle.
+vi.mock('../../src/view/light', async (orig) => {
+  const m = await orig<Record<string, unknown>>();
+  const inert: unknown = new Proxy(function () {}, { get: (_t, k) => (k === 'then' ? undefined : inert), apply: () => inert });
+  const off = ['lightLayer', 'ensureLightLayer', 'lightPool', 'lightBeam', 'lightFlash', 'followLight', 'lightBurst'];
+  return { ...m, ...Object.fromEntries(off.filter((k) => k in m).map((k) => [k, () => (k === 'lightLayer' || k === 'ensureLightLayer' ? null : inert)])) };
+});
 
 import { PAL } from '../../src/art/palette';
 import { PixelCanvas } from '../../src/art/pixel';
@@ -524,8 +538,8 @@ describe('A-3 Volkan Arenası: the v3 ambience and field auras', () => {
     const flame = flameAuraV3(S.scene, unit);
     const steam = steamAuraV3(S.scene, unit);
     S.step(1500);
-    // the flame aura's two rasters (in front of / behind the body) + the steam raster
-    expect(S.textures.size).toBe(3);
+    // the flame aura's three rasters (in front of / behind the body, the floor sigil) + the steam raster
+    expect(S.textures.size).toBe(4);
     const before = S.live().length;
     // the sprite moves: the rasters move with it (they are redrawn round the top edge every frame)
     sprite.x = 260;
@@ -546,7 +560,7 @@ describe('A-3 Volkan Arenası: the v3 ambience and field auras', () => {
     const unit = { sprite, uid: 9, retired: false, home: { x: 300, y: 170 } } as unknown as MonsterUnit & { retired: boolean };
     flameAuraV3(S.scene, unit);
     S.step(400);
-    expect(S.textures.size).toBe(2);
+    expect(S.textures.size).toBe(3);
     (unit as { retired: boolean }).retired = true;
     S.step(50);
     expect(S.textures.size).toBe(0);

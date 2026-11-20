@@ -8,17 +8,15 @@
 //   await board.pulseSide(0);                           // turn-start wave across a side
 //   const z = board.zoneAt(pointer.worldX, pointer.worldY);   // { player, spot, index } | null
 //   await board.setTheme('volcano', true, 0);           // lava cracks spread from P1's field zone
-//   board.crowd('roar', 0);                             // v2: the stands erupt (v1: no-op)
-//   board.scoreFlash('TUZAK!');                         // v2: scoreboard ticker flash (v1: no-op)
+//   board.crowd('roar', 0);                             // crowd reaction (no-op where there is no crowd)
+//   board.scoreFlash('TUZAK!');                         // scoreboard ticker flash (no-op without one)
 //
 // Ambient motion runs on scene time scaled by scene.time.timeScale, so hit-stop freezes it and
 // fast-forward speeds it up together with everything else.
 //
-// Arena v2 (ARENA_VARIANT === 'v2', docs/ARENA_V2.md): the same API is served by
-// src/view/board-v2/BoardViewV2.ts — every public method below forwards to it; the v1 code path
-// is unchanged.
-// Look v3 (LOOK_V3, ?look=v3, docs/v3/A0_ENVANTER.md §5.5): the calm arena of the still preview,
-// src/view/board-calm/BoardViewCalm.ts — the third delegation arm, same pattern.
+// The arena itself is delegated: the Neon Tower (src/view/board-nt, the default) or the calm arena
+// (?arena=calm, src/view/board-calm/BoardViewCalm.ts). The legacy v1 look and the v2 "floodlit"
+// arena were removed on 2026-11-17 (owner decision).
 
 import Phaser from 'phaser';
 import {
@@ -40,7 +38,7 @@ import {
   TOWERS,
   type TrimClass,
   type ZoneHit,
-  buildArenaTextures,
+  
   buildCrackField,
   cellZone,
   paintCracks,
@@ -53,8 +51,7 @@ import { PAL, PLAYER_COLOR } from '../art/palette';
 import { mix, mulberry32 } from '../art/pixel';
 import type { PlayerId } from '../engine/types';
 import { TEX, shake } from '../vfx/core';
-import { ARENA_V2, BOARD_COLS, BOARD_MID_COL, BOARD_ROWS, type BoardSpot, DEPTH, GAME_H, GAME_W, LOOK_V3, isoToScreen, screenToIso, zoneCell } from './layout';
-import { BoardViewV2 } from './board-v2/BoardViewV2';
+import { BOARD_COLS, BOARD_MID_COL, BOARD_ROWS, type BoardSpot, DEPTH, GAME_H, GAME_W, isoToScreen, screenToIso, zoneCell } from './layout';
 import { BoardViewCalm } from './board-calm/BoardViewCalm';
 import { BoardViewNt } from './board-nt';
 import type { ArenaViewApi } from './board-nt/api';
@@ -204,8 +201,6 @@ let instanceCounter = 0;
 
 export class BoardView {
   readonly scene: Phaser.Scene;
-  /** The arena v2 implementation (null in v1). */
-  private readonly v2: BoardViewV2 | null = null;
   /** The arena of the v3 look: the calm arena, or the Neon Tower (?arena=nt, docs/v3/ARENA_NEON_TOWER.md); null otherwise. */
   private readonly calm: ArenaViewApi | null = null;
   private readonly id = ++instanceCounter;
@@ -271,48 +266,25 @@ export class BoardView {
 
   constructor(scene: Phaser.Scene, opts: BoardViewOptions = {}) {
     this.scene = scene;
-    if (LOOK_V3) {
-      this.calm = ARENA_NT ? new BoardViewNt(scene, opts) : new BoardViewCalm(scene, opts);
-      return;
-    }
-    if (ARENA_V2) {
-      this.v2 = new BoardViewV2(scene, opts, this);
-      return;
-    }
-    buildArenaTextures(scene);
-    this.buildSky();
-    this.buildStadium();
-    this.buildPlatform();
-    this.buildTiles();
-    this.buildParticles();
-    this.setActivePlayer(opts.active ?? null, false);
-    if (opts.lights === false) {
-      this.towerLevel = TOWERS.map(() => 0);
-    }
-    if (opts.theme === 'volcano') void this.setTheme('volcano', false, opts.volcanoFrom ?? null);
-    scene.events.on(Phaser.Scenes.Events.UPDATE, this.tick, this);
-    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
-    this.tick(0, 0);
+    this.calm = ARENA_NT ? new BoardViewNt(scene, opts) : new BoardViewCalm(scene, opts);
+    return;
   }
 
   // ================================================================ public API
 
   get theme(): ArenaTheme {
     if (this.calm) return this.calm.theme;
-    if (this.v2) return this.v2.theme;
     return this.themeName;
   }
 
   get activePlayer(): PlayerId | null {
     if (this.calm) return this.calm.activePlayer;
-    if (this.v2) return this.v2.activePlayer;
     return this.active;
   }
 
   /** Zone under a world-space point (pointer.worldX/worldY), pixel-accurate to the drawn diamonds. */
   zoneAt(x: number, y: number): ZoneHit | null {
     if (this.calm) return this.calm.zoneAt(x, y);
-    if (this.v2) return this.v2.zoneAt(x, y);
     const g = screenToIso(Math.floor(x) + 0.5, Math.floor(y) + 0.5);
     return cellZone(Math.round(g.col), Math.round(g.row));
   }
@@ -320,7 +292,6 @@ export class BoardView {
   /** The tile image of a zone (for cinematics that want to shake / hide / tint it). */
   tileImage(player: PlayerId, spot: BoardSpot, index = 0): Img | null {
     if (this.calm) return this.calm.tileImage(player, spot, index);
-    if (this.v2) return this.v2.tileImage(player, spot, index);
     const c = zoneCell(player, spot, index);
     return this.tiles.find((t) => t.col === c.col && t.row === c.row)?.img ?? null;
   }
@@ -328,7 +299,6 @@ export class BoardView {
   /** Animated glowing outline on a zone (valid targets, selections). color null removes it. */
   highlightZone(player: PlayerId, spot: BoardSpot, index: number, color: number | null): void {
     if (this.calm) return this.calm.highlightZone(player, spot, index, color);
-    if (this.v2) return this.v2.highlightZone(player, spot, index, color);
     const key = `${player}:${spot}:${index}`;
     const cur = this.highlights.get(key);
     if (color === null) {
@@ -372,14 +342,12 @@ export class BoardView {
   /** Remove every highlight. */
   clearHighlights(): void {
     if (this.calm) return this.calm.clearHighlights();
-    if (this.v2) return this.v2.clearHighlights();
     for (const h of this.highlights.values()) h.dying = true;
   }
 
   /** A bright flash on one tile (impact, set card, effect target). Resolves when it has faded. */
   flashTile(player: PlayerId, spot: BoardSpot, index: number, color: number, ms = 320): Promise<void> {
     if (this.calm) return this.calm.flashTile(player, spot, index, color, ms);
-    if (this.v2) return this.v2.flashTile(player, spot, index, color, ms);
     const c = zoneCell(player, spot, index);
     return this.flashCell(c.col, c.row, color, ms);
   }
@@ -387,7 +355,6 @@ export class BoardView {
   /** Turn-start pulse: a wave of light rolls across `player`'s tiles from their back row forward. */
   async pulseSide(player: PlayerId): Promise<void> {
     if (this.calm) return this.calm.pulseSide(player);
-    if (this.v2) return this.v2.pulseSide(player);
     const color = this.heatColor(PLAYER_COLOR[player]);
     const jobs: Promise<void>[] = [];
     jobs.push(this.run(760, (k) => (this.sideFlash[player] = 1 - k), 'Quad.Out'));
@@ -429,7 +396,6 @@ export class BoardView {
   /** Emphasise the active player's half (brighter trim, livelier tiles). null = neutral. */
   setActivePlayer(player: PlayerId | null, animate = true): void {
     if (this.calm) return this.calm.setActivePlayer(player, animate);
-    if (this.v2) return this.v2.setActivePlayer(player, animate);
     this.active = player;
     const target: [number, number] = player === null ? [0.85, 0.85] : player === 0 ? [1, 0.5] : [0.5, 1];
     if (!animate) {
@@ -457,7 +423,6 @@ export class BoardView {
    */
   async setTheme(theme: ArenaTheme, animate = true, from: PlayerId | null = null): Promise<void> {
     if (this.calm) return this.calm.setTheme(theme, animate, from);
-    if (this.v2) return this.v2.setTheme(theme, animate, from);
     const token = ++this.themeToken;
     if (theme === 'volcano') {
       const origin = from === null ? { col: BOARD_MID_COL, row: 2 } : zoneCell(from, 'field');
@@ -532,7 +497,6 @@ export class BoardView {
    */
   async setLights(on: boolean, animate = true): Promise<void> {
     if (this.calm) return this.calm.setLights(on, animate);
-    if (this.v2) return this.v2.setLights(on, animate);
     if (!animate) {
       this.towerLevel = TOWERS.map(() => (on ? 1 : 0));
       return;
@@ -572,7 +536,6 @@ export class BoardView {
    */
   setTurn(turn: number | null): void {
     if (this.calm) this.calm.setTurn(turn);
-    if (this.v2) this.v2.setTurn(turn);
   }
 
   /**
@@ -584,9 +547,18 @@ export class BoardView {
    *    summon, lethal, game over).
    * `power` (0.5 … 2) scales how long and how big. Returns at once (the reaction plays on its own).
    */
+  /** Is the stage flooded (Gelgit Körfezi; Neon Tower only)? */
+  get tide(): boolean {
+    return this.calm?.tide ?? false;
+  }
+
+  /** Gelgit Körfezi floods the stage from `from`'s field seal / drains it (Neon Tower only; a no-op elsewhere). */
+  setTide(on: boolean, animate = true, from: PlayerId | null = null): Promise<void> {
+    return this.calm?.setTide ? this.calm.setTide(on, animate, from) : Promise.resolve();
+  }
+
   crowd(kind: CrowdReaction, side: PlayerId | null = null, power = 1): void {
     if (this.calm) this.calm.crowd?.(kind, side, power);
-    if (this.v2) this.v2.crowd(kind, side, power);
   }
 
   /**
@@ -594,12 +566,10 @@ export class BoardView {
    * to the turn display. Additive; a no-op in v1 (no scoreboard).
    */
   scoreFlash(text: string, color: number | null = null, ms = 1600): void {
-    if (this.v2) this.v2.scoreFlash(text, color, ms);
   }
 
   destroy(): void {
     if (this.calm) return this.calm.destroy();
-    if (this.v2) return this.v2.destroy();
     if (this.destroyed) return;
     this.destroyed = true;
     this.themeToken++;

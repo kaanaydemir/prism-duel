@@ -58,7 +58,7 @@ import type { GameEvent, PlayerId, Uid } from '../../engine/types';
 import { PAL, PLAYER_RAMP } from '../../art/palette';
 import { cardBackCanvas, cardFaceCanvas } from '../../art/cards';
 import { PixelCanvas } from '../../art/pixel';
-import { DEPTH, LOOK_V3, type XY } from '../../view/layout';
+import { DEPTH, type XY } from '../../view/layout';
 import { Raster, freeze, onFrame, run } from '../../vfx/setpieces';
 import { Sparks as PxSparks } from '../../vfx/combat';
 import { shake, wait } from '../../vfx/core';
@@ -1443,7 +1443,6 @@ function sfxAt(pan: number) {
 }
 
 registerCardHook(ID, 'activate', async (ctx: ActCtx) => {
-  if (!LOOK_V3) return ctx.base();
   const ev = ctx.ev;
   const sc = ctx.scene;
   const T = PAGE_T;

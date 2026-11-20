@@ -24,7 +24,6 @@ import { homeDistance, registerContactEstimate } from '../_v3/contact-estimate';
 import type { StrikeArgs } from '../_core/types';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import {
-  ARENA_V2,
   E,
   FloorMarks,
   clusterPoint,
@@ -61,7 +60,7 @@ import {
   sleep,
   strideCount,
   sub,
-  travelMs,
+  
   whiteFlash,
   worldToScreen,
 } from './_kit';
@@ -135,9 +134,9 @@ registerStrike('ember_wolf', async (s: StrikeArgs) => {
   const dist = Math.hypot(feet.x - home.x, feet.y - home.y);
   // v1: one flaming leap. v2's wide bridge: a bounding gallop (a bound per ~60 px) that ends in
   // the same leap, jaws open
-  const dashMs = ARENA_V2 ? travelMs(dist, 110, 1.3, 120, 260, 540) : clamp(100 + dist * 0.55, 120, 260);
+  const dashMs = clamp(100 + dist * 0.55, 120, 260);
   const bounds = strideCount(dist, 1, 60);
-  const leapH = ARENA_V2 ? 7 * clamp(dist / bounds / 45, 1, 1.5) : 7;
+  const leapH = 7;
   const marks = new FloorMarks(sc, MARK_DEPTH);
   const set = (p: XY, lift = 0, kx = 1, ky = 1) => {
     if (!spr.active) return;
@@ -215,14 +214,14 @@ registerStrike('ember_wolf', async (s: StrikeArgs) => {
       // 4b. knocked back off the guard: a yelping tumble, then trot home
       holdFrame(u, 'hit', 0);
       // knocked back a body length (v2: a fixed ~34 px, not half the long bridge)
-      const kb = lerpXY(feet, home, ARENA_V2 ? Math.min(0.5, 34 / Math.max(1, dist)) : 0.5);
+      const kb = lerpXY(feet, home, 0.5);
       await animate(sc, 180, (t) => {
         set(lerpXY(feet, kb, E.outQ(t)), Math.sin(Math.PI * t) * 9, 1, 1);
         if (spr.active) spr.setAngle(-sgn * 14 * Math.sin(Math.PI * t));
       });
       if (spr.active) spr.setAngle(0);
       void playFrom(u, 'hit', 1);
-      await animate(sc, ARENA_V2 ? travelMs(dist, 150, 0.7, 240, 240, 420) : 240, (t) => set(lerpXY(kb, home, E.inOutQ(t)), Math.sin(Math.PI * t) * 4, 1, 1));
+      await animate(sc, 240, (t) => set(lerpXY(kb, home, E.inOutQ(t)), Math.sin(Math.PI * t) * 4, 1, 1));
     } else {
       // 4. hold the bite, land (f7), hop home (f8–9)
       await animate(sc, 90, (t) => set(feet, 2 * (1 - t), lerp(0.94, 1, t), lerp(1.06, 1, t)));
@@ -231,7 +230,7 @@ registerStrike('ember_wolf', async (s: StrikeArgs) => {
       void playFrom(u, 'attack', 8);
       // hop home (v2's long way back: a few springy hops instead of one floating leap)
       const hops = strideCount(dist, 1, 90);
-      await animate(sc, ARENA_V2 ? travelMs(dist, 170, 0.8, 280, 280, 480) : 280, (t) => set(lerpXY(feet, home, E.inOutQ(t)), hops > 1 ? Math.abs(Math.sin(Math.PI * t * hops)) * 6 : Math.sin(Math.PI * t) * (ARENA_V2 ? leapH : 7), 1, t > 0.85 ? 1.05 - (t - 0.85) : 1));
+      await animate(sc, 280, (t) => set(lerpXY(feet, home, E.inOutQ(t)), hops > 1 ? Math.abs(Math.sin(Math.PI * t * hops)) * 6 : Math.sin(Math.PI * t) * (7), 1, t > 0.85 ? 1.05 - (t - 0.85) : 1));
     }
   } finally {
     marks.close();
@@ -396,6 +395,6 @@ registerCardHook('ember_wolf', 'destroyed', (ctx) =>
 registerContactEstimate('ember_wolf', (u, t) => {
   const F = frameMs(u, 'attack');
   const dist = Math.max(0, homeDistance(u, t) - 8);
-  const dashMs = ARENA_V2 ? travelMs(dist, 110, 1.3, 120, 260, 540) : clamp(100 + dist * 0.55, 120, 260);
+  const dashMs = clamp(100 + dist * 0.55, 120, 260);
   return F * 3.5 + dashMs;
 });

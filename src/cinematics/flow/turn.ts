@@ -18,7 +18,7 @@
 
 import type { PlayerId } from '../../engine/types';
 import { PAL, PLAYER_RAMP } from '../../art/palette';
-import { ARENA_V2, duelistXY, screenToIso } from '../../view/layout';
+import { duelistXY } from '../../view/layout';
 import { phaseBanner, turnBanner } from '../../vfx/banners';
 import { addGlow } from '../../vfx/setpieces';
 import { registerEvent, registerObserver } from '../api';
@@ -60,7 +60,7 @@ registerEvent(
       const d = Math.hypot(u.home.x - pod.x, u.home.y - pod.y);
       // v2: in step with BoardViewV2.pulseSide's tile wave (110 ms per grid cell from the podium,
       // peaking ≈ 80 ms into each tile's flash); v1 keeps its authored px rate
-      const delay = ARENA_V2 ? waveDelayV2(pod, u.home) : 90 + d * 2.2;
+      const delay = 90 + d * 2.2;
       jobs.push(
         ctx.wait(delay).then(() => {
           void lightFlash(sc, u.home.x, u.home.y, col, fs(30), 380, { intensity: 0.6 });
@@ -74,13 +74,6 @@ registerEvent(
   },
   { name: 'flow:turnStart' },
 );
-
-/** v2: when BoardViewV2.pulseSide's wave (from the podium, 110 ms per grid cell) peaks on `at`. */
-function waveDelayV2(pod: { x: number; y: number }, at: { x: number; y: number }): number {
-  const a = screenToIso(pod.x, pod.y);
-  const b = screenToIso(at.x, at.y);
-  return Math.round(Math.max(0, Math.hypot(b.col - a.col, b.row - a.row) - 1) * 110 + 80);
-}
 
 // ================================================================ phase change
 

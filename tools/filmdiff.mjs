@@ -119,7 +119,6 @@ const SETS = {
       { name: 'tbFaceDown', s: 'tbFaceDown', ms: 3350 },
       { name: 'tbDefHold', s: 'tbDefHold', ms: 2300 },
       { name: 'sbSentinelAtk', s: 'sbSentinelAtk', ms: 4100 }, // STRIKE_LIGHT, declare
-      { name: 'sbSentinelAtk-arena-v2', s: 'sbSentinelAtk', q: '&arena=v2', ms: 4100 }, // MONSTER_GLOW (the light layer is on only in the v2 arena under v1)
       { name: 'smbSentinel', s: 'smbSentinel', ms: 1850 }, // ROAR_PEAK
       { name: 'smbFlipThorn', s: 'smbFlipThorn', ms: 5650 }, // FLIP_RAMP + flip branches
       { name: 'smbFlipHawk', s: 'smbFlipHawk', ms: 1300 }, // FLIP_RAMP + flip branches

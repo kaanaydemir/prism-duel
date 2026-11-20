@@ -11,7 +11,7 @@
 import Phaser from 'phaser';
 import { PAL } from '../../art/palette';
 import type { PlayerId } from '../../engine/types';
-import { ARENA_V2, BOARD_COLS, BOARD_ROWS, DEPTH, UI, type Rect, cellKind, isoToScreen, zoneAtCell } from '../../view/layout';
+import { BOARD_COLS, BOARD_ROWS, DEPTH, UI, type Rect,  isoToScreen, zoneAtCell } from '../../view/layout';
 import { BoardView } from '../../view/BoardView';
 import type { DevPreview } from '../types';
 
@@ -38,7 +38,7 @@ const preview: DevPreview = {
         for (let col = 0; col < BOARD_COLS; col++) {
           const z = zoneAtCell(col, row);
           const s = isoToScreen(col, row);
-          const txt = z ? `P${z.player + 1} ${SHORT[z.spot]}${z.spot === 'monster' || z.spot === 'spellTrap' ? z.index : ''}` : ARENA_V2 ? `${cellKind(col, row)} ${col},${row}` : `${col},${row}`;
+          const txt = z ? `P${z.player + 1} ${SHORT[z.spot]}${z.spot === 'monster' || z.spot === 'spellTrap' ? z.index : ''}` : `${col},${row}`;
           scene.add
             .text(s.x, s.y, txt, {
               fontFamily: 'monospace',

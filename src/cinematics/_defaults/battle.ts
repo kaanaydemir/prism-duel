@@ -2,8 +2,8 @@
 import { CARDS, isMonster, type CardId } from '../../data/cards';
 import type { GameEvent, PlayerId, Uid } from '../../engine/types';
 import { other } from '../../engine/types';
-import { ATTRIBUTE_RAMP, PAL, PLAYER_COLOR, RAMPS, type Ramp } from '../../art/palette';
-import { GAME_W, LOOK_V3, type XY, zoneXY } from '../../view/layout';
+import { ATTRIBUTE_RAMP,  PLAYER_COLOR, RAMPS, type Ramp } from '../../art/palette';
+import { GAME_W, type XY, zoneXY } from '../../view/layout';
 import { tween, wait } from '../../vfx/core';
 import { attackArrow, blockClang, directHit, lockOn } from '../../vfx/combat';
 import { damageNumber, statPop } from '../../vfx/numbers';
@@ -27,7 +27,7 @@ import {
   playBattleTriggers,
   presentDamage,
   presentHeal,
-  shatterUnit,
+  
   tileToGraveyard,
 } from '../_core/helpers';
 import { genericStrike } from './strikes';
@@ -274,50 +274,7 @@ registerEvent(
   'destroy',
   async (ctx) => {
     // v3 look: the death kit + card continuity (_v3/death.ts destroyV3)
-    if (LOOK_V3) return destroyV3(ctx);
-    const ev = ctx.ev;
-    const field = ctx.views.field;
-    const gi = ctx.findType('toGraveyard', (e) => e.uid === ev.uid, { until: (e) => e.type !== 'toGraveyard' && e.type !== 'destroy' && e.type !== 'fieldSpell' && e.type !== 'statChange' });
-    const gEv = gi >= 0 ? (ctx.events[gi] as Extract<GameEvent, { type: 'toGraveyard' }>) : null;
-    if (gi >= 0) ctx.consumeAt(gi);
-    const owner = gEv ? gEv.owner : ctx.owner(ev.uid);
-    const { tile, unit } = field.release(ev.uid);
-    const home = tile ? tile.home : zoneXY(ev.player, ev.location === 'field' ? 'field' : ev.location, ev.zone);
-    const from = { x: home.x, y: home.y - 4 };
-    const jobs: Promise<void>[] = [];
-    if (ev.location === 'monster') {
-      if (unit && unit.sprite.visible) {
-        if (tile) jobs.push(wait(ctx.scene, 220).then(() => tile.dissolve(520)).then(() => tile.destroy()));
-        ctx.sfx('shatter', { volume: 0.9 });
-        await shatterUnit(ctx, unit, { push: ctx.hints.push as XY | undefined, hit: ctx.hints.hit !== false });
-      } else {
-        unit?.retire();
-        if (tile) {
-          if (!tile.faceUp) {
-            tile.setCard(ev.cardId);
-            await tile.flipUp(260);
-          }
-          await tile.dissolve(480);
-          tile.destroy();
-        }
-      }
-      field.forget(ev.uid);
-    } else if (tile) {
-      if (ev.reason === 'rule') {
-        await tile.fadeOut(260);
-      } else {
-        if (!tile.faceUp) {
-          tile.setCard(ev.cardId);
-          await tile.flipUp(240);
-        }
-        void tile.pulse(PAL.white, 160);
-        ctx.sfx('shatter', { volume: 0.6, pitch: 1.3 });
-        await tile.dissolve(520);
-      }
-      tile.destroy();
-    }
-    if (gEv) jobs.push(cardToGraveyard(ctx, { owner, cardId: ev.cardId, from }));
-    await all(jobs);
+    return destroyV3(ctx);
   },
   P,
 );

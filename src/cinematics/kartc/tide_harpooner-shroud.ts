@@ -29,7 +29,7 @@ import type { MonsterUnit } from '../../duel/MonsterUnit';
 import { shrouded } from '../../engine/query';
 import type { GameState, PlayerId } from '../../engine/types';
 import type { BoardSpot } from '../../view/layout';
-import { DEPTH, LOOK_V3, TILE_H, TILE_W, type XY, unitDepth } from '../../view/layout';
+import { DEPTH, TILE_H, TILE_W, type XY, unitDepth } from '../../view/layout';
 import { lightFlash, lightPool, type LightHandle } from '../../view/light';
 import { animate, sleep } from '../../vfx/combat';
 import type { CinematicContext } from '../_core/types';
@@ -247,7 +247,7 @@ function nacreFlare(sc: Phaser.Scene, u: MonsterUnit): void {
 
 /** The aura at rest at once (no raise): a harpooner found shrouded without its wall (a staged duel, a missed event). */
 export function ensureShroud(u: MonsterUnit): ShroudAura | null {
-  if (!LOOK_V3 || !u.sprite.active || u.retired) return null;
+  if (!u.sprite.active || u.retired) return null;
   const cur = u.aura(AURA) as ShroudAura | null;
   if (cur) return cur;
   const a = new ShroudAura(u);
@@ -267,7 +267,7 @@ function stateOf(ctx: AnyCtx): GameState {
  * when `short`) when it is now shrouded and has none; drop it (D) when it no longer is.
  */
 export async function syncShroud(ctx: AnyCtx, u: MonsterUnit, o: { short?: boolean } = {}): Promise<void> {
-  if (!LOOK_V3 || !u.sprite.active || u.retired) return;
+  if (!u.sprite.active || u.retired) return;
   let on = false;
   try {
     on = shrouded(stateOf(ctx), u.uid);
@@ -330,7 +330,7 @@ const lastDeflect = new WeakMap<MonsterUnit, number>();
  * skipped). false for anything else (the generic reject answers).
  */
 export function shroudReject(scene: Phaser.Scene, views: DuelViews, state: GameState | null | undefined, h: { player: PlayerId; spot: BoardSpot; index: number } | null, player: PlayerId): boolean {
-  if (!LOOK_V3 || !state || !h || h.spot !== 'monster' || h.player === player) return false;
+  if (!state || !h || h.spot !== 'monster' || h.player === player) return false;
   const slot = state.players[h.player]?.monsters[h.index];
   if (!slot) return false;
   let on = false;

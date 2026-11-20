@@ -36,12 +36,14 @@ import type { FieldView } from '../../duel/FieldView';
 import { BRAZIER, BRAZIERS } from '../../art/arena-nt/hallfloor';
 import { NT_PADS_KEY, PAD_CANVAS, padFrame } from '../../art/arena-nt/pads';
 import { NT_PLATFORM_KEY, PLATFORM_BOX } from '../../art/arena-nt/platform';
+import { GRAPHITE } from '../../art/arena-nt/stagetop';
 import { PAL, RAMPS } from '../../art/palette';
 import { BANISH_PAD, BOARD_V4, zoneXY } from '../layout';
 import { hasLight, lightEnabled } from '../light';
 import { calmZones } from '../board-calm/art';
 import { DUELIST_PADS, HOLOS, NT_DEPTH, PLATE_POLY, SCREENS, ntIso } from './layout-nt';
 import type { NtCtx, NtLayer } from './layer';
+import { WIDE_OX } from '../mobile';
 
 type Img = Phaser.GameObjects.Image;
 type RGB = [number, number, number];
@@ -73,9 +75,10 @@ const KEY = {
 /** The hall's ambient light (multiply: what is left of the wall / floor art far from every light). */
 const AMBIENT: RGB = [0.5, 0.53, 0.66];
 /** Back veil overscan (the camera leans / shakes a few px) and the area it covers. */
-const BACK = { x: -16, y: -16, w: 672, h: 392 } as const;
+// wide phones (src/view/wide.ts): the veils run on into the side bars (the vignette keeps darkening outward)
+const BACK = { x: -16 - WIDE_OX, y: -16, w: 672 + WIDE_OX * 2, h: 392 } as const;
 /** The back glow's area: the wall and the hall floor round the hologram plinths (nothing glows lower down). */
-const BACK_GLOW = { x: -16, y: -16, w: 672, h: 224 } as const;
+const BACK_GLOW = { x: -16 - WIDE_OX, y: -16, w: 672 + WIDE_OX * 2, h: 224 } as const;
 
 const rgb = (c: number): RGB => [((c >> 16) & 255) / 255, ((c >> 8) & 255) / 255, (c & 255) / 255];
 
@@ -260,6 +263,46 @@ function stageK(x: number, y: number, top: boolean): { k: number; warm: number }
   return { k: 0.56, warm: 0 };
 }
 
+/**
+ * The key light's pool on the slab top. Owner 2026-11-17 round 2 ("soldan ışık vuruyor, gölgeler çok net"): the key is a low lamp
+ * off the stage's LEFT end (a little in front of it, KEY_AT), so the light rakes across the slab from the left: 1 at the left cap,
+ * falling off toward the right end. The monsters' cast shadows (duel/cast-shadow.ts) fall away from it, to the right and back.
+ */
+const KEY_AT = { x: 70, y: 176 } as const;
+function keyPool(x: number, y: number): number {
+  const dx = (x - KEY_AT.x) / 470;
+  const dy = (y - KEY_AT.y) / 250;
+  return Math.max(0, Math.min(1, 1 - Math.sqrt(dx * dx + dy * dy)));
+}
+
+/**
+ * The key light landing on the slab (ADD, stepped): a warm raking wash, strong at the left end and gone by the right third, so the
+ * dark graphite reads as a lit mid-tone surface where the light falls (and the cast shadows read on it).
+ */
+function keyWash(d: Uint8ClampedArray, w: number, h: number): void {
+  const poly = PLATE_POLY.map(([c, r]) => ntIso(c, r));
+  const WARM_LIGHT = rgb(PAL.earth3);
+  const FILL = rgb(PAL.stone3);
+  for (let j = 0; j < h; j++)
+    for (let i = 0; i < w; i++) {
+      const x = STAGE.x + i + 0.5;
+      const y = STAGE.y + j + 0.5;
+      if (!onTop(x, y, poly)) continue;
+      const kp = keyPool(x, y);
+      // the raking key (warm, falls off fast) over a faint even fill (cool) — 64 fine steps, ordered dither on the step edges
+      const key = Math.pow(kp, 1.6) * 0.3;
+      const fill = 0.05;
+      const o = (j * w + i) * 4;
+      for (let ch = 0; ch < 3; ch++) {
+        const v = (WARM_LIGHT[ch] * key + FILL[ch] * fill) * 255;
+        d[o + ch] = Math.min(255, d[o + ch] + quant(v / 255, Math.floor(x), Math.floor(y), 64));
+      }
+      d[o + 3] = 255;
+    }
+}
+
+const mixRGB = (a: RGB, b: RGB, t: number): RGB => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+
 function veilPixel(d: Uint8ClampedArray, o: number, f: RGB): void {
   d[o] = Math.round(f[0] * 255);
   d[o + 1] = Math.round(f[1] * 255);
@@ -293,7 +336,13 @@ function bakeStageVeil(px: Uint8ClampedArray, w: number, h: number): Uint8Clampe
       // arena v5 step 1: the flagstone top keeps more of the slate ramp's violet (hedef-gorunum-5: violet-grey stone), a little
       // less darkening on its now textured tones (the stage's MEAN stays where it was: the painter's flags are mostly stone1)
       // step 2: the top a clear mid-tone slate (target ≈ 75–83 mean luma): much less darkening, the violet tint kept
-      if (top && V5_TOP) veilPixel(d, o, gradeFactor(c, 0.9, 0.1, VIOLET));
+      if (top && V5_TOP && GRAPHITE) {
+        // owner 2026-11-17 (the graphite slab): a soft KEY POOL from the upper left — the back-left of the slab brighter and warmer,
+        // falling off in dithered steps to a cooler, darker front-right (the target's light falloff); quantised like the back veil
+        const kp = keyPool(x + 0.5, y + 0.5);
+        const f = gradeFactor(c, 0.52 + 0.48 * kp, 0.1, mixRGB(VIOLET, WARM, kp * 0.9));
+        veilPixel(d, o, [0, 1, 2].map((ch) => quant(f[ch], x, y) / 255) as RGB);
+      } else if (top && V5_TOP) veilPixel(d, o, gradeFactor(c, 0.9, 0.1, VIOLET));
       else veilPixel(d, o, gradeFactor(c, k, 0.32, warm ? WARM : COOL));
     }
   return d;
@@ -366,9 +415,49 @@ function bakeStageGlow(stagePx: Uint8ClampedArray | null): Uint8ClampedArray {
     const fy = b.y - BRAZIER.h + 1 + BRAZIER.flameY;
     stamp(d, w, h, STAGE.x, STAGE.y, b.x, fy + 16, 58, 40, PAL.fire2, 0.22, [1, 0.58, 0.28]);
   }
+  if (GRAPHITE && V5_TOP) keyWash(d, w, h);
+  if (GRAPHITE && V5_TOP) edgeGlow(d, w, h);
   // light lands on stone only (never on the transparent hall around the stage)
   if (stagePx) for (let o = 0; o < d.length; o += 4) if (stagePx[o + 3] < 128) d[o] = d[o + 1] = d[o + 2] = d[o + 3] = 0;
   return d;
+}
+
+/**
+ * Owner 2026-11-17 (the graphite slab): the rim light the target has — a warm orange glow spilling a few px in from the slab's
+ * back-left edges (the key side) and a crimson one from its right-hand edges (the opponent's side), in flat stepped bands on the
+ * top only. The near edges stay dark.
+ */
+function edgeGlow(d: Uint8ClampedArray, w: number, h: number): void {
+  const poly = PLATE_POLY.map(([c, r]) => ntIso(c, r));
+  const edges = poly.map((a, i) => {
+    const b = poly[(i + 1) % poly.length];
+    const mx = (a.x + b.x) / 2;
+    const my = (a.y + b.y) / 2;
+    // the back edges (above the centre line) carry the light: the left ones warm, the right ones crimson
+    const color = my < 160 && mx < 330 ? rgb(PAL.fire2) : mx > 400 ? rgb(PAL.crim2) : null;
+    return { a, b, color, k: my < 160 && mx < 330 ? 0.78 : 0.56 };
+  });
+  // six flat bands over 24 px: a hot 2-px line at the rim, then a long soft spill (stepped, no gradient)
+  const BANDS = [1, 0.62, 0.4, 0.25, 0.14, 0.06];
+  const REACH = 24;
+  for (let j = 0; j < h; j++)
+    for (let i = 0; i < w; i++) {
+      const x = STAGE.x + i + 0.5;
+      const y = STAGE.y + j + 0.5;
+      if (!onTop(x, y, poly)) continue;
+      for (const e of edges) {
+        if (!e.color) continue;
+        const ex = e.b.x - e.a.x;
+        const ey = e.b.y - e.a.y;
+        const t = Math.max(0, Math.min(1, ((x - e.a.x) * ex + (y - e.a.y) * ey) / (ex * ex + ey * ey)));
+        const dist = Math.hypot(x - e.a.x - ex * t, (y - e.a.y - ey * t) * 2); // ×2: screen y is half a board unit
+        if (dist >= REACH) continue;
+        const lv = BANDS[Math.min(BANDS.length - 1, Math.floor((dist / REACH) * BANDS.length))] * e.k;
+        const o = (j * w + i) * 4;
+        for (let ch = 0; ch < 3; ch++) d[o + ch] = Math.max(d[o + ch], Math.round(e.color[ch] * 255 * lv));
+        d[o + 3] = 255;
+      }
+    }
 }
 
 // ---------------------------------------------------------------- zone glow (slot borders)
@@ -390,8 +479,10 @@ function zoneFrame(player: 0 | 1, spot: string): string {
 function bakeZoneGlow(slotPx: (player: 0 | 1, frame: string) => Uint8ClampedArray | null, white = false): Uint8ClampedArray {
   const { w, h } = ZONE_BOX;
   const d = new Uint8ClampedArray(w * h * 4);
-  const OUT = [0, 0.34, 0.17, 0.07];
-  const IN = [0, 0.26, 0.1];
+  // owner 2026-11-17 (the graphite slab): the open outline zones throw a wider, softer spill onto the slab (4 px out, 3 in)
+  const OUT = GRAPHITE ? [0, 0.5, 0.3, 0.17, 0.09, 0.04] : [0, 0.34, 0.17, 0.07];
+  const IN = GRAPHITE ? [0, 0.38, 0.2, 0.1, 0.04] : [0, 0.26, 0.1];
+  const REACH = OUT.length - 1;
   for (const z of calmZones()) {
     if (!BANISH_PAD && z.spot === 'banish') continue;
     const px = slotPx(z.player, zoneFrame(z.player, z.spot));
@@ -405,12 +496,12 @@ function bakeZoneGlow(slotPx: (player: 0 | 1, frame: string) => Uint8ClampedArra
       const o = (v * 64 + u) * 4;
       return px[o + 3] >= 128 && EMISSIVE.has((px[o] << 16) | (px[o + 1] << 8) | px[o + 2]);
     };
-    for (let v = -3; v < 35; v++)
-      for (let u = -3; u < 67; u++) {
+    for (let v = -REACH; v < 32 + REACH; v++)
+      for (let u = -REACH; u < 64 + REACH; u++) {
         if (neon(u, v)) continue;
         // Chebyshev distance to the nearest border pixel (1 … 3)
         let dist = 9;
-        for (let r = 1; r <= 3 && dist === 9; r++)
+        for (let r = 1; r <= REACH && dist === 9; r++)
           for (let a = -r; a <= r && dist === 9; a++)
             for (let b = -r; b <= r; b++)
               if ((Math.abs(a) === r || Math.abs(b) === r) && neon(u + a, v + b)) {
@@ -595,10 +686,11 @@ export function createGlowLayer(ctx: NtCtx): NtLayer {
       const mixKey = themeMix * 10 + Math.round(k * 3) + (fs?.fire ? 100 : 0);
       if (mixKey !== themeShown) {
         themeShown = mixKey;
-        const m = themeMix / 4;
+        // Volcano / Tidal Bay: the lava / tide layers (board-nt/volcano.ts, tide.ts) light the stage themselves — the zone borders keep their own players' neon
+        // (readable over the fire), no theme tint
+        const m = fs?.fire || fs?.color === SEAL_RAMP.water[3] ? 0 : themeMix / 4;
         zoneGlow.setVisible(k > 0 && m < 1).setAlpha(k * (1 - 0.8 * m));
-        // step 4: Volcano is the busiest theme (its lava runs through the seams) — its border glow is held lower
-        themeGlow.setVisible(k > 0 && m > 0).setAlpha(k * m * (fs?.fire ? 0.6 : 1.25));
+        themeGlow.setVisible(k > 0 && m > 0).setAlpha(k * m * 1.25);
       }
       // the torch halos flicker with the flames (two baked frames on an irregular rhythm)
       const b = Math.floor(t / 230);

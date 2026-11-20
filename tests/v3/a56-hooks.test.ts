@@ -25,8 +25,8 @@ describe('graveyard landing count (A6 §2.3)', () => {
 });
 
 describe('V3HOOKS (S-8)', () => {
-  it('no hook is filled in v1; in v3 only the lanes fill them (all lanes switched off: none)', async () => {
-    for (const [look, lanes] of [['v1', ''], ['v3', 'off'], ['v3', '']] as const) {
+  it('only the lanes fill the hooks (all lanes switched off: none)', async () => {
+    for (const [look, lanes] of [['v3', 'off'], ['v3', '']] as const) {
       vi.resetModules();
       G.__NEON_LOOK = look;
       if (lanes) G.__NEON_V3FLAGS = { a5: lanes, a6: lanes };
@@ -38,7 +38,7 @@ describe('V3HOOKS (S-8)', () => {
       expect(loaded.some((p) => p.includes('v3small/_hooks'))).toBe(true);
       expect(loaded.some((p) => p.includes('flow/draw'))).toBe(true);
       const { filledV3Hooks } = await import('../../src/cinematics/v3small/_hooks');
-      if (look === 'v1' || lanes === 'off') expect(filledV3Hooks(), `${look} lanes=${lanes || 'on'}`).toEqual([]);
+      if (lanes === 'off') expect(filledV3Hooks(), `${look} lanes=${lanes || 'on'}`).toEqual([]);
       else expect(filledV3Hooks().length, 'v3 with the lanes on').toBeGreaterThan(0);
     }
     delete G.__NEON_V3FLAGS;

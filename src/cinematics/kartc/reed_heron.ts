@@ -31,7 +31,7 @@ import type Phaser from 'phaser';
 import { PAL } from '../../art/palette';
 import { framePose } from '../../art/monsters-v3/reed_heron-anims';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
-import { DEPTH, LOOK_V3, TILE_W, type XY, unitDepth, zoneXY } from '../../view/layout';
+import { DEPTH, TILE_W, type XY, unitDepth, zoneXY } from '../../view/layout';
 import { STEP_DEPTH, lightFlash, lightPool } from '../../view/light';
 import { hitStop, shake } from '../../vfx/core';
 import { E, Px, Sparks, animate, onFrame, sleep } from '../../vfx/combat';
@@ -206,7 +206,7 @@ registerCardHook(
   ID,
   'summon',
   async (ctx) => {
-    if (!LOOK_V3 || ctx.ev.from === 'field') return ctx.base();
+    if (ctx.ev.from === 'field') return ctx.base();
     // the frogs start with the card slam: by the eye glint the marsh has croaked 4–5 times across three pans
     pendingBed?.stop(0);
     pendingBed = start('heronFrogBed', { volume: 0.9, pan: panAt(zoneXY(ctx.ev.player, 'monster', ctx.ev.zone).x) });
@@ -223,7 +223,6 @@ registerCardHook(
 // a heron already on the board (a staged duel, a loaded game, a flip, a revive) gets its marsh on the first event
 // that sees it face-up; a retired unit drops its auras by itself (MonsterUnit.retire)
 registerObserver((_ev, ctx) => {
-  if (!LOOK_V3) return;
   for (const st of [ctx.state, ctx.after]) {
     for (const pl of st.players) {
       for (const slot of pl.monsters) {
@@ -291,7 +290,7 @@ function stillOnThreat(sc: Phaser.Scene, u: MonsterUnit): void {
 }
 
 registerObserver((ev, ctx) => {
-  if (!LOOK_V3 || ev.type !== 'attackDeclare' || ev.targetUid === null) return;
+  if ((ev.type !== 'attackDeclare') || ev.targetUid === null) return;
   if (ctx.state.cards[ev.targetUid]?.cardId !== ID) return;
   const u = ctx.unit(ev.targetUid);
   if (u) stillOnThreat(ctx.scene, u);
@@ -672,7 +671,7 @@ function coolGlance(sc: Phaser.Scene, u: MonsterUnit, before: number, at: XY, sg
   sp.release();
 }
 
-registerStrike(ID, (s) => (LOOK_V3 ? beakTriple(s) : (s.base?.() ?? Promise.resolve())), { name: 'kartc:reed_heron:strike' });
+registerStrike(ID, (s) => (beakTriple(s)), { name: 'kartc:reed_heron:strike' });
 
 // ================================================================ the pond never slides: no kit shove
 
@@ -750,7 +749,7 @@ registerCardHook(
   ID,
   'defend',
   (ctx) => {
-    if (LOOK_V3) watchStruck(ctx);
+    watchStruck(ctx);
     return ctx.base();
   },
   { priority: 20, name: 'kartc:reed_heron:struck' },
@@ -872,7 +871,7 @@ registerCardHook(
   ID,
   'destroyed',
   (ctx) => {
-    if (LOOK_V3 && ctx.ev.location === 'monster' && !sourceOwnsDeath(ctx)) mistDeath(ctx);
+    if ((ctx.ev.location === 'monster') && !sourceOwnsDeath(ctx)) mistDeath(ctx);
     return ctx.base();
   },
   { priority: 20, name: 'kartc:reed_heron:death' },

@@ -22,7 +22,7 @@
 import type Phaser from 'phaser';
 import { PAL } from '../../art/palette';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
-import { LOOK_V3, unitDepth, type XY } from '../../view/layout';
+import { unitDepth, type XY } from '../../view/layout';
 import { lightFlash } from '../../view/light';
 import { shake } from '../../vfx/core';
 import { E, Px, Sparks, onFrame, sleep } from '../../vfx/combat';
@@ -244,12 +244,11 @@ async function boulderEntrance(S: Stage): Promise<void> {
   idleTap(sc, u);
 }
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     ID,
     'summon',
     async (ctx) => {
-      if (!LOOK_V3 || ctx.ev.from === 'field') return ctx.base();
+      if (ctx.ev.from === 'field') return ctx.base();
       await runSummon(ctx, boulderEntrance, boulderEntrance);
     },
     { name: 'kartc:crag_axeman:summon' },

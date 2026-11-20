@@ -33,17 +33,17 @@
 import Phaser from 'phaser';
 import { CARDS, isMonster, type Attribute, type CardId, type MonsterId } from '../../data/cards';
 import type { GameEvent, PlayerId, Uid } from '../../engine/types';
-import { ATTRIBUTE_RAMP, PAL, PLAYER_COLOR, PLAYER_RAMP, RAMPS, type Ramp } from '../../art/palette';
+import { ATTRIBUTE_RAMP, PAL,  PLAYER_RAMP, RAMPS, type Ramp } from '../../art/palette';
 import { mix } from '../../art/pixel';
 import { AK } from '../../art/arena';
 import type { CardOrientation } from '../../art/cards';
 import { sfx } from '../../audio/sfx';
 import { CardSprite } from '../../view/CardSprite';
 import type { TileCard } from '../../view/TileCard';
-import { LANE_MID, DEPTH, GAME_H, GAME_W, LOOK_V3, type BoardSpot, type XY, panelRect, zoneXY } from '../../view/layout';
+import { LANE_MID, DEPTH, GAME_H, GAME_W, type BoardSpot, type XY, panelRect, zoneXY } from '../../view/layout';
 import { MINI_CARD_W } from '../../view/ui-textures';
 import { TEX, flash, safe, shake, tween, wait } from '../../vfx/core';
-import { impact as combatImpact, stopTime, whiteFlash } from '../../vfx/combat';
+import { whiteFlash } from '../../vfx/combat';
 import { shatter } from '../../vfx/shatter';
 import { attributeSummon, sparkleBurst } from '../../vfx/summon';
 import { damageNumber } from '../../vfx/numbers';
@@ -51,7 +51,7 @@ import { Raster, Sparks, onFrame, rnd, trapSpring } from '../../vfx/setpieces';
 import { trapBanner } from '../../vfx/banners';
 import { cutIn } from '../../vfx/cutin';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
-import { WEIGHT_MOTION, blowSourceUid, reactHitJitterPx, reactShakePx, reactStopMs, type WeightSource } from '../../duel/motion';
+import { WEIGHT_MOTION, blowSourceUid,    type WeightSource } from '../../duel/motion';
 import { reactGuard, reactHit, type BlowKind } from '../_v3/react';
 import { LP_ROLL_MAX_MS } from '../_v3/budget';
 import { impactNumber } from '../_v3/number';
@@ -170,21 +170,7 @@ export async function slamToZone(
  * at `from` and arcs onto the pile on whole pixels (no rotation, `scale` is ignored).
  */
 export async function cardToGraveyard(ctx: AnyCtx, o: { owner: PlayerId; cardId: CardId; from: XY; delay?: number; scale?: number; ms?: number }): Promise<void> {
-  if (LOOK_V3) return cardLeaves(ctx, { owner: o.owner, cardId: o.cardId, from: o.from, delay: o.delay, ms: o.ms });
-  const sc = ctx.scene;
-  if (o.delay) await wait(sc, o.delay);
-  const pile = ctx.views.field.pile(o.owner, 'graveyard');
-  const c = new CardSprite(sc, o.from.x, o.from.y, o.cardId, { faceUp: true, player: o.owner }).setDepth(DEPTH.FX + 5).setScale(o.scale ?? 0.42);
-  c.setTrail(true);
-  const to = pile.topXY();
-  await c.flyTo(to.x, to.y - 6, { ms: o.ms ?? 380, arc: 34, scale: 0.26, land: false, anticipate: false, rotation: o.owner === 0 ? 0.2 : -0.2 });
-  c.setTrail(false);
-  sfx.play('cardPlace', { volume: 0.4, pitch: 0.9 });
-  pile.set(pile.count + 1, o.cardId);
-  pile.bump();
-  c.burst(PLAYER_COLOR[o.owner], 8);
-  await tween(sc, { targets: c, alpha: 0, scale: 0.18, duration: 120 });
-  c.destroy();
+  return cardLeaves(ctx, { owner: o.owner, cardId: o.cardId, from: o.from, delay: o.delay, ms: o.ms });
 }
 
 /**
@@ -194,12 +180,7 @@ export async function cardToGraveyard(ctx: AnyCtx, o: { owner: PlayerId; cardId:
 export async function tileToGraveyard(ctx: AnyCtx, uid: Uid, owner: PlayerId, cardId: CardId): Promise<void> {
   const field = ctx.views.field;
   const { tile } = field.release(uid);
-  if (LOOK_V3) return cardLeaves(ctx, { owner, cardId, from: tile ? tile.home : zoneXY(owner, 'graveyard'), tile });
-  const from = tile ? { x: tile.home.x, y: tile.home.y - 4 } : zoneXY(owner, 'graveyard');
-  if (tile && tile.active) {
-    void tile.fadeOut(160).then(() => tile.destroy());
-  }
-  await cardToGraveyard(ctx, { owner, cardId, from });
+  return cardLeaves(ctx, { owner, cardId, from: tile ? tile.home : zoneXY(owner, 'graveyard'), tile });
 }
 
 // ================================================================ monsters
@@ -232,23 +213,9 @@ export function blowSource(ctx: AnyCtx, unit: MonsterUnit | null): MonsterArt | 
  * the target's own (a heavy body stands firm). Off, or without a source: the old power tables.
  */
 export function hitReact(ctx: AnyCtx, unit: MonsterUnit | null, power: 1 | 2 | 3, ramp?: Ramp, at?: XY, dir?: XY, by?: WeightSource, o: HitReactOpts = {}): Promise<void> {
-  if (LOOK_V3) {
-    // v3: the hit-reaction kit (pose by size / kind, direction-aware knock-back, contact flash)
-    const src = by !== undefined ? by : WEIGHT_MOTION ? blowSource(ctx, unit) : null;
-    return reactHit(ctx, unit, { power, ramp, at, dir, by: src, ...o });
-  }
-  const p = at ?? (unit ? unit.core() : { x: GAME_W / 2, y: GAME_H / 2 });
-  if (unit && unit.sprite.active && unit.sprite.visible) void unit.play('hit', { dir, power });
+  // v3: the hit-reaction kit (pose by size / kind, direction-aware knock-back, contact flash)
   const src = by !== undefined ? by : WEIGHT_MOTION ? blowSource(ctx, unit) : null;
-  return combatImpact(ctx.scene, p.x, p.y, {
-    power,
-    ramp,
-    sprite: unit?.sprite.visible ? unit.sprite : undefined,
-    dir,
-    stopMs: reactStopMs(power, src),
-    shakePx: reactShakePx(power, src),
-    jitterPx: reactHitJitterPx(unit, power),
-  });
+  return reactHit(ctx, unit, { power, ramp, at, dir, by: src, ...o });
 }
 
 /** v3-only extras of hitReact (ignored by the old look). */
@@ -281,16 +248,7 @@ export async function guardReact(
   o: { power: 1 | 2 | 3; dir?: XY; at?: XY; ramp?: Ramp; survive: boolean; noStop?: boolean; by?: WeightSource },
 ): Promise<void> {
   const by = o.by !== undefined ? o.by : WEIGHT_MOTION ? blowSource(ctx, u) : null;
-  if (LOOK_V3) return reactGuard(ctx, u, { ...o, by });
-  if (!u.sprite.active || !u.sprite.visible || u.retired) return;
-  const d = o.dir ?? { x: u.player === 0 ? -1 : 1, y: u.player === 0 ? 0.5 : -0.5 };
-  const l = Math.hypot(d.x, d.y) || 1;
-  const dir = { x: d.x / l, y: d.y / l };
-  const at = o.at ?? u.core();
-  void combatImpact(ctx.scene, at.x, at.y, { power: o.power, ramp: o.ramp, dir, noStop: true, shakePx: reactShakePx(o.power, by) });
-  const react = u.guardHit({ dir, power: o.power, hold: !o.survive });
-  if (!o.noStop) await stopTime(ctx.scene, reactStopMs(o.power, by));
-  await react;
+  return reactGuard(ctx, u, { ...o, by });
 }
 
 /**
@@ -561,15 +519,15 @@ export async function presentDamage(ctx: AnyCtx, ev: Extract<GameEvent, { type: 
   const size = o.size ?? (ev.amount >= 1000 ? 2 : 1);
   const depth = o.at ? DEPTH.FX_TOP + 50 : DEPTH.HUD + 20;
   // v3: the impact number (visible on the frame it is created, whole-pixel pop; _v3/number.ts)
-  const jobs: Promise<unknown>[] = [LOOK_V3 ? impactNumber(sc, at.x, at.y, ev.amount, { size, depth }) : damageNumber(sc, at.x, at.y, ev.amount, 'damage', { size, depth })];
+  const jobs: Promise<unknown>[] = [impactNumber(sc, at.x, at.y, ev.amount, { size, depth })];
   const d = ctx.views.duelists?.get(ev.player);
   // v3: the flinch plays on; the presentation ends with the number pop and the LP roll
-  if (d && LOOK_V3) {
+  if (d) {
     void d.play('hurt');
     void d.jolt();
-  } else if (d) jobs.push(d.play('hurt'), d.jolt());
+  }
   // v3: the LP roll stays within the plan's ~0.4 s
-  jobs.push(LOOK_V3 ? ctx.views.hud.setLp(ev.player, ev.lpAfter, true, { maxMs: LP_ROLL_MAX_MS }) : ctx.views.hud.setLp(ev.player, ev.lpAfter, true));
+  jobs.push(ctx.views.hud.setLp(ev.player, ev.lpAfter, true, { maxMs: LP_ROLL_MAX_MS }));
   if (ev.lpAfter <= 1000) ctx.music.setIntensity(1);
   await all(jobs);
 }
@@ -582,7 +540,7 @@ export async function presentHeal(ctx: AnyCtx, ev: Extract<GameEvent, { type: 'l
   sfx.play('heal', { volume: 0.7 });
   const num = damageNumber(sc, at.x, at.y, ev.amount, 'heal', { depth: o.at ? DEPTH.FX_TOP + 50 : DEPTH.HUD + 20 });
   // v3: the LP roll stays within the plan's ~0.4 s
-  await all([num, LOOK_V3 ? ctx.views.hud.setLp(ev.player, ev.lpAfter, true, { maxMs: LP_ROLL_MAX_MS }) : ctx.views.hud.setLp(ev.player, ev.lpAfter, true)]);
+  await all([num, ctx.views.hud.setLp(ev.player, ev.lpAfter, true, { maxMs: LP_ROLL_MAX_MS })]);
 }
 
 // ================================================================ resolution runs

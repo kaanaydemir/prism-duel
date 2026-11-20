@@ -6,16 +6,12 @@
 // layout.ts is NOT touched: its ?arena= reader only knows 'v1' / 'v2' (any other value, 'nt'
 // included, falls through to 'v1') and ignores the param completely under LOOK_V3.
 //
-// Decided once at module init, like the look. Every NT module checks ARENA_NT; with the v1 look it
-// is always false, so no NT code runs and no NT texture is built.
-
-import { LOOK_V3 } from '../layout';
+// Decided once at module init. Every NT module checks ARENA_NT (?arena=calm / old switches it off).
 
 /** The default after the final phase's flip (docs §10): the Neon Tower arena under the v3 look. */
 export const DEFAULT_ON = true;
 
 function detect(): boolean {
-  if (!LOOK_V3) return false;
   try {
     const g = (globalThis as { __NEON_ARENA_NT?: unknown }).__NEON_ARENA_NT;
     if (g === true || g === false) return g;

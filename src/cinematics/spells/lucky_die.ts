@@ -52,7 +52,7 @@ import type Phaser from 'phaser';
 import type { CardId } from '../../data/cards';
 import type { GameEvent, PlayerId } from '../../engine/types';
 import { PAL } from '../../art/palette';
-import { BOARD_COLS, BOARD_MID_COL, BOARD_ROWS, DEPTH, LANE_MID, LOOK_V3, type XY, duelistXY, isoToScreen, screenToIso, monsterRow, unitDepth, zoneXY } from '../../view/layout';
+import { BOARD_COLS, BOARD_MID_COL, BOARD_ROWS, DEPTH, LANE_MID, type XY, duelistXY, isoToScreen, screenToIso, monsterRow, unitDepth, zoneXY } from '../../view/layout';
 import { Raster, floorRing, onFrame, run } from '../../vfx/setpieces';
 import { Sparks as PxSparks } from '../../vfx/combat';
 import { wait } from '../../vfx/core';
@@ -1367,7 +1367,6 @@ function burstSpots(heads: readonly XY[], die: XY, _player: PlayerId, bodies: re
 // ================================================================ the activation
 
 registerCardHook(ID, 'activate', async (ctx: ActCtx) => {
-  if (!LOOK_V3) return ctx.base();
   const ev = ctx.ev;
   const player = ev.player;
   const di = ctx.findType('diceRoll', (e) => e.sourceUid === ev.uid, { until: (e) => e.type === 'activate' || e.type === 'turnStart' });
@@ -1423,7 +1422,7 @@ registerCardHook(ID, 'activate', async (ctx: ActCtx) => {
 
 registerLaneE(
   'diceRoll',
-  (ctx: LaneECtx<'diceRoll'>) => LOOK_V3 && ctx.ev.sourceUid !== null && ctx.cardId(ctx.ev.sourceUid) === ID,
+  (ctx: LaneECtx<'diceRoll'>) => (ctx.ev.sourceUid !== null) && ctx.cardId(ctx.ev.sourceUid) === ID,
   async (ctx: LaneECtx<'diceRoll'>) => {
     const ev = ctx.ev;
     const c = castSpot(ev.player);

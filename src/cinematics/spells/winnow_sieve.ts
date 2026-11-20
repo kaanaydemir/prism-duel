@@ -75,7 +75,6 @@ import {
   BOARD_COLS,
   BOARD_ROWS,
   DEPTH,
-  LOOK_V3,
   isoToScreen,
   screenToIso,
   type XY,
@@ -1696,7 +1695,6 @@ async function unravel(
 // ================================================================ the activation
 
 registerCardHook(ID, "activate", async (ctx: ActCtx) => {
-  if (!LOOK_V3) return ctx.base();
   const ev = ctx.ev;
   const sc = ctx.scene;
   const T = SIEVE_T;
@@ -2150,7 +2148,7 @@ registerEvent(
   "discard",
   async (ctx: DCtx) => {
     const first = ctx.ev;
-    const w = LOOK_V3 ? WAITING.get(first.player) : undefined;
+    const w = WAITING.get(first.player);
     if (!w || w.taken || !w.rig.alive()) return ctx.base();
     w.taken = true;
     WAITING.delete(first.player);

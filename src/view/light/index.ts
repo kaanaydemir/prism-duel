@@ -29,7 +29,7 @@
 
 import type Phaser from 'phaser';
 import type { Attribute } from '../../data/cards';
-import { ARENA_V2, LOOK_V3, type XY } from '../layout';
+import { type XY } from '../layout';
 import {
   type BeamHandle,
   type BeamOpts,
@@ -79,7 +79,6 @@ function urlParams(): URLSearchParams | null {
 export function lightLayer(scene: Phaser.Scene): LightLayer | null {
   const have = layers.get(scene);
   if (have) return have;
-  if (!ARENA_V2 && !LOOK_V3) return null;
   return ensureLightLayer(scene);
 }
 
@@ -87,7 +86,6 @@ export function lightLayer(scene: Phaser.Scene): LightLayer | null {
 export function ensureLightLayer(scene: Phaser.Scene, o: { force?: boolean; field?: LightFieldSource | null } = {}): LightLayer | null {
   let layer = layers.get(scene) ?? null;
   if (!layer) {
-    if (!ARENA_V2 && !LOOK_V3 && !o.force) return null;
     const p = urlParams();
     const gainParam = Number(p?.get('lightgain'));
     layer = new LightLayer(scene, { enabled: p?.get('light') !== '0', gain: Number.isFinite(gainParam) && gainParam > 0 ? gainParam : 1 });

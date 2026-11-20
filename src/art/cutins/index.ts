@@ -22,7 +22,6 @@ import { ATTRIBUTE_RAMP, PAL } from '../palette';
 import { PixelCanvas, shade } from '../pixel';
 import type { CutinArt, DrawOpts } from '../types';
 import { monsterArt } from '../monsters';
-import { LOOK_V3 } from '../../view/layout';
 
 // ================================================================== kit
 
@@ -574,12 +573,10 @@ for (const mod of Object.values(modules)) {
 // v3 look: a redrawn portrait lives in src/art/cutins-v3/<monster_id>.ts (same contract: a CutinArt
 // or a CutinFactory as `export default`) and replaces the old one under ?look=v3 only.
 const v3Modules = import.meta.glob<{ default: CutinArt | CutinFactory }>(['../cutins-v3/*.ts', '!../cutins-v3/_*.ts'], { eager: true });
-if (LOOK_V3) {
-  for (const mod of Object.values(v3Modules)) {
-    const d = mod.default;
-    const art = typeof d === 'function' ? d(KIT) : d;
-    if (art && art.id) REGISTRY.set(art.id, art);
-  }
+for (const mod of Object.values(v3Modules)) {
+  const d = mod.default;
+  const art = typeof d === 'function' ? d(KIT) : d;
+  if (art && art.id) REGISTRY.set(art.id, art);
 }
 
 /** True when a hand-made portrait exists for this monster. */
@@ -654,7 +651,7 @@ export interface CutinStep {
 export function cutinSequence(art: CutinArt): CutinStep[] {
   const n = art.frames;
   // v3: a portrait with its own rhythm (art.holds) plays its frames once and holds the last one
-  if (LOOK_V3 && art.holds && art.holds.length === n) return art.holds.map((ms, frame) => ({ frame, ms: Math.max(1, Math.round(ms)) }));
+  if (art.holds && art.holds.length === n) return art.holds.map((ms, frame) => ({ frame, ms: Math.max(1, Math.round(ms)) }));
   const tick = Math.round(1000 / Math.max(1, art.fps));
   if (n < 4) return Array.from({ length: Math.max(1, Math.ceil(2000 / tick)) }, (_, i) => ({ frame: i % n, ms: tick }));
   const out: CutinStep[] = [];
@@ -695,7 +692,7 @@ export function cutinFrameName(frame: number): string {
  * shown with flipX like the mirrored one, so the key light stays on the screen's top-left.
  */
 export function cutinRelit(id: MonsterId): boolean {
-  return LOOK_V3 && REGISTRY.get(id)?.p2 === 'relight';
+  return REGISTRY.get(id)?.p2 === 'relight';
 }
 
 export function cutinP2Key(id: MonsterId): string {

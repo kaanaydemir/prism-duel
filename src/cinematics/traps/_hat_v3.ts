@@ -19,7 +19,7 @@ import type Phaser from 'phaser';
 import { PAL } from '../../art/palette';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import type { GameEvent, PlayerId, Uid } from '../../engine/types';
-import { DEPTH, LOOK_V3, type XY, zoneXY } from '../../view/layout';
+import { DEPTH, type XY, zoneXY } from '../../view/layout';
 import { Hat, dropHat, getHat, spawnHat, type HatFrame } from '../../view/hats';
 import { tween, wait } from '../../vfx/core';
 import { E, floorRing, run } from '../../vfx/setpieces';
@@ -28,7 +28,6 @@ import { type EvOf, all, live, rnd, rr } from '../battle/_kit';
 
 type Ctx<T extends GameEvent['type']> = CinematicContext<EvOf<T>>;
 
-const RICH = LOOK_V3;
 const HOME = (p: PlayerId, z: number): XY => {
   const a = zoneXY(p, 'monster', z);
   return { x: Math.round(a.x), y: Math.round(a.y + 2) };
@@ -129,7 +128,7 @@ async function dissolveHat(sc: Phaser.Scene, h: Hat, ms = MOTE_MS): Promise<void
   const ramp = [PAL.void4, PAL.void3, PAL.gold3, PAL.mist];
   void bits(
     sc,
-    Array.from({ length: RICH ? 12 : 6 }, () => ({ x: at.x + rr(-9, 9), y: at.y + rr(-9, 7), vx: rr(-14, 14), vy: rr(-40, -8), ay: -10, life: rr(ms * 0.5, ms), color: ramp[Math.floor(rnd() * ramp.length)], size: rnd() < 0.3 ? 2 : 1 })),
+    Array.from({ length: 12 }, () => ({ x: at.x + rr(-9, 9), y: at.y + rr(-9, 7), vx: rr(-14, 14), vy: rr(-40, -8), ay: -10, life: rr(ms * 0.5, ms), color: ramp[Math.floor(rnd() * ramp.length)], size: rnd() < 0.3 ? 2 : 1 })),
   );
   // the hat erodes: it blinks out in 4 steps (no fade, flat pixels)
   for (let i = 0; i < 4; i++) {
@@ -213,7 +212,7 @@ export async function hatsShuffledScene(ctx: Ctx<'hatsShuffled'>): Promise<void>
   const rises = hs.map(async (h, i) => {
     await wait(sc, i * RISE_STAGGER);
     const at = homeOf(h.zone);
-    if (RICH) void mist(sc, at);
+    void mist(sc, at);
     h.setFrame('hat:0');
     h.place(at.x, at.y, 4);
     h.setVisible(true);
@@ -230,7 +229,7 @@ export async function hatsShuffledScene(ctx: Ctx<'hatsShuffled'>): Promise<void>
     if (isReal) void dipUnder(sc, realUnit, DROP_MS);
     await run(sc, DROP_MS, (t) => h.place(at.x, at.y, Math.round(HOVER_LIFT * (1 - t * t))));
     ctx.sfx('hatThump', { volume: 0.7, pitch: 1 + i * 0.07 });
-    if (RICH) void floorRing(sc, at.x, at.y, { r0: 3, r1: 15, ms: 190, ramp: [PAL.void4, PAL.void3, PAL.void2], depth: DEPTH.SHADOW - 1 });
+    void floorRing(sc, at.x, at.y, { r0: 3, r1: 15, ms: 190, ramp: [PAL.void4, PAL.void3, PAL.void2], depth: DEPTH.SHADOW - 1 });
     // a felt bounce: up 2 px, back
     await run(sc, 70, (t) => h.place(at.x, at.y, Math.round(Math.sin(t * Math.PI) * 2)));
   });
@@ -249,7 +248,7 @@ export async function hatsShuffledScene(ctx: Ctx<'hatsShuffled'>): Promise<void>
     const from = cur.map(homeOf);
     const to = plan[k].map(homeOf);
     ctx.sfx('hatSwish', { volume: 0.55, pitch: 0.92 + k * 0.1 });
-    const bulge = hs.map((_, i) => (i % 2 === 0 ? 1 : -1) * (RICH ? 8 : 0));
+    const bulge = hs.map((_, i) => (i % 2 === 0 ? 1 : -1) * (8));
     let sparked = false;
     await run(sc, PASS_MS, (t) => {
       const e = E.inOutSine(t);
@@ -257,10 +256,10 @@ export async function hatsShuffledScene(ctx: Ctx<'hatsShuffled'>): Promise<void>
         const dx = to[i].x - from[i].x;
         const arc = Math.sin(e * Math.PI);
         const moving = t > 0.08 && t < 0.92 && Math.hypot(dx, to[i].y - from[i].y) > 2;
-        h.setFrame(moving && RICH ? tiltFor(dx) : 'hat:0');
-        h.place(from[i].x + dx * e, from[i].y + (to[i].y - from[i].y) * e + bulge[i] * arc, RICH ? Math.round(arc * 5) : 0);
+        h.setFrame(moving ? tiltFor(dx) : 'hat:0');
+        h.place(from[i].x + dx * e, from[i].y + (to[i].y - from[i].y) * e + bulge[i] * arc, Math.round(arc * 5));
       });
-      if (RICH && !sparked && t > 0.5) {
+      if (!sparked && t > 0.5) {
         sparked = true;
         // one star where two hats cross
         const a = hs[0];
@@ -347,11 +346,9 @@ export async function decoyPoppedScene(ctx: Ctx<'decoyPopped'>): Promise<void> {
     // lift (tilting), a hop, then it tumbles away over the side and is gone
     h.setFrame('hat:L');
     await run(sc, 90, (t) => h.place(at.x, at.y, Math.round(E.outCubic(t) * 14)));
-    void confetti(sc, { x: at.x, y: at.y - 14 }, RICH ? 11 : 6);
-    if (RICH) {
-      star(sc, at.x - 7, at.y - 22);
-      star(sc, at.x + 8, at.y - 18);
-    }
+    void confetti(sc, { x: at.x, y: at.y - 14 }, 11);
+    star(sc, at.x - 7, at.y - 22);
+    star(sc, at.x + 8, at.y - 18);
     void floorRing(sc, at.x, at.y, { r0: 3, r1: 18, ms: 220, ramp: [PAL.white, PAL.gold3, PAL.mag3], depth: DEPTH.SHADOW - 1 });
     const side = at.x > 320 ? 1 : -1;
     await run(sc, 200, (t) => {
@@ -376,10 +373,8 @@ export async function hatRevealedScene(ctx: Ctx<'hatRevealed'>): Promise<void> {
   h.busy = true;
   h.setFrame('hat:R');
   await run(sc, 110, (t) => h.place(at.x, at.y, Math.round(E.outCubic(t) * 18)));
-  if (RICH) {
-    star(sc, at.x, at.y - 24, true);
-    void floorRing(sc, at.x, at.y, { r0: 4, r1: 20, ms: 240, ramp: [PAL.white, PAL.gold4, PAL.gold3], depth: DEPTH.SHADOW - 1 });
-  }
+  star(sc, at.x, at.y - 24, true);
+  void floorRing(sc, at.x, at.y, { r0: 4, r1: 20, ms: 240, ramp: [PAL.white, PAL.gold4, PAL.gold3], depth: DEPTH.SHADOW - 1 });
   await wait(sc, 60);
   const side = at.x > 320 ? 1 : -1;
   await run(sc, 150, (t) => {
@@ -403,7 +398,7 @@ export async function hatRestoreScene(ctx: Ctx<'hatRestore'>): Promise<void> {
         await wait(sc, i * 50);
         const h = getHat(sc, r.uid);
         if (h) {
-          if (!quick && RICH) h.busy = true;
+          if (!quick) h.busy = true;
           await dissolveHat(sc, h, quick ? 260 : MOTE_MS);
         }
         field.remove(r.uid, { fade: true });

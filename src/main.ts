@@ -5,14 +5,20 @@ import { DevScene } from './scenes/DevScene';
 import { sceneList } from './scenes/registry';
 import { onDuelStart } from './duel/seeds';
 import { mulberry32 } from './art/pixel';
+import { MOBILE } from './view/mobile';
+import { installSwipeWheel } from './view/swipeWheel';
+import { CANVAS_W, driveWide, installWide } from './view/wide';
 
 const params = new URLSearchParams(location.search);
 const dev = params.get('dev');
 
+// Wide phones: the canvas grows past 640 and the arena fills the side bars (src/view/wide.ts).
+installWide();
+
 const game = new Phaser.Game({
   type: Phaser.WEBGL,
   parent: 'game',
-  width: GAME_W,
+  width: CANVAS_W,
   height: GAME_H,
   backgroundColor: '#05060f',
   pixelArt: true,
@@ -42,7 +48,7 @@ const game = new Phaser.Game({
  * It snaps to whole DEVICE pixels when that loses little, else uses the exact fit.
  */
 function fitZoom(): number {
-  const z = Math.min(window.innerWidth / GAME_W, window.innerHeight / GAME_H);
+  const z = Math.min(window.innerWidth / CANVAS_W, window.innerHeight / GAME_H);
   if ((window as unknown as { __PRISM_MOBILE?: boolean }).__PRISM_MOBILE) {
     const dpr = window.devicePixelRatio || 1;
     const snapped = Math.floor(z * dpr) / dpr;
@@ -51,6 +57,9 @@ function fitZoom(): number {
   return z >= 1 ? Math.floor(z) : z;
 }
 window.addEventListener('resize', () => game.scale.setZoom(fitZoom()));
+// Phone: swipes scroll the wheel-driven panels (gallery, deck picker, graveyard), with momentum.
+if (MOBILE) installSwipeWheel(game, ['Title', 'DeckPick', 'Duel']);
+driveWide(game);
 
 // ---------------------------------------------------------------- test hooks
 // Used by tools/shot.mjs and tools/film.mjs to capture deterministic frames.

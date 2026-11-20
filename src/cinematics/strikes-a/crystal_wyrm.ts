@@ -13,8 +13,8 @@ import { onDuelStart } from '../../duel/seeds';
 import { PAL } from '../../art/palette';
 import * as wyrmArt from '../../art/monsters/crystal_wyrm';
 import { PixelCanvas, mulberry32 } from '../../art/pixel';
-import { DEPTH, LOOK_V3, type XY } from '../../view/layout';
-import { beam, type Px } from '../../vfx/combat';
+import { DEPTH, type XY } from '../../view/layout';
+import { type Px } from '../../vfx/combat';
 import { shake } from '../../vfx/core';
 import { strikeStartFrame } from '../_v3/clash';
 import { panAt, play as playV3, start as startV3, takeCharge } from '../_v3/sound';
@@ -70,68 +70,6 @@ function mouthOf(u: MonsterUnit): () => XY {
     const m = pt ?? (MOUTH && fi.anim === 'attack' && MOUTH[fi.frame] ? MOUTH[fi.frame] : u.art.muzzle);
     return u.framePoint(m.x, m.y);
   };
-}
-
-// ================================================================ charge: floor glow + rising motes
-
-function chargeFx(s: StrikeArgs, ms: number, mouth: () => XY): Promise<void> {
-  const u = s.attacker;
-  const sc = s.scene;
-  const home = u.home;
-  const floor = layer(sc, DEPTH.TILE_FX + 5, ADD);
-  const motes = new Sparks(sc, u.sprite.depth + 0.4);
-  const halo = glow(sc, home.x, home.y - 2, PAL.cyan3, 0.2, 0, DEPTH.TILE_FX + 4);
-  halo.setScale(0.9 * TK, 0.4 * TK);
-  // arena v2: the gathering light — a glow swelling in the jaws, the rune ring lighting the marble
-  const jawLight = followLight(sc, mouth, { color: PAL.cyan4, radius: 18, floorY: home.y, air: 0.85, intensity: 0.15 });
-  jawLight.setIntensity(1.35, ms);
-  const ringLight = lightPool(sc, home.x, home.y, { color: PAL.cyan3, spill: PAL.cyan2, radius: 30 * TK, intensity: 0.1, anim: 'shimmer', fadeIn: 0 });
-  ringLight.setIntensity(0.9, ms);
-  return new Promise((resolve) => {
-    onFrame(
-      sc,
-      (dt, el) => {
-        const t = clamp(el / ms, 0, 1);
-        floor.clear();
-        if (t >= 1) return false;
-        const k = E.outQ(t);
-        // a rune ring of prism light on the floor, closing in
-        const rx = (30 - 8 * k) * TK;
-        const ry = rx * 0.45;
-        floor.ellipseRing(home.x, home.y, rx, ry, 1, PAL.cyan2, 0.5 + 0.4 * k);
-        for (let i = 0; i < 14; i++) {
-          const a = el * 0.004 + (i / 14) * TAU;
-          floor.dot(home.x + Math.cos(a) * rx, home.y + Math.sin(a) * ry, i % 3 === 0 ? PAL.white : RAINBOW[i % RAINBOW.length], 0.9);
-        }
-        floor.ellipse(home.x, home.y, rx * 0.55 * k, ry * 0.55 * k, PAL.cyan1, 0.5 * k);
-        halo.setAlpha(0.55 * k).setScale((0.9 + 0.5 * k) * TK, (0.4 + 0.2 * k) * TK);
-        // white-blue motes leave the floor and stream into the mouth
-        if (dt > 0) {
-          const m = mouth();
-          const n = (dt / 16.7) * (1 + 2.5 * k);
-          for (let i = 0; i < n; i++) {
-            const a = RR(0, TAU);
-            motes.add({ x: home.x + Math.cos(a) * rx, y: home.y + Math.sin(a) * ry, tx: m.x, ty: m.y, curl: RR(-14, 14), life: RR(220, 380), colors: [PAL.cyan3, PAL.cyan4, PAL.white], shape: R3() ? 'plus' : 'px', size: 1, fadeAt: 1 });
-          }
-        }
-        return true;
-      },
-      () => {
-        floor.g.destroy();
-        motes.release();
-        void animate(sc, 180, (t) => halo.setAlpha(0.55 * (1 - t))).then(() => halo.destroy());
-        void jawLight.fadeOut(260);
-        void ringLight.fadeOut(320);
-        resolve();
-      },
-    );
-  });
-}
-
-let r3 = 0;
-onDuelStart(() => (r3 = 0));
-function R3(): boolean {
-  return ++r3 % 3 === 0;
 }
 
 // ================================================================ impact: crystal explosion
@@ -246,29 +184,6 @@ export function crystalBurst(scene: Phaser.Scene, at: XY, o: { dir?: XY; floor: 
       },
     );
   });
-}
-
-/** Blocked beam: the prism splinters off the shield into rainbow ricochets. */
-function prismScatter(scene: Phaser.Scene, at: XY, from: XY): void {
-  const px = layer(scene, DEPTH.FX + 2, ADD);
-  const back = norm(sub(from, at));
-  const rays = Array.from({ length: 5 }, (_, i) => {
-    const a = Math.atan2(back.y, back.x) + (i - 2) * 0.55 + RR(-0.15, 0.15) + (i % 2 ? Math.PI * 0.5 : -Math.PI * 0.5) * 0.6;
-    return { a, l: RR(28, 52), c: RAINBOW[(i * 2) % RAINBOW.length] };
-  });
-  void animate(scene, 260, (t) => {
-    px.clear();
-    for (const r of rays) {
-      const head = r.l * E.outQ(Math.min(1, t * 1.8));
-      const tail = r.l * E.inQ(Math.max(0, (t - 0.3) / 0.7));
-      const x0 = at.x + Math.cos(r.a) * tail;
-      const y0 = at.y + Math.sin(r.a) * tail;
-      const x1 = at.x + Math.cos(r.a) * head;
-      const y1 = at.y + Math.sin(r.a) * head;
-      px.seg(x0, y0, x1, y1, 2, r.c, 1 - t * 0.5);
-      px.line(x0, y0, x1, y1, PAL.white, 1 - t);
-    }
-  }).then(() => px.g.destroy());
 }
 
 // ================================================================ v3 (?look=v3): the breath on the art's own frames
@@ -871,70 +786,7 @@ async function prismBreathV3(s: StrikeArgs): Promise<void> {
   if (!u.sprite.active || u.frameInfo().anim !== 'attack') finish();
 }
 
-// ================================================================ strike
-
-/** The v1 / v2 strike (the old look; unchanged). */
-async function strikeV1(s: StrikeArgs): Promise<void> {
-  const u = s.attacker;
-  const sc = s.scene;
-  seed(u.uid * 97 + (s.target?.uid ?? 3));
-  const mouth = mouthOf(u);
-  const charge = u.impactMs; // 500 ms: frames 0–4, the jaw opens on frame 5
-  const spr = u.sprite;
-  const sgn = u.flipX ? -1 : 1;
-  const rest = { x: spr.x, y: spr.y };
-  const from = mouth();
-  const aimDir = norm(sub(s.to, from));
-  // blocked: the beam stops on the shield plane in front of the target
-  const to: XY = s.blocked ? { x: s.to.x - aimDir.x * 9, y: s.to.y - aimDir.y * 9 } : s.to;
-  void u.play('attack');
-  // camera: hold on the dragon's head while it gathers light
-  const head = from;
-  void s.ctx.focus({ x: lerp(head.x, to.x, 0.3), y: lerp(head.y, to.y, 0.3) - 6 }, { zoom: 1.06, ms: 320, pan: 0.32 });
-  void chargeFx(s, charge, mouth);
-  // rear back (stretch) during the charge
-  void animate(sc, charge, (t) => {
-    if (!spr.active) return;
-    const k = E.outQ(t);
-    spr.setPosition(Math.round(rest.x - sgn * 2 * k), Math.round(rest.y - 1 * k));
-    spr.setScale(1 - 0.02 * k, 1 + 0.04 * k);
-  });
-  await beam(sc, mouth, to, 'prism', {
-    chargeMs: charge,
-    width: 13,
-    fireMs: s.blocked ? 320 : 460,
-    onFire: () => {
-      playSfx('roarBig', { volume: 0.35, pitch: 1.3 });
-      // arena v2: the prism beam casts a bright line of light across the board and its floor
-      const floorTo = s.target ? s.target.home : s.toGround;
-      void lightBeam(sc, mouth(), to, PAL.cyan4, (s.blocked ? 320 : 460) + 90, { width: 15, intensity: 1.45, floor: { from: u.home, to: floorTo }, floorWidth: 14, shimmer: 0.35 });
-      // recoil: the whole body kicks back, squashes
-      void animate(sc, 360, (t) => {
-        if (!spr.active) return;
-        const k = t < 0.15 ? t / 0.15 : 1 - E.inOutQ((t - 0.15) / 0.85);
-        spr.setPosition(Math.round(rest.x - sgn * (2 + 3 * k)), Math.round(rest.y - 1 + k));
-        spr.setScale(1 + 0.05 * k, 1 - 0.04 * k + 0.04 * (1 - k));
-      });
-      void s.ctx.focus({ x: lerp(head.x, to.x, 0.6), y: lerp(head.y, to.y, 0.6) }, { zoom: 1.08, ms: 140, pan: 0.36 });
-    },
-    onImpact: () => {
-      s.impact(to);
-      const floorY = s.target ? s.target.home.y : s.toGround.y;
-      if (s.blocked) {
-        prismScatter(sc, to, from);
-        void crystalBurst(sc, to, { dir: { x: -aimDir.x, y: -aimDir.y }, floor: floorY, power: 1, glare: false, count: 6 });
-      } else {
-        void crystalBurst(sc, to, { dir: aimDir, floor: floorY, power: s.power });
-      }
-    },
-  });
-  if (spr.active) {
-    spr.setPosition(rest.x, rest.y).setScale(1);
-    if (u.frameInfo().anim !== 'attack') u.rest();
-  }
-}
-
-registerStrike('crystal_wyrm', (s) => (LOOK_V3 ? prismBreathV3(s) : strikeV1(s)));
+registerStrike('crystal_wyrm', (s) => (prismBreathV3(s)));
 
 // ================================================================ death: the crystals crack
 
@@ -999,7 +851,7 @@ function crystalBreakV3(ctx: Ctx<'destroy'>): void {
 }
 
 registerCardHook('crystal_wyrm', 'destroyed', (ctx) => {
-  if (LOOK_V3) crystalBreakV3(ctx);
+  crystalBreakV3(ctx);
   return flavoredDeath(ctx, async (d) => {
     const u = d.unit;
     const sc = ctx.scene;

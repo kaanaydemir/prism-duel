@@ -1,0 +1,72 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "version": "0.1.0",
+    "copyright": "2026 Kaan Aydemir",
+    "categories": [
+      [
+        "GAMES",
+        "GAMES_CARD",
+        "GAMES_STRATEGY"
+      ],
+      "ENTERTAINMENT"
+    ],
+    "info": {
+      "en-US": {
+        "title": "Prism Duel",
+        "subtitle": "Pixel-Art Hologram Card Duels",
+        "promoText": "One purchase, the whole game: 80 cards, every monster with its own pixel-art summon and attack. No ads, no in-app purchases — just duels.",
+        "description": "Prism Duel is a fast, tactical card duel in a glowing isometric arena.\n\nBuild a deck from 80 original cards — dragons, golems, knights, spells and traps — then summon them as living holograms and battle for the last Life Point.\n\nFEATURES\n• Every monster has its own summon, attack and defeat animation, and its own sound\n• Duel the CPU, or pass the phone and play a friend on the same screen\n• Deck builder with presets, auto-fill and a level curve — drag cards in, drag them out\n• Spells, traps, tributes, direct attacks and comebacks in short, readable turns\n• Hand-drawn pixel art with soft real-time lighting that fills the whole screen on modern iPhones\n\nONE PURCHASE, THE WHOLE GAME\n• All 80 cards and every mode are included — nothing to unlock, nothing to buy later\n• No ads, no in-app purchases, no accounts\n• Plays fully offline\n• No data collected — your decks stay on your iPhone",
+        "keywords": [
+          "deck",
+          "builder",
+          "tcg",
+          "ccg",
+          "monster",
+          "summon",
+          "dragon",
+          "spell",
+          "trap",
+          "offline",
+          "2 player",
+          "tactics",
+          "battle",
+          "arena",
+          "strategy"
+        ],
+        "releaseNotes": "First release of Prism Duel.",
+        "privacyPolicyUrl": "https://kaanaydemir.github.io/prism-duel/privacy/",
+        "supportUrl": "https://kaanaydemir.github.io/prism-duel/support/",
+        "screenshots": {
+          "APP_IPHONE_67": [
+            "./store/screenshots/01-legendary-summons.png",
+            "./store/screenshots/02-traps.png",
+            "./store/screenshots/03-final-blow.png",
+            "./store/screenshots/04-arena.png",
+            "./store/screenshots/05-80-cards.png",
+            "./store/screenshots/06-deck-builder.png",
+            "./store/screenshots/07-no-ads.png"
+          ]
+        },
+        "previews": {
+          "IPHONE_67": {
+            "path": "./store/preview/prism-duel-preview.mp4",
+            "previewFrameTimeCode": "00:02:12"
+          }
+        }
+      }
+    },
+    "release": {
+      "automaticRelease": false,
+      "phasedRelease": false
+    },
+    "review": {
+      "firstName": "Kaan",
+      "lastName": "Aydemir",
+      "email": "FROM store.review.json",
+      "phone": "FROM store.review.json",
+      "demoRequired": false,
+      "notes": "1. SCREEN RECORDING\nA screen recording captured on a physical iPhone running the latest iOS is attached / linked below. It starts with launching the app from the Home Screen and shows the typical flow: title screen > VERSUS CPU > picking a deck > playing a duel (summoning a monster, setting a card, attacking, the opponent's turn) > the Deck Builder. The app has no account registration, login, user-generated content or in-app purchases, so none of those flows exist.\n\n2. PURPOSE AND AUDIENCE\nPrism Duel is a single-purchase, offline, turn-based fantasy card game for players aged 13+ who enjoy collectible-card-style strategy. Two players (or one player against the built-in computer opponent) build a deck from 80 original cards and take turns summoning monsters and casting spells and traps to reduce the opponent's Life Points from 4000 to 0. Value: a complete, ad-free strategy card game with hand-drawn pixel art and animations that can be played anywhere, including with a friend on the same phone.\n\n3. HOW TO ACCESS THE MAIN FEATURES\nNo login, account, setup or sample files are needed.\n- Duel the CPU: tap the title screen > VERSUS CPU > choose any deck > START DUEL. Tap a card in your hand to Summon or Set it, tap BATTLE and then one of your monsters to attack, tap END TURN to pass.\n- Two players on one device: choose 2 PLAYERS (SAME SCREEN) instead; players take turns on the same phone.\n- Deck Builder: title screen > DECK BUILDER. Tap a card to see it, use + / - or drag cards in and out, then SAVE DECK.\n- Settings (animation speed, sound, music): the SETTINGS entry in the title menu. HOW TO PLAY explains the rules; CARD GALLERY shows every card.\n\n4. EXTERNAL SERVICES\nNone. The app makes no network connections and uses no third-party services (no analytics, advertising, authentication, payment, data or AI services). All game logic, art and sound are generated on the device.\n\n5. REGIONAL DIFFERENCES\nNone. The app works identically in every region and contains no region-specific features or content.\n\n6. REGULATED INDUSTRY / THIRD-PARTY MATERIAL\nNot applicable. The app is not in a regulated industry and contains no protected third-party material: all card names, characters, artwork, music and sound effects are original and were created for this app."
+    }
+  }
+}

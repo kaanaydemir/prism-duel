@@ -18,7 +18,6 @@
 //   import { V3_A6_A } from '../view/v3flags';
 //   if (V3_A6_A) V3HOOKS.draw = drawV3;            // a lane registers its v3 body (v1: never)
 
-import { LOOK_V3 } from './layout';
 
 /** One lane pair's URL switch, as given ('' / null = absent). */
 export type LaneSwitch = string | null | undefined;
@@ -65,7 +64,7 @@ export function resolveV3Flags(i: V3FlagInput): V3Flags {
 }
 
 function detect(): V3FlagInput {
-  const input: V3FlagInput = { look: LOOK_V3, a5: null, a6: null, cards: null };
+  const input: V3FlagInput = { look: true, a5: null, a6: null, cards: null };
   try {
     if (typeof location !== 'undefined' && typeof URLSearchParams !== 'undefined') {
       const p = new URLSearchParams(location.search);

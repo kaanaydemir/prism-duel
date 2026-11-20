@@ -24,7 +24,7 @@ import { TEX, shake, tween, wait } from '../vfx/core';
 import { clearBanners } from '../vfx/banners';
 import { Button } from './Button';
 import { CardSprite } from './CardSprite';
-import { CARD_H, CARD_W, DEPTH, GAME_H, GAME_W, UI, byArena } from './layout';
+import { CARD_H, CARD_W, DEPTH, GAME_H, GAME_W, UI } from './layout';
 import { GLOW_PAD, ICON, UI_RAMP, type UiKeyHandler, crownTex, pushUiKeys, glowTex, haloTex, panelTex, playerStyle, streakTex, stripesTex, typeOn } from './ui-textures';
 import { V3_A6_B } from './v3flags';
 import { REDUCED_MOTION } from './v3/motion';
@@ -593,7 +593,7 @@ export class Prompt {
     let closed = false;
     let H = 21;
     // v2: right under the compact phase bar (it ends at y 17)
-    const Y = byArena(25, 21);
+    const Y = 25;
     /** Widest bar that stays clear of the inspect panel (left) and the P2 panel (right). */
     const MAX_W = 2 * (UI.p2Panel.x - 4 - GAME_W / 2);
 

@@ -35,7 +35,7 @@ import { PAL, RAMPS, type Ramp } from '../../art/palette';
 import { plateLock } from '../../engine';
 import type { GameEvent, GameState, Uid } from '../../engine/types';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
-import { DEPTH, LOOK_V3, unitDepth, type XY } from '../../view/layout';
+import { DEPTH, unitDepth, type XY } from '../../view/layout';
 import { lightFlash } from '../../view/light';
 import { shake } from '../../vfx/core';
 import { animate, sleep } from '../../vfx/combat';
@@ -89,7 +89,7 @@ const live = (u: MonsterUnit): boolean => u.sprite.active && !u.retired;
  */
 const chatty = new WeakSet<MonsterUnit>();
 function idleChatter(u: MonsterUnit): void {
-  if (!LOOK_V3 || chatty.has(u) || !u.sprite.active) return;
+  if (chatty.has(u) || !u.sprite.active) return;
   chatty.add(u);
   let n = 0;
   u.sprite.on(Phaser.Animations.Events.ANIMATION_REPEAT, (a: Phaser.Animations.Animation) => {
@@ -185,7 +185,6 @@ registerCardHook(
   ID,
   'summon',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     if (ctx.ev.from === 'field') return ctx.base();
     await runSummon(ctx, entranceV3, entranceV3);
   },
@@ -197,7 +196,6 @@ registerCardHook(
 registerStrike(
   ID,
   async (s: StrikeArgs) => {
-    if (!LOOK_V3) return s.base?.();
     // the cart drives over its own plate's row (a P2 charge runs down the screen): the plate goes under the cart
     // while it does, and back on top at home
     const img = s.attacker.badge.image;
@@ -363,7 +361,6 @@ registerCardHook(
   ID,
   'destroyed',
   (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     if (ctx.ev.location !== 'monster' || sourceOwnsDeath(ctx)) return ctx.base();
     const sc = ctx.scene;
     const u = ctx.views.field.unit(ctx.ev.uid);
@@ -545,7 +542,6 @@ async function braceOut(u: MonsterUnit): Promise<void> {
 registerEvent(
   'positionChange',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     const ev = ctx.ev;
     if (ctx.cardId(ev.uid) !== ID) return ctx.base();
     const u = ctx.unit(ev.uid);
@@ -590,7 +586,6 @@ registerEvent(
 registerEvent(
   'turnStart',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     const st = ctx.state;
     const due: MonsterUnit[] = [];
     for (const pl of st.players)

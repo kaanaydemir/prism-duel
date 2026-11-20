@@ -9,7 +9,6 @@
 
 import { CARDS, isMonster, isSpell } from '../../data/cards';
 import type { GameEvent, GameState, MonsterSlot, PlayerId, Uid } from '../../engine/types';
-import { LOOK_V3 } from '../../view/layout';
 
 /** Remove `uid` from every hand, deck, graveyard and field zone of `s`. */
 function detach(s: GameState, uid: Uid): void {
@@ -139,11 +138,9 @@ export function applyEvent(s: GameState, ev: GameEvent): void {
         // withStats, whose statChange follows). The activate only marks the uid; the growth lands on
         // the projected slot at that statChange, so its count-up still animates and every later
         // frontier sync keeps the badge and the grown form. (v1 keeps today's projection.)
-        if (LOOK_V3) {
-          const d = CARDS[ev.cardId];
-          const slot = slotOf(s, ev.uid);
-          if (isMonster(d) && d.effect === 'jesterAging' && slot && slot.faceUp && slot.permAtk === undefined) growingOf(s).add(ev.uid);
-        }
+        const d = CARDS[ev.cardId];
+        const slot = slotOf(s, ev.uid);
+        if (isMonster(d) && d.effect === 'jesterAging' && slot && slot.faceUp && slot.permAtk === undefined) growingOf(s).add(ev.uid);
         return;
       }
       if (ev.from === 'hand') {
@@ -161,7 +158,7 @@ export function applyEvent(s: GameState, ev: GameEvent): void {
     }
     case 'statChange': {
       // v3: the growth marked at the hatchling's activate (the values come from the engine's event)
-      const g = LOOK_V3 ? GROWING.get(s) : undefined;
+      const g = GROWING.get(s);
       if (g?.delete(ev.uid)) {
         const slot = slotOf(s, ev.uid);
         if (slot && slot.permAtk === undefined) {

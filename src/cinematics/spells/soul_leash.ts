@@ -62,7 +62,7 @@ import Phaser from 'phaser';
 import type { CardId } from '../../data/cards';
 import type { GameEvent, GameState, PlayerId, Uid } from '../../engine/types';
 import { PAL } from '../../art/palette';
-import { DEPTH, LANES, LOOK_V3, type XY, unitDepth, zoneXY } from '../../view/layout';
+import { DEPTH, LANES, type XY, unitDepth, zoneXY } from '../../view/layout';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import type { FieldView } from '../../duel/FieldView';
 import type { TileCard } from '../../view/TileCard';
@@ -1289,7 +1289,6 @@ function impactRing(sc: Phaser.Scene, at: XY): Promise<void> {
 // The activation: the common v3 opening, the card lands on its zone, then the take (the controlChange event,
 // played through the lane-E dispatcher below).
 registerCardHook(ID, 'activate', async (ctx: ActCtx) => {
-  if (!LOOK_V3) return ctx.base();
   const ev = ctx.ev;
   const sc = ctx.scene;
   const run0 = fx.resolutionRun(ctx);
@@ -1329,13 +1328,13 @@ registerCardHook(ID, 'activate', async (ctx: ActCtx) => {
 
 registerLaneE(
   'controlChange',
-  (ctx) => LOOK_V3 && ctx.ev.reason === 'take' && ctx.ev.sourceUid !== null && ctx.cardId(ctx.ev.sourceUid) === ID,
+  (ctx) => (ctx.ev.reason === 'take') && ctx.ev.sourceUid !== null && ctx.cardId(ctx.ev.sourceUid) === ID,
   (ctx) => takeScene(ctx),
 );
 
 registerLaneE(
   'controlChange',
-  (ctx) => LOOK_V3 && ctx.ev.reason === 'return' && (ctx.ev.sourceUid === null ? leashedIn(ctx.state, ctx.ev.uid) : ctx.cardId(ctx.ev.sourceUid) === ID),
+  (ctx) => (ctx.ev.reason === 'return') && (ctx.ev.sourceUid === null ? leashedIn(ctx.state, ctx.ev.uid) : ctx.cardId(ctx.ev.sourceUid) === ID),
   (ctx) => returnScene(ctx),
 );
 
@@ -1344,7 +1343,7 @@ registerEvent(
   'destroy',
   async (ctx: DestroyCtx) => {
     const ev = ctx.ev;
-    if (!LOOK_V3 || ev.reason !== 'rule' || ev.location !== 'monster' || ev.sourceUid !== null || !leashedIn(ctx.state, ev.uid)) return ctx.base();
+    if ((ev.reason !== 'rule') || ev.location !== 'monster' || ev.sourceUid !== null || !leashedIn(ctx.state, ev.uid)) return ctx.base();
     try {
       await noRoomScene(ctx);
     } catch (e) {
@@ -1361,7 +1360,7 @@ registerEvent(
   'destroy',
   async (ctx: DestroyCtx) => {
     const ev = ctx.ev;
-    if (!LOOK_V3 || ev.location !== 'monster' || ev.reason === 'rule') return ctx.base();
+    if ((ev.location !== 'monster') || ev.reason === 'rule') return ctx.base();
     const l = takeLinger(ev.uid);
     if (l) bg(l.die());
     return ctx.base();
@@ -1371,7 +1370,6 @@ registerEvent(
 
 // the opponent's Draw Phase: the bond beats, green light flows to the owner's LP panel, then the v3 LP gain
 registerCardHook(ID, 'lpGain', async (ctx) => {
-  if (!LOOK_V3) return ctx.base();
   const ev = ctx.ev;
   const sc = ctx.scene;
   const l = ev.sourceUid !== null ? lingerOfLeash(ev.sourceUid) : null;

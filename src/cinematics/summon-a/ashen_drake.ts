@@ -19,7 +19,7 @@
 
 import { PAL, RAMPS } from '../../art/palette';
 import { ASHEN_BUILD } from '../../art/monsters-v3/ashen_drake';
-import { DEPTH, LOOK_V3, type XY } from '../../view/layout';
+import { DEPTH, type XY } from '../../view/layout';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import { atFrame, atMark, fade, panAt, play, start } from '../_v3/sound';
 import { Sparks, currentPixels, layer } from '../strikes-a/_kit';
@@ -687,4 +687,4 @@ function greyDust(S: Stage): void {
   });
 }
 
-if (LOOK_V3) signatureSummon('ashen_drake', (S) => S.ctx.base(), { v3: ashenRiseV3 });
+signatureSummon('ashen_drake', (S) => S.ctx.base(), { v3: ashenRiseV3 });

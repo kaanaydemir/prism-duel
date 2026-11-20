@@ -36,7 +36,7 @@ import { PAL, PLAYER_COLOR, type Ramp } from '../../art/palette';
 import type { GameEvent } from '../../engine/types';
 import { DEATH_PLATES, SUMMON_LOCK, SUMMON_UNFOLD, framePose } from '../../art/monsters-v3/polar_needle-anims';
 import { skeleton } from '../../art/monsters-v3/polar_needle-rig';
-import { DEPTH, LOOK_V3, unitDepth, zoneXY, type XY } from '../../view/layout';
+import { DEPTH, unitDepth, zoneXY, type XY } from '../../view/layout';
 import { lightFlash } from '../../view/light';
 import { shake } from '../../vfx/core';
 import { Sparks, animate, sleep } from '../../vfx/combat';
@@ -129,7 +129,6 @@ registerCardHook(
   ID,
   'summon',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     const ev = ctx.ev;
     if (ev.from === 'field') return ctx.base();
     // the sovereign's split lands its pieces itself (lane D polar_sovereign)
@@ -144,7 +143,6 @@ registerCardHook(
 registerStrike(
   ID,
   async (s: StrikeArgs) => {
-    if (!LOOK_V3) return s.base?.();
     const u = s.attacker;
     const sc = s.scene;
     const spr = u.sprite;
@@ -265,7 +263,6 @@ registerCardHook(
   ID,
   'destroyed',
   (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     if (ctx.ev.location !== 'monster' || sourceOwnsDeath(ctx)) return ctx.base();
     const sc = ctx.scene;
     const u = ctx.views.field.unit(ctx.ev.uid);
@@ -376,7 +373,7 @@ registerCardHook(
 registerEvent(
   'positionChange',
   async (ctx) => {
-    if (!LOOK_V3 || ctx.cardId(ctx.ev.uid) !== ID || ctx.ev.position !== 'defense') return ctx.base();
+    if ((ctx.cardId(ctx.ev.uid) !== ID) || ctx.ev.position !== 'defense') return ctx.base();
     const u = ctx.views.field.unit(ctx.ev.uid);
     const tile = ctx.views.field.tileOf(ctx.ev.uid);
     if (!u || u.retired || !u.sprite.visible || !u.has('toGuard')) return ctx.base();
@@ -428,7 +425,7 @@ registerCardHook(
   'flip',
   async (ctx) => {
     const ev = ctx.ev;
-    if (!LOOK_V3 || ev.cause !== 'flipSummon') return ctx.base();
+    if (ev.cause !== 'flipSummon') return ctx.base();
     const v = ctx.views;
     const field = v.field;
     const sc = ctx.scene;

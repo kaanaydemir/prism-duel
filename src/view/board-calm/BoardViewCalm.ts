@@ -227,6 +227,11 @@ export interface BoardViewCalmOptions {
     trims?: boolean;
     /** The calm zone pads' own pixels (alpha 0): the Neon Tower plate shows through its slot lines (readability pass). */
     pads?: boolean;
+    /**
+     * The volcano theme's tile-seam lava, its grid shockwave and its shake: the Neon Tower volcano layer (board-nt/volcano.ts) draws
+     * its own lava network. The theme NAME still switches here (theme getter, ember dust).
+     */
+    lava?: boolean;
   };
 }
 
@@ -429,6 +434,10 @@ export class BoardViewCalm {
    */
   async setTheme(theme: ArenaTheme, animate = true, from: PlayerId | null = null): Promise<void> {
     const token = ++this.themeToken;
+    if (this.skip.lava) {
+      this.themeName = theme;
+      return;
+    }
     if (theme === 'volcano') {
       const origin = from === null ? { col: BOARD_MID_COL, row: 2 } : zoneCell(from, 'field');
       this.ensureLava(origin);

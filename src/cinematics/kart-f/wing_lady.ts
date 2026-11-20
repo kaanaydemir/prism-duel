@@ -37,7 +37,7 @@ import { PAL } from '../../art/palette';
 import type { AnyMonsterAnim, MonsterPointName } from '../../art/types';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import type { FieldView } from '../../duel/FieldView';
-import { DEPTH, LOOK_V3, type XY, unitDepth, zoneXY } from '../../view/layout';
+import { DEPTH, type XY, unitDepth, zoneXY } from '../../view/layout';
 import { lightFlash, lightPool } from '../../view/light';
 import { E, type Px, animate, onFrame, sleep } from '../../vfx/combat';
 import { pixelText } from '../../ui/text';
@@ -549,8 +549,7 @@ async function playRun(ctx: AnyCtx, run: { i: number; ev: StatEv; d: number }[],
 
 // ================================================================ the aura's statChange (Kanat Selamı / Kanatlar Döner)
 
-if (LOOK_V3)
-  registerEvent(
+registerEvent(
     'statChange',
     async (ctx: Ctx<'statChange'>) => {
       const d0 = auraDelta(ctx.events, ctx.stateAt, ctx.index);
@@ -604,8 +603,7 @@ async function arrivalBless(ctx: AnyCtx, uid: Uid, stateAfter: GameState): Promi
   if (a) a.setCount(Math.round(bonus / 300));
 }
 
-if (LOOK_V3)
-  registerEvent(
+registerEvent(
     'summon',
     async (ctx: Ctx<'summon'>) => {
       await ctx.base();
@@ -616,8 +614,7 @@ if (LOOK_V3)
     { priority: 30, name: `kart-f:${ID}:arrive` },
   );
 
-if (LOOK_V3)
-  registerEvent(
+registerEvent(
     'flip',
     async (ctx: Ctx<'flip'>) => {
       const ev = ctx.ev;
@@ -663,8 +660,7 @@ if (LOOK_V3)
  * Döner" plays as her body leaves the field: the lights fold toward her graveyard pile while her card flies there,
  * and the badges roll down BEFORE the summon starts (the later sync is a no-op).
  */
-if (LOOK_V3)
-  registerEvent(
+registerEvent(
     'tribute',
     async (ctx: Ctx<'tribute'>) => {
       const actx = ctx as unknown as AnyCtx;
@@ -720,8 +716,7 @@ if (LOOK_V3)
  * crosses, half a second before "Kanatlar Döner" / "Kanat Selamı" play them. The aura run's plates are held on
  * their old numbers for the crossing, so the −300 / +300 roll on her beats, not on the sync.
  */
-if (LOOK_V3)
-  registerEvent(
+registerEvent(
     'controlChange',
     async (ctx: Ctx<'controlChange'>) => {
       const held: { u: MonsterUnit; ev: StatEv }[] = [];
@@ -752,8 +747,7 @@ if (LOOK_V3)
 
 // ================================================================ the declaration flare (a buffed ally attacks)
 
-if (LOOK_V3)
-  registerEvent(
+registerEvent(
     'attackDeclare',
     async (ctx: Ctx<'attackDeclare'>) => {
       const u = ctx.unit(ctx.ev.attackerUid);
@@ -974,8 +968,7 @@ async function glideIn(S: Stage, rush0: { stop(ms?: number): void } | null): Pro
   await capped(sc, brake, blessNext ? 90 : 600);
 }
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     ID,
     'summon',
     async (ctx) => {
@@ -1326,7 +1319,7 @@ async function touchDown(u: MonsterUnit, home: XY, touchF: number): Promise<void
   await sleep(u.scene, Math.min(120, u.frameMs('attack', touchF + 1)));
 }
 
-if (LOOK_V3) registerStrike(ID, (s) => kestrel(s), { priority: 20, name: `kart-f:${ID}:strike` });
+registerStrike(ID, (s) => kestrel(s), { priority: 20, name: `kart-f:${ID}:strike` });
 
 // ================================================================ guard "Kanat Kalkanı": her own guard read
 
@@ -1368,8 +1361,7 @@ function featherEdgeSpark(sc: Phaser.Scene, u: MonsterUnit, face: number): void 
   }).then(() => px.g.destroy());
 }
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     ID,
     'defend',
     async (ctx) => {
@@ -1671,8 +1663,7 @@ async function fallingCape(ctx: Ctx<'destroy'>): Promise<void> {
   await leave;
 }
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     ID,
     'destroyed',
     (ctx) => {
@@ -1693,8 +1684,7 @@ function pendingStat(ctx: AnyCtx, uid: Uid): boolean {
   return false;
 }
 
-if (LOOK_V3)
-  registerObserver((ev, ctx) => {
+registerObserver((ev, ctx) => {
     if (!ctx.scene.sys.isActive()) return;
     const s0 = ctx.state;
     const s1 = ctx.stateNext;

@@ -9,6 +9,7 @@ import { type Color, PixelCanvas } from '../pixel';
 import { NT_PAL } from './palette';
 import { buildPlatformArt, emblemCanvas } from './platform';
 import { type Atlas, packAtlas } from './platform-pack';
+import { GRAPHITE } from './stagetop';
 
 export const NT_FLOOR_KEY = 'nt:floor';
 
@@ -154,7 +155,41 @@ function rowsOut(tile: PixelCanvas, i: number, j: number, dir: -1 | 1): number {
   return n;
 }
 
+// Owner 2026-11-17 (the graphite slab, src/art/arena-nt/stagetop.ts GRAPHITE): a zone is no longer a dark recess but a THIN NEON
+// OUTLINE drawn on the slab — one bright 1-px player line on the tile edge, one dim glow row just inside it, and the slab showing
+// through the open middle. Levels as the recess: L 0 empty, 1 empty on the side to move or occupied, 2 occupied on the side to
+// move; each level one step brighter. Same 64 × 32 box and mask, so highlights / flashes keyed on the zone frames stay aligned.
+function outlineFrame(player: 0 | 1, state: number, boost: number): PixelCanvas {
+  const m = buildCalmArt().masks;
+  const p = new PixelCanvas(64, 32);
+  const ramp = player === 0 ? NT_PAL.blue : NT_PAL.red;
+  const L = (state !== SLOT_EMPTY ? 1 : 0) + (boost ? 1 : 0);
+  // crim is darker than cyan at the same step: the red side one step up so both weigh the same
+  const lift = player === 1 ? 1 : 0;
+  const R = (k: number): Color => ramp[Math.max(0, Math.min(4, k))];
+  const { cx, cy } = slotCentre();
+  for (let j = 0; j < 32; j++)
+    for (let i = 0; i < 64; i++) {
+      if (m.tile.get(i, j) === null) continue;
+      const kFar = rowsOut(m.tile, i, j, -1) - 1;
+      const kNear = rowsOut(m.tile, i, j, 1) - 1;
+      const k = Math.min(kFar, kNear);
+      let c: Color | null = null;
+      if (k === 0) c = R([2, 3, 3][L] + (L === 0 ? lift : 0));
+      else if (k === 1) c = R([0, 1, 1][L] + lift);
+      else if (k === 2 && L === 2) c = R(0 + lift);
+      if (state === SLOT_DOWN && k <= 1) {
+        const dx = Math.abs(i + 0.5 - cx);
+        const dy = Math.abs(j + 0.5 - cy);
+        if ((dx > 25 && dy < 2.5) || (dy > 12 && dx < 3.5)) c = NT_PAL.metal[3];
+      }
+      if (c !== null) p.set(i, j, c);
+    }
+  return p;
+}
+
 function recessFrame(player: 0 | 1, state: number, boost: number, st: boolean): PixelCanvas {
+  if (GRAPHITE) return outlineFrame(player, state, boost);
   const m = buildCalmArt().masks;
   const p = new PixelCanvas(64, 32);
   const ramp = player === 0 ? NT_PAL.blue : NT_PAL.red;

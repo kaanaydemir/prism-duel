@@ -12,6 +12,9 @@ import { DEPTH } from '../../view/layout';
 import { damageNumber, statPop } from '../../vfx/numbers';
 import { Sparks, addGlow, run, spriteBox } from '../../vfx/setpieces';
 import { flameAura, steamAura } from '../../duel/auras';
+import { fireBlessing } from '../spells/_volcano_blessing';
+import { tideBlessing, tideDouse } from '../spells/_tide_beats';
+import { tideAura } from '../../duel/auras-tide';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import { registerEvent } from '../api';
 import { ADD, all, bg, chevronTexture, rr, fs, lightFlash, type AnyCtx, type Ctx, type EvOf } from './_kit';
@@ -222,12 +225,21 @@ async function statBeatV3(ctx: AnyCtx, e: StatEv, u: MonsterUnit, spots: XY[]): 
 /** The generic statChange, the v3 look: one beat per monster, ≥ 150 ms apart. */
 async function statChangeV3(ctx: Ctx<'statChange'>, group: StatEv[], volcano: boolean): Promise<void> {
   const spots: XY[] = [];
+  const tide = ctx.after.players.some((p) => p.fieldSpell && p.fieldSpell.faceUp && ctx.after.cards[p.fieldSpell.uid].cardId === 'tidal_bay');
   const jobs = group.map(async (e, k) => {
     await ctx.wait(statBeatMs(k));
     const u = ctx.unit(e.uid);
     if (!u || u.retired) return;
-    if (volcano && (u.attribute === 'FIRE' || u.attribute === 'WATER') && !u.hasAura('volcano'))
+    if (volcano && (u.attribute === 'FIRE' || u.attribute === 'WATER') && !u.hasAura('volcano')) {
+      // a FIRE monster stepping onto the burning arena is blessed by it (the lava geyser), then burns on
+      if (u.attribute === 'FIRE' && u.sprite.visible && u.sprite.active) void fireBlessing(ctx.scene, u);
       u.setAura('volcano', u.attribute === 'FIRE' ? flameAura(ctx.scene, u) : steamAura(ctx.scene, u));
+    }
+    // Gelgit Körfezi: a WATER / WIND monster stepping into the flooded arena is blessed (the water helix), a FIRE one doused
+    if (tide && (u.attribute === 'WATER' || u.attribute === 'WIND' || u.attribute === 'FIRE') && !u.hasAura('tide')) {
+      if (u.sprite.visible && u.sprite.active) void (u.attribute === 'FIRE' ? tideDouse(ctx.scene, u) : tideBlessing(ctx.scene, u));
+      u.setAura('tide', u.attribute === 'FIRE' ? steamAura(ctx.scene, u) : tideAura(ctx.scene, u, u.attribute === 'WIND' ? 'wind' : 'water'));
+    }
     // Ejder Kılıcı's loss (A-2, A5 §3.1 Kırılma): the sword breaks on this beat, its number on the crack frame —
     // or it broke already on its card's crack (fix round 1, C1-03): the badge only settles, no second number
     if (bladeBrokeEarly(u)) {

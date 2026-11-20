@@ -73,7 +73,7 @@ import { PixelCanvas } from '../../art/pixel';
 import { FLAT_H, FLAT_W, ISO_CX, ISO_CY, ISO_TEX_H, ISO_TEX_W, cardIsoKey, cardMip, poseAxes, qAxis, qMul, renderCard, restQuat, type Quat } from '../../art/cards';
 import { G1, GR1, SLAB_T } from '../../still/arena-geom';
 import { SLAB_RECT, buildCrackField } from '../../art/arena';
-import { BOARD_MID_COL, CARD_H, DEPTH, LOOK_V3, type XY, isoToScreen, screenToIso, unitDepth, zoneCell, zoneXY } from '../../view/layout';
+import { BOARD_MID_COL, CARD_H, DEPTH, type XY, isoToScreen, screenToIso, unitDepth, zoneCell, zoneXY } from '../../view/layout';
 import type { TileCard } from '../../view/TileCard';
 import { CardSprite } from '../../view/CardSprite';
 import { Raster, onFrame, run } from '../../vfx/setpieces';
@@ -788,7 +788,6 @@ function flight(c: Swept, tau: number, tauEdge: number): { g: G; z: number; past
 // ================================================================ the activation (opening → curl to the whirl)
 
 registerCardHook(ID, 'activate', async (ctx: ActCtx) => {
-  if (!LOOK_V3) return ctx.base();
   const ev = ctx.ev;
   const sc = ctx.scene;
   const mi = ctx.findType('massDestroy', (e) => e.sourceUid === ev.uid);
@@ -1151,7 +1150,6 @@ async function dieOnFloor(ctx: AnyCtx, card: CardSprite, owner: PlayerId): Promi
 
 /** Büyü Mührü answered: the gale dies on its card — the leaves wither and drop, the card sags and goes. */
 registerCardHook(ID, 'toGraveyard', async (ctx) => {
-  if (!LOOK_V3) return ctx.base();
   const h = ctx.take(KEEP);
   if (!(h instanceof GaleWait)) {
     if (h) ctx.keep(KEEP, h);
@@ -1224,7 +1222,7 @@ registerCardHook(ID, 'toGraveyard', async (ctx) => {
 
 registerLaneE(
   'massDestroy',
-  (ctx) => LOOK_V3 && ctx.ev.sourceUid !== null && ctx.cardId(ctx.ev.sourceUid) === ID,
+  (ctx) => (ctx.ev.sourceUid !== null) && ctx.cardId(ctx.ev.sourceUid) === ID,
   (ctx) => galeWipe(ctx),
 );
 

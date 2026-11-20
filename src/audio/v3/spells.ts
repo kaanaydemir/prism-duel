@@ -253,6 +253,143 @@ export const V3_SPELL_RECIPES = {
       puff(v, 0.08, 0.16, 0.3, 700, { kind: 'brown' });
     },
   },
+  /** The stone tears open under the lava front (the eruption's spread, a fork the front passes): a dry rip over a low groan. */
+  lavaTear: {
+    cap: 2,
+    gap: 0.09,
+    verb: 0.4,
+    duck: 0.2,
+    play(v) {
+      v.crackle({ t: 0, d: 0.22, n: 18, g: 0.2, f: 1500, q: 1.1, curve: 0.7, dec: 0.003, kind: 'brown' });
+      v.crackle({ t: 0.01, d: 0.16, n: 9, g: 0.12, f: 4200, q: 0.9, curve: 1.3, dec: 0.002 });
+      thump(v, 0.02, 92, 40, 0.3, 0.3, { drive: 1.5 });
+      v.noise('brown', { g: [[0, 0], [0.04, 0.16], [0.4, 0.0001, 'e']], to: v.filt('lowpass', [[0, 700], [0.4, 180, 'e']], 0.8) });
+    },
+  },
+  /** A fall reaches the hall floor: a heavy molten "splotch" with a sizzle. */
+  lavaSplash: {
+    cap: 2,
+    gap: 0.12,
+    verb: 0.35,
+    play(v) {
+      thump(v, 0, 70, 38, 0.32, 0.22, { drive: 1.4 });
+      sweep(v, 0, 0.18, [900, 520, 260], 0.18, { kind: 'brown', q: 1.4 });
+      v.noise('white', { g: [[0, 0], [0.03, 0.1], [0.5, 0.0001, 'e']], to: v.filt('bandpass', [[0, 6800], [0.5, 3000, 'e']], 0.9) });
+      v.crackle({ t: 0.04, d: 0.3, n: 10, g: 0.08, f: 3000, q: 0.8, curve: 1.2, dec: 0.003 });
+    },
+  },
+  /** A big bubble pops in a pool: a thick low "blub" (a sine drop) with a wet tick. */
+  lavaBubble: {
+    cap: 3,
+    gap: 0.06,
+    verb: 0.25,
+    play(v) {
+      v.tone('sine', [[0, 210], [0.09, 95, 'e']], { g: perc(0.24, 0.12, 0.004) });
+      v.tone('triangle', [[0, 420], [0.06, 180, 'e']], { g: perc(0.06, 0.06, 0.002) });
+      v.noise('pink', { g: perc(0.07, 0.03, 0.0005), to: v.filt('bandpass', 2400, 2) });
+    },
+  },
+  /** A fissure surges and spits a fire jet: a hiss-whoomp (pink sweep up), a roar tail and sparks. */
+  lavaFlare: {
+    cap: 2,
+    gap: 0.2,
+    verb: 0.4,
+    duck: 0.15,
+    play(v) {
+      sweep(v, 0, 0.34, [240, 1900, 700], 0.3, { kind: 'pink', q: 0.9, peakAt: 0.35 });
+      puff(v, 0.02, 0.4, 0.22, 900, { kind: 'brown' });
+      v.crackle({ t: 0.06, d: 0.36, n: 14, g: 0.11, f: 4600, q: 0.8, curve: 1.5, dec: 0.003 });
+    },
+  },
+  /**
+   * A FIRE monster is blessed by the volcano (+500): the lava geyser under it — a deep surge rising into a roar, a bright
+   * fifth (D4 → A4 → D5) burning through it, crackle.
+   */
+  fireBlessing: {
+    cap: 2,
+    gap: 0.12,
+    verb: 0.5,
+    duck: 0.45,
+    play(v) {
+      thump(v, 0, 64, 32, 0.6, 0.5, { drive: 2 });
+      sweep(v, 0.02, 0.62, [180, 2400, 900], 0.42, { kind: 'pink', q: 0.8, peakAt: 0.45 });
+      v.noise('brown', { g: [[0, 0], [0.1, 0.34], [0.75, 0.0001, 'e']], to: v.filt('lowpass', [[0, 300], [0.3, 1400], [0.75, 400, 'e']], 0.9) });
+      [midiHz(62), midiHz(69), midiHz(74)].forEach((f, i) => {
+        v.tone('sawtooth', f, { t: 0.16 + i * 0.07, g: swell(0.05, 0.08, 0.55), to: v.filt('lowpass', 2200, 0.7) });
+        v.tone('sine', f * 2, { t: 0.16 + i * 0.07, g: perc(0.06, 0.5, 0.01) });
+      });
+      v.crackle({ t: 0.05, d: 0.7, n: 30, g: 0.16, f: 4200, q: 0.8, curve: 1.6, dec: 0.004 });
+    },
+  },
+
+  // ================================================================ Gelgit Körfezi (the flooded arena: board-nt/tide.ts, spells/tidal_bay.ts)
+  // Palette: water — a deep "whomp" under a long rushing wash (pink noise through a sweeping band), foam fizz (high white noise),
+  // drip "plinks" on E minor pentatonic (E5–B5, clear of the spring's A4–E5 bloops).
+  /** The spout bursts from the seal and the tide surges over the stage: whomp, a rising rush that rolls into a long wash. */
+  tideSurge: {
+    cap: 1,
+    gap: 0.2,
+    verb: 0.55,
+    duck: 0.6,
+    play(v) {
+      thump(v, 0, 70, 34, 0.55, 0.5, { drive: 1.3 });
+      sweep(v, 0, 0.5, [260, 2600, 1200], 0.4, { kind: 'pink', q: 0.7, peakAt: 0.4 });
+      v.noise('pink', { t: 0.2, g: [[0, 0], [0.2, 0.3], [0.9, 0.16], [1.35, 0.0001, 'e']], to: v.filt('bandpass', [[0, 900], [0.5, 2400], [1.35, 700, 'e']], 0.6) });
+      v.noise('white', { t: 0.25, g: [[0, 0], [0.3, 0.07], [1.3, 0.0001, 'e']], to: v.filt('highpass', 6500) });
+      [midiHz(76), midiHz(79), midiHz(83)].forEach((f, i) => v.tone('sine', f, { t: 0.32 + i * 0.09, g: perc(0.07, 0.35, 0.003) }));
+    },
+  },
+  /** A cascade reaches the hall floor: a wet slap and fizzing foam. */
+  tideSplash: {
+    cap: 3,
+    gap: 0.08,
+    verb: 0.4,
+    play(v) {
+      thump(v, 0, 110, 60, 0.2, 0.12, { drive: 1.1 });
+      v.noise('pink', { g: perc(0.24, 0.18, 0.002), to: v.filt('bandpass', [[0, 3000], [0.2, 1400, 'e']], 0.8) });
+      v.noise('white', { t: 0.02, g: [[0, 0], [0.03, 0.08], [0.6, 0.0001, 'e']], to: v.filt('highpass', 7000) });
+    },
+  },
+  /** The tide draws back into the seal: a long falling wash and a few last drips. */
+  tideEbb: {
+    cap: 1,
+    gap: 0.2,
+    verb: 0.5,
+    duck: 0.3,
+    play(v) {
+      sweep(v, 0, 0.9, [1800, 900, 260], 0.3, { kind: 'pink', q: 0.7, peakAt: 0.2 });
+      v.noise('white', { g: [[0, 0], [0.1, 0.06], [0.9, 0.0001, 'e']], to: v.filt('highpass', 6000) });
+      [midiHz(83), midiHz(79), midiHz(76)].forEach((f, i) => v.tone('sine', f, { t: 0.4 + i * 0.13, g: perc(0.06, 0.18, 0.002) }));
+    },
+  },
+  /** A WATER / WIND monster is blessed by the bay (+400): a swirling rise of water, a bright E-minor shimmer climbing through it. */
+  tideBlessing: {
+    cap: 2,
+    gap: 0.12,
+    verb: 0.55,
+    duck: 0.45,
+    play(v) {
+      sweep(v, 0, 0.6, [300, 3200, 1400], 0.34, { kind: 'pink', q: 1.1, peakAt: 0.55 });
+      v.noise('white', { t: 0.15, g: [[0, 0], [0.15, 0.09], [0.8, 0.0001, 'e']], to: v.filt('bandpass', [[0, 4000], [0.6, 9000, 'e']], 1.2) });
+      [midiHz(64), midiHz(71), midiHz(76), midiHz(79), midiHz(83)].forEach((f, i) => {
+        v.tone('sine', f, { t: 0.1 + i * 0.07, g: perc(0.1, 0.55, 0.004) });
+        v.tone('triangle', f * 2, { t: 0.1 + i * 0.07, g: perc(0.03, 0.3, 0.004) });
+      });
+    },
+  },
+  /** A FIRE monster is doused (−400): a wave crashes on it, then a big steam hiss. */
+  tideDouse: {
+    cap: 2,
+    gap: 0.12,
+    verb: 0.4,
+    duck: 0.35,
+    play(v) {
+      thump(v, 0, 90, 44, 0.4, 0.25, { drive: 1.4 });
+      v.noise('pink', { g: perc(0.3, 0.3, 0.004), to: v.filt('bandpass', [[0, 1800], [0.3, 700, 'e']], 0.7) });
+      v.noise('white', { t: 0.08, g: [[0, 0], [0.05, 0.26], [0.8, 0.0001, 'e']], to: v.filt('bandpass', [[0, 7600], [0.8, 2400, 'e']], 0.9) });
+      v.noise('white', { t: 0.1, g: [[0, 0], [0.04, 0.07], [0.5, 0.0001, 'e']], to: v.filt('highpass', 9500) });
+    },
+  },
 
   // ================================================================ Ayna Kalkanı
   /**

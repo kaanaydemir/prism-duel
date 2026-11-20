@@ -45,7 +45,7 @@ import { PAL, RAMPS } from '../../art/palette';
 import type { MonsterId } from '../../data/cards';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import type { GameEvent, Uid } from '../../engine/types';
-import { DEPTH, LOOK_V3, type XY, unitDepth, zoneXY } from '../../view/layout';
+import { DEPTH, type XY, unitDepth, zoneXY } from '../../view/layout';
 import { lightFlash, lightPool } from '../../view/light';
 import { Sparks, animate, onFrame, sleep } from '../../vfx/combat';
 import { Raster } from '../../vfx/setpieces';
@@ -155,8 +155,7 @@ function boostOf(u: MonsterUnit): BoostState {
   return b;
 }
 
-if (LOOK_V3)
-  registerObserver((ev, ctx) => {
+registerObserver((ev, ctx) => {
     if (ev.type !== 'turnStart' && ev.type !== 'gameOver') return;
     for (const uid of [...boosts.keys()]) {
       const u = ctx.unit(uid);
@@ -352,8 +351,7 @@ async function logFallV3(S: Stage): Promise<void> {
   idleVoice(u);
 }
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     ID,
     'summon',
     async (ctx) => {
@@ -439,8 +437,7 @@ async function reachV3(ctx: Ctx<'activate'>, u: MonsterUnit): Promise<Reach> {
   return r;
 }
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     ID,
     'effect',
     async (ctx) => {
@@ -721,8 +718,7 @@ async function plantV3(ctx: Ctx<'banish'>): Promise<void> {
   }
 }
 
-if (LOOK_V3)
-  registerEvent(
+registerEvent(
     'banish',
     (ctx) => {
       const src = ctx.ev.sourceUid;
@@ -1004,12 +1000,11 @@ async function smashV3(s: StrikeArgs): Promise<void> {
   if (u.sprite.active) u.sprite.setPosition(r0.x, r0.y).setDepth(unitDepth(home.y));
 }
 
-if (LOOK_V3) registerStrike(ID, (s) => smashV3(s), { priority: 20, name: 'kart-b:hollow_ogre:strike' });
+registerStrike(ID, (s) => smashV3(s), { priority: 20, name: 'kart-b:hollow_ogre:strike' });
 
 // ================================================================ guard: its own beat on a blocked blow
 
-if (LOOK_V3)
-  registerObserver((ev, ctx) => {
+registerObserver((ev, ctx) => {
     if (ev.type !== 'battle' || ev.targetUid === null || ev.targetUid === undefined) return;
     if (ctx.cardId(ev.targetUid) !== ID) return;
     if (ev.result === 'targetDestroyed' || ev.result === 'bothDestroyed') return;
@@ -1308,8 +1303,7 @@ async function rootsDeathV3(ctx: Ctx<'destroy'>): Promise<void> {
   await leave;
 }
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     ID,
     'destroyed',
     (ctx) => {

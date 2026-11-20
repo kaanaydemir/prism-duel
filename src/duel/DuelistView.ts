@@ -12,7 +12,10 @@
 import Phaser from 'phaser';
 import type { PlayerId } from '../engine/types';
 import { DEPTH, duelistXY, type XY } from '../view/layout';
-import { tween, wait } from '../vfx/core';
+import { TEX, tween, wait } from '../vfx/core';
+import { CAST, castShadowTex } from './cast-shadow';
+import { syncReflection } from '../view/board-nt/tide-state';
+import { PAL } from '../art/palette';
 
 export type DuelistAnim = 'idle' | 'command' | 'hurt' | 'defeat' | 'victory';
 
@@ -36,6 +39,11 @@ export class DuelistView {
   readonly sprite: Phaser.GameObjects.Sprite;
   private readonly animKey: (a: DuelistAnim) => string;
   private token = 0;
+  /** The duelist's silhouette cast shadow (same key light as the monsters: duel/cast-shadow.ts). */
+  private readonly cast: Phaser.GameObjects.Image;
+  private castId = '';
+  private refl: Phaser.GameObjects.Image | null = null;
+  private readonly onPost = (): void => this.syncCast();
 
   constructor(scene: Phaser.Scene, player: PlayerId, texture: string, animKey: (a: DuelistAnim) => string, origin: { x: number; y: number }) {
     this.scene = scene;
@@ -45,7 +53,27 @@ export class DuelistView {
     this.sprite = scene.add.sprite(Math.round(p.x), Math.round(p.y), texture);
     this.sprite.setOrigin(player === 1 ? 1 - origin.x : origin.x, origin.y).setFlipX(player === 1);
     this.sprite.setDepth(DEPTH.UNIT + p.y);
+    this.cast = scene.add.image(Math.round(p.x), Math.round(p.y), TEX.px1).setDepth(DEPTH.SHADOW - 0.05).setVisible(false);
+    scene.events.on(Phaser.Scenes.Events.POST_UPDATE, this.onPost);
     this.rest();
+  }
+
+  private syncCast(): void {
+    const s = this.sprite;
+    if (!s.active || !this.cast.active) return;
+    const vis = s.visible && s.alpha > 0.05;
+    const fr = s.frame;
+    const id = vis && fr ? `${fr.texture.key}|${fr.name}|${s.flipX ? 1 : 0}` : '';
+    if (id !== this.castId) {
+      this.castId = id;
+      const ct = id ? castShadowTex(this.scene, fr, s.flipX, s.originX, s.originY, 0) : null;
+      if (ct) this.cast.setTexture(ct.key).setOrigin(ct.ox, ct.oy);
+      this.cast.setData('ok', !!ct);
+    }
+    this.refl = syncReflection(this.scene, this.refl, s, Math.round(s.y), 0, PAL.cyan3, this.player * 7 + 3);
+    const ok = vis && this.cast.getData('ok') === true;
+    this.cast.setVisible(ok);
+    if (ok) this.cast.setPosition(Math.round(s.x), Math.round(s.y)).setAlpha(CAST.ALPHA * Math.min(1, s.alpha));
   }
 
   get home(): XY {
@@ -101,7 +129,10 @@ export class DuelistView {
   }
 
   destroy(): void {
+    this.scene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.onPost);
     this.sprite.destroy();
+    this.cast.destroy();
+    this.refl?.destroy();
   }
 }
 

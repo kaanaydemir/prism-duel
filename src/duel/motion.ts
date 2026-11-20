@@ -23,7 +23,6 @@
 import type { MonsterArt, WeightClass } from '../art/types';
 import { WEIGHT_CLASSES } from '../art/types';
 import type { Uid } from '../engine/types';
-import { LOOK_V3 } from '../view/layout';
 
 export type Power = 1 | 2 | 3;
 /** Values for blow power 1 / 2 / 3 (index = power − 1). */
@@ -229,7 +228,7 @@ function detectMotion(): boolean {
   } catch {
     /* no globals (tests, workers): fall through */
   }
-  return LOOK_V3;
+  return true;
 }
 
 /**

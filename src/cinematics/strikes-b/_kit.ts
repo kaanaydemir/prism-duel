@@ -13,13 +13,11 @@ import type { GameEvent, PlayerId } from '../../engine/types';
 import { ATTRIBUTE_RAMP, PAL, type Ramp } from '../../art/palette';
 import { monsterAnimKey, monsterFrameName } from '../../art/textures';
 import type { AnyMonsterAnim, MonsterAnim } from '../../art/types';
-import { ARENA_V2, DEPTH, LOOK_V3, TILE_W, type XY, unitDepth } from '../../view/layout';
-import { lightFlash } from '../../view/light';
+import { DEPTH, TILE_W, type XY, unitDepth } from '../../view/layout';
 import { wait } from '../../vfx/core';
 import { E, Px, Sparks, animate, onFrame, sleep } from '../../vfx/combat';
 import { shatter } from '../../vfx/shatter';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
-import type { TileCard } from '../../view/TileCard';
 import { listHandlers, type CinematicContext, type StrikeArgs } from '../api';
 import { onDuelStart } from '../../duel/seeds';
 import { deathMaterial, deathV3 } from '../_v3/death';
@@ -34,10 +32,6 @@ export type AnyCtx = CinematicContext<GameEvent>;
 
 export const TAU = Math.PI * 2;
 export const ADD = Phaser.BlendModes.ADD;
-
-// ---------------------------------------------------------------- arena geometry (v1 / v2)
-
-export { ARENA_V2 };
 /**
  * Floor scale of the arena: 1 on v1's 64×32 tiles, 1.25 on v2's 80×40 tiles. Floor rings and
  * pools that cover a tile are multiplied by it (v1 sizes stay exactly as tuned).
@@ -50,7 +44,7 @@ export const TK = TILE_W / 64;
  */
 export function travelMs(dist: number, base: number, perPx: number, min: number, max: number, maxV2: number): number {
   const v = base + dist * perPx;
-  return v < min ? min : v > (ARENA_V2 ? maxV2 : max) ? (ARENA_V2 ? maxV2 : max) : v;
+  return v < min ? min : v > (max) ? (max) : v;
 }
 export const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 export const clamp = (v: number, a: number, b: number): number => (v < a ? a : v > b ? b : v);
@@ -427,80 +421,35 @@ export interface DeathOpts {
 export async function flavoredDeath(ctx: DestroyCtx, o: DeathOpts): Promise<void> {
   const ev = ctx.ev;
   if (ev.location !== 'monster' || sourceOwnsDeath(ctx)) return ctx.base();
-  if (LOOK_V3) {
-    return deathV3(ctx, {
-      fallback: () => ctx.base(),
-      onBurst: o.onBurst,
-      legacy: async (d) => {
-        const unit = d.unit;
-        const sc = ctx.scene;
-        const push = d.push ?? null;
-        try {
-          if (o.flavor) await o.flavor(unit, { push, hit: d.hit });
-        } catch (e) {
-          console.error('[strikes-b] death flavour failed', e);
-        }
-        if (!unit.sprite.active || !unit.sprite.visible) return;
-        ctx.sfx('shatter', { volume: 0.6 });
-        const at = unit.core();
-        const sh = shatter(sc, unit.sprite, {
-          monsterId: unit.cardId,
-          attribute: unit.attribute,
-          material: deathMaterial(unit.cardId),
-          floorY: d.home.y,
-          push: o.push ? o.push(unit, push) : (push ?? undefined),
-          onBurst: () => {
-            d.burst();
-            o.onBurst?.(unit, at);
-          },
-        });
-        void sh.then(() => unit.retire(0));
-      },
-    });
-  }
-  const field = ctx.views.field;
-  const unit = field.unit(ev.uid);
-  if (!unit || unit.retired || !unit.sprite.active || !unit.sprite.visible) return ctx.base();
-  const { tile } = field.release(ev.uid);
-  const sc = ctx.scene;
-  const push = (ctx.hints.push as XY | undefined) ?? null;
-  const hit = ctx.hints.hit !== false;
-  unit.badge.setVisible(false);
-  unit.posed = true;
-  try {
-    if (o.flavor) await o.flavor(unit, { push, hit });
-  } catch (e) {
-    console.error('[strikes-b] death flavour failed', e);
-  }
-  const tileJob = tile ? dissolveTile(sc, tile, o.tileDelay ?? 200) : Promise.resolve();
-  if (unit.sprite.active && unit.sprite.visible) {
-    ctx.sfx('shatter', { volume: 0.9 });
-    const at = unit.core();
-    if (ARENA_V2 && o.light !== false) {
-      const c = o.light ?? ATTRIBUTE_RAMP[unit.attribute][3];
-      void wait(sc, o.glitchMs ?? 120).then(() => lightFlash(sc, at.x, at.y, c, 46, 460, { floorY: unit.home.y, ring: true, intensity: 0.9 }));
-    }
-    const sh = shatter(sc, unit.sprite, {
-      monsterId: unit.cardId,
-      attribute: unit.attribute,
-      push: o.push ? o.push(unit, push) : (push ?? undefined),
-      glitchMs: o.glitchMs ?? 120,
-    });
-    if (o.onBurst) void wait(sc, (o.glitchMs ?? 120) + 10).then(() => o.onBurst?.(unit, at));
-    // the card can start for the graveyard while the debris is still falling
-    await Promise.race([sh, wait(sc, (o.glitchMs ?? 120) + 520)]);
-    void sh.then(() => unit.retire(400));
-  } else unit.retire(400);
-  field.forget(ev.uid);
-  await Promise.all([ctx.base(), tileJob]);
-}
-
-async function dissolveTile(scene: Phaser.Scene, tile: TileCard, delay: number): Promise<void> {
-  if (!tile.active) return;
-  await wait(scene, delay);
-  if (!tile.active) return;
-  await tile.dissolve(460);
-  tile.destroy();
+  return deathV3(ctx, {
+    fallback: () => ctx.base(),
+    onBurst: o.onBurst,
+    legacy: async (d) => {
+      const unit = d.unit;
+      const sc = ctx.scene;
+      const push = d.push ?? null;
+      try {
+        if (o.flavor) await o.flavor(unit, { push, hit: d.hit });
+      } catch (e) {
+        console.error('[strikes-b] death flavour failed', e);
+      }
+      if (!unit.sprite.active || !unit.sprite.visible) return;
+      ctx.sfx('shatter', { volume: 0.6 });
+      const at = unit.core();
+      const sh = shatter(sc, unit.sprite, {
+        monsterId: unit.cardId,
+        attribute: unit.attribute,
+        material: deathMaterial(unit.cardId),
+        floorY: d.home.y,
+        push: o.push ? o.push(unit, push) : (push ?? undefined),
+        onBurst: () => {
+          d.burst();
+          o.onBurst?.(unit, at);
+        },
+      });
+      void sh.then(() => unit.retire(0));
+    },
+  });
 }
 
 /** Attribute ramp of a unit. */

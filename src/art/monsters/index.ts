@@ -9,7 +9,6 @@
 import type { MonsterId } from '../../data/cards';
 import { MONSTER_IDS } from '../../data/cards';
 import type { MonsterArt } from '../types';
-import { LOOK_V3 } from '../../view/layout';
 import { placeholderMonster } from './_placeholder';
 import { placeholderTotem } from './_placeholder-new';
 import { placeholderToken } from './_placeholder-token';
@@ -42,10 +41,8 @@ for (const mod of Object.values(v3Modules)) {
 }
 
 export function monsterArt(id: MonsterId): MonsterArt {
-  if (LOOK_V3) {
-    const v3 = REGISTRY_V3.get(id);
-    if (v3) return v3;
-  }
+  const v3 = REGISTRY_V3.get(id);
+  if (v3) return v3;
   return REGISTRY.get(id) ?? placeholderFor(id);
 }
 

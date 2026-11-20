@@ -12,9 +12,8 @@
 // ends (the duelist's 'hurt' flinch is not waited for).
 
 import { PAL } from '../../art/palette';
-import { DEPTH, LOOK_V3, type XY } from '../../view/layout';
+import { DEPTH, type XY } from '../../view/layout';
 import { wait } from '../../vfx/core';
-import { damageNumber } from '../../vfx/numbers';
 import { Sparks } from '../../vfx/setpieces';
 import { fx, registerEvent } from '../api';
 import { LP_ROLL_MAX_MS } from '../_v3/budget';
@@ -35,7 +34,7 @@ registerEvent(
     const jobs: Promise<unknown>[] = [];
     if (at) {
       const p = { x: Math.round(at.x), y: Math.round(at.y) };
-      jobs.push(LOOK_V3 ? impactNumber(sc, p.x, p.y, ev.amount, { size, depth: DEPTH.FX_TOP + 50 }) : damageNumber(sc, p.x, p.y, ev.amount, 'damage', { size, depth: DEPTH.FX_TOP + 50 }));
+      jobs.push(impactNumber(sc, p.x, p.y, ev.amount, { size, depth: DEPTH.FX_TOP + 50 }));
       // the hurt travels: red sparks stream from the number into the LP panel
       const panel = ctx.views.camera.worldPoint(lp.x, lp.y);
       const sp = new Sparks(sc, DEPTH.FX_TOP + 40, ADD);
@@ -46,7 +45,7 @@ registerEvent(
           y: p.y + rr(-4, 4),
           vx: rr(-40, 40),
           vy: rr(-60, -20),
-          delay: LOOK_V3 ? 40 + i * 22 : 140 + i * 26,
+          delay: 40 + i * 22,
           life: 520,
           home: { x: panel.x, y: panel.y, k: 0.22 },
           ramp: [PAL.white, PAL.crim4, PAL.crim3, PAL.crim2],
@@ -57,25 +56,23 @@ registerEvent(
       sp.close();
     } else {
       const ny = lp.y + (ev.player === 0 ? -30 : 26);
-      jobs.push(LOOK_V3 ? impactNumber(sc, lp.x, ny, ev.amount, { size, depth: DEPTH.HUD + 20 }) : damageNumber(sc, lp.x, ny, ev.amount, 'damage', { size, depth: DEPTH.HUD + 20 }));
+      jobs.push(impactNumber(sc, lp.x, ny, ev.amount, { size, depth: DEPTH.HUD + 20 }));
     }
     const d = duelist(ctx, ev.player);
     // v3: the duelist's flinch plays on, but the handler ends with the LP roll (≈ 0.5 s after the
     // pop) — waiting on the 'hurt' anim (and its safety net) held every battle ~0.3 s longer
-    if (d && LOOK_V3) {
+    if (d) {
       void d.play('hurt');
       void d.jolt();
-    } else if (d) jobs.push(d.play('hurt'), d.jolt());
+    }
     // the LP counter: ticks, red flash, panel shake (HudView.setLp); starts as the sparks arrive.
     // v3: the first sparks reach the panel sooner, and the handler ends with the roll itself (the
     // digits' landing punch plays on)
-    if (LOOK_V3) {
-      const lpRoll = (at ? wait(sc, 60) : Promise.resolve()).then(() => {
-        const roll = hud.setLp(ev.player, ev.lpAfter, true, { maxMs: LP_ROLL_MAX_MS });
-        return Promise.race([roll, wait(sc, LP_ROLL_MAX_MS + 20)]);
-      });
-      jobs.push(lpRoll);
-    } else jobs.push((at ? wait(sc, 120) : Promise.resolve()).then(() => hud.setLp(ev.player, ev.lpAfter, true)));
+    const lpRoll = (at ? wait(sc, 60) : Promise.resolve()).then(() => {
+      const roll = hud.setLp(ev.player, ev.lpAfter, true, { maxMs: LP_ROLL_MAX_MS });
+      return Promise.race([roll, wait(sc, LP_ROLL_MAX_MS + 20)]);
+    });
+    jobs.push(lpRoll);
     if (ev.amount >= 1500) void wait(sc, 160).then(() => hud.shake(ev.player, 5, 420));
     if (ev.lpAfter <= 1000) ctx.music.setIntensity(1);
     await all(jobs);

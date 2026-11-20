@@ -27,7 +27,7 @@ import type Phaser from 'phaser';
 import { PAL } from '../../art/palette';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import { unitFrame, variantOf } from '../../duel/unit-variant';
-import { DEPTH, LOOK_V3, type XY, zoneXY } from '../../view/layout';
+import { DEPTH, type XY, zoneXY } from '../../view/layout';
 import { lightFlash, lightPool } from '../../view/light';
 import { shake } from '../../vfx/core';
 import type { GameEvent } from '../../engine/types';
@@ -658,7 +658,5 @@ async function eggDeath(ctx: Ctx<'destroy'>, u: MonsterUnit, home: XY, grown: bo
   void scatter;
 }
 
-if (LOOK_V3) {
-  registerStrike('cloud_hatchling', hatchRingV3, { name: 'strikes-a:cloud_hatchling' });
-  registerCardHook('cloud_hatchling', 'destroyed', hatchDeathV3, { name: 'strikes-a:cloud_hatchling:death' });
-}
+registerStrike('cloud_hatchling', hatchRingV3, { name: 'strikes-a:cloud_hatchling' });
+registerCardHook('cloud_hatchling', 'destroyed', hatchDeathV3, { name: 'strikes-a:cloud_hatchling:death' });

@@ -7,16 +7,13 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#05060f",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#05060f"
-    },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "bundleIdentifier": "com.prismduel.game",
-      "buildNumber": "1",
-      "supportsTablet": true,
+      "bundleIdentifier": "com.kaanaydemir.prismduel",
+      "buildNumber": "4",
+      "supportsTablet": false,
       "requireFullScreen": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -25,7 +22,7 @@
       }
     },
     "android": {
-      "package": "com.prismduel.game",
+      "package": "com.kaanaydemir.prismduel",
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#05060f",
@@ -37,6 +34,24 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-asset", "expo-screen-orientation"]
+    "plugins": [
+      "expo-asset",
+      "expo-screen-orientation",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 180,
+          "resizeMode": "contain",
+          "backgroundColor": "#05060f"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "514d43a5-5f41-42b3-98b4-97247bf957b5"
+      }
+    },
+    "owner": "kaanaydemir"
   }
 }

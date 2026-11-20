@@ -53,7 +53,7 @@ import type { PlayerId, Uid } from '../../engine/types';
 import { PAL, PLAYER_RAMP } from '../../art/palette';
 import { cardBackCanvas } from '../../art/cards';
 import { PixelCanvas } from '../../art/pixel';
-import { BOARD_CENTER, BOARD_COLS, BOARD_ROWS, DEPTH, LOOK_V3, UI, type XY, duelistXY, screenToIso, sideOfRow, unitDepth, zoneXY } from '../../view/layout';
+import { BOARD_CENTER, BOARD_COLS, BOARD_ROWS, DEPTH, UI, type XY, duelistXY, screenToIso, sideOfRow, unitDepth, zoneXY } from '../../view/layout';
 import { HOLOS, SCREENS } from '../../view/board-nt/layout-nt';
 import { Raster, onFrame, run } from '../../vfx/setpieces';
 import { Sparks as PxSparks } from '../../vfx/combat';
@@ -1339,7 +1339,6 @@ function unitsCrossed(obst: Box[], pl: LeapPlan, sizes: readonly (readonly [numb
 // ================================================================ the activation
 
 registerCardHook(ID, 'activate', async (ctx: ActCtx) => {
-  if (!LOOK_V3) return ctx.base();
   const ev = ctx.ev;
   const sc = ctx.scene;
   const T = WELL_T;

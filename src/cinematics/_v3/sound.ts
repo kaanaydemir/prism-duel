@@ -20,7 +20,6 @@ import type { AnimMark, AnyMonsterAnim } from '../../art/types';
 import type { CardId } from '../../data/cards';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import { variantOf } from '../../duel/unit-variant';
-import { LOOK_V3 } from '../../view/layout';
 import { setCombatSfx } from '../../vfx/combat';
 import { hitSfxName } from '../../audio/v3/materials';
 import { HARPOONER_VOICE } from '../../audio/v3/tide_harpooner';
@@ -299,7 +298,7 @@ export const CHARACTER_SOUNDS: Partial<Record<CardId, CharacterSounds>> = {
  * otherwise today's table.
  */
 export function soundsOf(id: CardId | null | undefined): CharacterSounds | null {
-  if (!LOOK_V3 || !id) return null;
+  if (!id) return null;
   const v = v3Recipe(id)?.voice;
   if (v && !('custom' in v)) return voiceSounds(id);
   return CHARACTER_SOUNDS[(v?.custom ?? id) as CardId] ?? null;
@@ -449,7 +448,7 @@ export function materialOf(id: CardId | null | undefined, kind: BlowKind): Mater
  * (A3: hitStone*), one without a hit recipe yet null.
  */
 export function hitSoundFor(u: MonsterUnit | null | undefined, o: { kind: BlowKind; heavy: boolean }): SfxName | null {
-  if (!LOOK_V3 || !u) return null;
+  if (!u) return null;
   const own = soundsOf(u.cardId)?.struck;
   if (own) return o.kind === 'magic' ? own.magic : u.guarding && !o.heavy && own.guard ? own.guard : o.heavy ? own.heavy : own.light;
   const m = materialOf(u.cardId, o.kind);

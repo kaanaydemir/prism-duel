@@ -45,7 +45,7 @@ import type Phaser from 'phaser';
 import { ATTRIBUTE_RAMP, PAL, RAMPS, type Ramp } from '../../art/palette';
 import type { MonsterUnit } from '../../duel/MonsterUnit';
 import type { GameEvent } from '../../engine/types';
-import { DEPTH, LOOK_V3, type XY, unitDepth, zoneXY } from '../../view/layout';
+import { DEPTH, type XY, unitDepth, zoneXY } from '../../view/layout';
 import { Raster } from '../../vfx/setpieces';
 import { Sparks, animate, onFrame, sleep } from '../../vfx/combat';
 import { shake } from '../../vfx/core';
@@ -316,8 +316,7 @@ function clods(sc: Phaser.Scene, at: XY, rx: number, n: number): void {
   sp.release();
 }
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     ID,
     'summon',
     async (ctx) => {
@@ -589,53 +588,51 @@ async function afterBattle(ctx: Ctx<'battle'>, u: MonsterUnit | null, d: Drain):
   });
 }
 
-if (LOOK_V3) {
-  registerCardHook(ID, 'effect', (ctx) => drainV3(ctx), { priority: 20, name: 'kart-b:grim_warden:effect' });
-  // the battle the drain belongs to: after it, the light flows back or the lantern keeps it
-  registerCardHook(
-    ID,
-    'attack',
-    async (ctx) => {
-      await ctx.base();
-      const d = drains.get(ctx.ev.attackerUid);
-      if (!d) return;
-      drains.delete(ctx.ev.attackerUid);
-      // critic pass-3 r2: a guardian_charm that saves the drained target must be SEEN first (its activation explains
-      // why the target lives) — the give-back waits for the charm's activate event and starts once it has flared
-      const ai = ctx.findType('activate', (e) => e.cardId === 'guardian_charm', { until: (e) => e.type === 'battle' || e.type === 'turnStart' });
-      // (the charm's activation zooms its card over the board for ≈ 2 s — a give-back under it would be hidden — so the
-      // light starts home on the next event's start, right as the charm's card has been shown and leaves)
-      const next = ai >= 0 ? ctx.events[ai + 1] : undefined;
-      if (next) {
-        const uid = ctx.ev.attackerUid;
-        pendingGiveBacks.set(next, () => void afterBattle(ctx, live(ctx.unit(uid)), d).catch((e) => console.error('[grim give-back]', e)));
-        return;
-      }
-      await afterBattle(ctx, live(ctx.unit(ctx.ev.attackerUid)), d);
-    },
-    { priority: 20, name: 'kart-b:grim_warden:attack' },
-  );
-  // the kept lantern colour ends with the turn (and never outlives a duel / a lost unit)
-  registerObserver((ev, ctx) => {
-    const gb = pendingGiveBacks.get(ev);
-    if (gb) {
-      pendingGiveBacks.delete(ev);
-      gb();
+registerCardHook(ID, 'effect', (ctx) => drainV3(ctx), { priority: 20, name: 'kart-b:grim_warden:effect' });
+// the battle the drain belongs to: after it, the light flows back or the lantern keeps it
+registerCardHook(
+  ID,
+  'attack',
+  async (ctx) => {
+    await ctx.base();
+    const d = drains.get(ctx.ev.attackerUid);
+    if (!d) return;
+    drains.delete(ctx.ev.attackerUid);
+    // critic pass-3 r2: a guardian_charm that saves the drained target must be SEEN first (its activation explains
+    // why the target lives) — the give-back waits for the charm's activate event and starts once it has flared
+    const ai = ctx.findType('activate', (e) => e.cardId === 'guardian_charm', { until: (e) => e.type === 'battle' || e.type === 'turnStart' });
+    // (the charm's activation zooms its card over the board for ≈ 2 s — a give-back under it would be hidden — so the
+    // light starts home on the next event's start, right as the charm's card has been shown and leaves)
+    const next = ai >= 0 ? ctx.events[ai + 1] : undefined;
+    if (next) {
+      const uid = ctx.ev.attackerUid;
+      pendingGiveBacks.set(next, () => void afterBattle(ctx, live(ctx.unit(uid)), d).catch((e) => console.error('[grim give-back]', e)));
+      return;
     }
-    if (ev.type !== 'turnStart' && ev.type !== 'gameOver') return;
-    for (const run of [...pendingGiveBacks.values()]) run();
-    pendingGiveBacks.clear();
-    for (const uid of [...kept.keys()]) {
-      ctx.unit(uid)?.setAura('grimLantern', null);
-      kept.delete(uid);
-    }
-    for (const [uid, d] of [...drains]) {
-      endDrain(d);
-      d.tint.destroy();
-      drains.delete(uid);
-    }
-  });
-}
+    await afterBattle(ctx, live(ctx.unit(ctx.ev.attackerUid)), d);
+  },
+  { priority: 20, name: 'kart-b:grim_warden:attack' },
+);
+// the kept lantern colour ends with the turn (and never outlives a duel / a lost unit)
+registerObserver((ev, ctx) => {
+  const gb = pendingGiveBacks.get(ev);
+  if (gb) {
+    pendingGiveBacks.delete(ev);
+    gb();
+  }
+  if (ev.type !== 'turnStart' && ev.type !== 'gameOver') return;
+  for (const run of [...pendingGiveBacks.values()]) run();
+  pendingGiveBacks.clear();
+  for (const uid of [...kept.keys()]) {
+    ctx.unit(uid)?.setAura('grimLantern', null);
+    kept.delete(uid);
+  }
+  for (const [uid, d] of [...drains]) {
+    endDrain(d);
+    d.tint.destroy();
+    drains.delete(uid);
+  }
+});
 
 // ================================================================ idle: the lantern's swinging floor light
 
@@ -745,7 +742,7 @@ onDuelStart(() => {
   idlePools.clear();
   poolScene = null;
 });
-if (LOOK_V3) registerObserver((_ev, ctx) => watchLanterns(ctx));
+registerObserver((_ev, ctx) => watchLanterns(ctx));
 
 // ================================================================ strike: "Fener Tırpanı"
 
@@ -1221,7 +1218,7 @@ async function scytheV3(s: StrikeArgs): Promise<void> {
   if (u.sprite.active) u.sprite.setPosition(r0.x, r0.y).setDepth(unitDepth(home.y));
 }
 
-if (LOOK_V3) registerStrike(ID, (s) => scytheV3(s), { priority: 20, name: 'kart-b:grim_warden:strike' });
+registerStrike(ID, (s) => scytheV3(s), { priority: 20, name: 'kart-b:grim_warden:strike' });
 
 // ================================================================ death: the empty shroud collapses
 
@@ -1443,8 +1440,7 @@ async function skullLeaves(sc: Phaser.Scene, at: XY, ramp: Ramp, depth: number, 
   sk.destroy();
 }
 
-if (LOOK_V3)
-  registerCardHook(
+registerCardHook(
     ID,
     'destroyed',
     (ctx) => {

@@ -38,7 +38,7 @@ import { PixelCanvas } from '../../art/pixel';
 import { ambience } from '../../audio/ambience';
 import { sfx } from '../../audio/sfx';
 import type { GameEvent, PlayerId } from '../../engine/types';
-import { BANISH_PAD, type BoardSpot, duelistXY, zoneXY } from '../layout';
+import { BANISH_PAD, BOARD_V4, type BoardSpot, duelistXY, zoneXY } from '../layout';
 import { calmZones } from '../board-calm/art';
 import { REDUCED_MOTION } from '../v3/motion';
 import { TEX } from '../../vfx/core';
@@ -46,9 +46,13 @@ import { LOW_LP, fieldThemeWatcher, readLp } from './duel-watch';
 import { DUELIST_PADS, NT_DEPTH, PLATE_C0, PLATE_C1, PLATE_POLY, PLATE_R0, PLATE_R1, PLATE_X0, PLATE_X1, PLATE_Y0, PLATE_Y1, SCREENS, SCREEN_INNER, ntGrid, ntIso } from './layout-nt';
 import type { NtCtx, NtLayer } from './layer';
 import { ensureNtTexture } from './textures';
+import { WIDE_OX } from '../mobile';
 
 type Img = Phaser.GameObjects.Image;
 type Bob = Phaser.GameObjects.Bob;
+
+/** The tide layer draws the flooded stage itself (BOARD_V4: BoardViewNt creates it). */
+const TIDE_LAYER = BOARD_V4;
 
 const Z = {
   floorTint: NT_DEPTH.platform + 1.4745,
@@ -410,7 +414,7 @@ export function createReactLayer(ctx: NtCtx): NtLayer {
   let theme: Exclude<SealTheme, 'none'> | null = null;
   let themeK = 0; // 0 … 4 notches in
   let themeStepAt = 0;
-  const hallDark = add(scene.add.rectangle(-16, -616, 672, 992, PAL.mist).setOrigin(0).setDepth(Z.hallDark).setBlendMode(MUL).setVisible(false));
+  const hallDark = add(scene.add.rectangle(-16 - WIDE_OX, -616, 672 + WIDE_OX * 2, 992, PAL.mist).setOrigin(0).setDepth(Z.hallDark).setBlendMode(MUL).setVisible(false));
   // festival: the torches' baked light halos once more, warm (lantern light)
   const lantern = scene.textures.exists('nt:v4light:backglow:1')
     ? add(scene.add.image(-16, -16, 'nt:v4light:backglow:1').setOrigin(0).setDepth(Z.lantern).setBlendMode(ADD).setTint(PAL.gold3).setVisible(false))
@@ -676,8 +680,9 @@ export function createReactLayer(ctx: NtCtx): NtLayer {
         q.bob.y = y;
       });
     else hide(embers);
-    // ---- tidal bay caustics: each glint forms, peaks and breaks on its own period
-    if (theme === 'water' && k > 0 && motion)
+    // ---- tidal bay caustics: each glint forms, peaks and breaks on its own period. Owner 2026-11-17: the tide layer
+    // (board-nt/tide.ts) floods the stage with its own caustics, glints and swell — these glints would only add noise there
+    if (theme === 'water' && k > 0 && motion && !TIDE_LAYER)
       caustics.forEach((q, i) => {
         const at = causticAt[i];
         if (!at) return;

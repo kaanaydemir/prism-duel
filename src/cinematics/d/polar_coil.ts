@@ -33,7 +33,7 @@
 import { PAL, PLAYER_COLOR, RAMPS, type Ramp } from '../../art/palette';
 import type { SfxHandle } from '../../audio/sfx';
 import type { GameEvent } from '../../engine/types';
-import { DEPTH, LOOK_V3, type XY } from '../../view/layout';
+import { DEPTH, type XY } from '../../view/layout';
 import { lightFlash } from '../../view/light';
 import { shake } from '../../vfx/core';
 import { onFrame, sleep } from '../../vfx/combat';
@@ -110,7 +110,6 @@ registerCardHook(
   ID,
   'summon',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     const ev = ctx.ev;
     if (ev.from === 'field') return ctx.base();
     // the sovereign's split lands its pieces itself (lane D polar_sovereign)
@@ -132,7 +131,6 @@ registerCardHook(
   ID,
   'flip',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     const ev = ctx.ev;
     if (ev.cause !== 'flipSummon') return ctx.base();
     const field = ctx.views.field;
@@ -205,7 +203,7 @@ registerCardHook(
 registerEvent(
   'positionChange',
   async (ctx) => {
-    if (!LOOK_V3 || ctx.cardId(ctx.ev.uid) !== ID || ctx.ev.position !== 'defense') return ctx.base();
+    if ((ctx.cardId(ctx.ev.uid) !== ID) || ctx.ev.position !== 'defense') return ctx.base();
     const u = ctx.views.field.unit(ctx.ev.uid);
     const tile = ctx.views.field.tileOf(ctx.ev.uid);
     if (!u || u.retired || !u.sprite.visible || !u.has('toGuard')) return ctx.base();
@@ -249,7 +247,6 @@ registerEvent(
 registerStrike(
   ID,
   async (s: StrikeArgs) => {
-    if (!LOOK_V3) return s.base?.();
     const u = s.attacker;
     const sc = s.scene;
     seedFx(u.uid * 43 + (s.target?.uid ?? 7));
@@ -396,7 +393,7 @@ function armUnwind(sc: Phaser.Scene, u: MonsterUnit, maxMs: number): Arm {
 
 /** A battle the coil is in (attacking or attacked): arm the unwinding before the blow lands. */
 function armForBattle(ctx: CinematicContext<BattleEv>, uid: number | null): Promise<void> {
-  if (LOOK_V3 && uid !== null) {
+  if (uid !== null) {
     const u = ctx.views.field.unit(uid);
     if (u && !u.retired && u.sprite.active && u.cardId === ID) armUnwind(ctx.scene, u, 6000);
   }
@@ -433,7 +430,6 @@ registerCardHook(
   ID,
   'destroyed',
   async (ctx) => {
-    if (!LOOK_V3) return ctx.base();
     if (ctx.ev.location !== 'monster' || sourceOwnsDeath(ctx)) return ctx.base();
     const sc = ctx.scene;
     const u = ctx.views.field.unit(ctx.ev.uid);
