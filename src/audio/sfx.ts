@@ -48,6 +48,7 @@ import type { UiCardSfxName } from './v3/ui-cards';
 import type { UiFlowSfxName } from './v3/ui-flow';
 import type { KiteSfxName } from './v3/kite_fencer';
 import type { ArenaSfxName } from './v3/arena';
+import type { FusionSfxName } from './v3/fusion';
 
 export type SfxName =
   // UI
@@ -102,7 +103,9 @@ export type SfxName =
   | UiCardSfxName
   | UiFlowSfxName
   // arena v4 step 4 (additive): the reactive arena (src/audio/v3/arena.ts)
-  | ArenaSfxName;
+  | ArenaSfxName
+  // the fusion cinematic (additive): Prism Fusion → Trinity Crystal Wyrm (src/audio/v3/fusion.ts)
+  | FusionSfxName;
 
 export interface SfxOpts {
   /** 0..1, default 1. */
