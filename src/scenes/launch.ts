@@ -28,10 +28,15 @@ export interface Settings {
   music: boolean;
   /** Hot-seat privacy curtain between turns (hides the next player's hand until they tap). */
   curtain: boolean;
+  /**
+   * The arena: 'neon' (Neon Tower, the classic one) or 'sky' (Sky Temple, drawn at 2× density: the
+   * canvas size depends on it, so changing it reloads the game — src/view/hires.ts reads it at boot).
+   */
+  arena: 'neon' | 'sky';
 }
 
 const KEY = 'neon-duello:settings';
-const DEFAULTS: Settings = { speed: 1, sound: true, music: true, curtain: true };
+const DEFAULTS: Settings = { speed: 1, sound: true, music: true, curtain: true, arena: 'neon' };
 
 export function loadSettings(): Settings {
   try {

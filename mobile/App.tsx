@@ -41,7 +41,9 @@ function bridgeScript(saved: Saved): string {
     };
     try { Object.defineProperty(window, 'localStorage', { value: ls, configurable: true }); } catch (e) {}
   }
-  for (var k in saved) { try { ls.setItem(k, saved[k]); } catch (e) {} }
+  // the app's copy only fills what the page's own storage lost (an OS clean-up, an update); a value the
+  // page has is newer (e.g. a setting changed right before the page reloaded itself)
+  for (var k in saved) { try { if (ls.getItem(k) === null) ls.setItem(k, saved[k]); } catch (e) {} }
   var timer = null;
   function flush() {
     timer = null;

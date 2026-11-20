@@ -7,10 +7,11 @@ import { onDuelStart } from './duel/seeds';
 import { mulberry32 } from './art/pixel';
 import { MOBILE } from './view/mobile';
 import { installSwipeWheel } from './view/swipeWheel';
-import { CANVAS_W, driveWide, installWide } from './view/wide';
+import { CANVAS_W, HIRES, RENDER_H, RENDER_W, driveWide, installHires, installWide } from './view/wide';
 
 const params = new URLSearchParams(location.search);
-const dev = params.get('dev');
+// a page that embeds the game may name a dev preview before boot (window.__PRISM_DEV), like ?dev=
+const dev = params.get('dev') ?? ((window as unknown as { __PRISM_DEV?: string }).__PRISM_DEV || null);
 
 // Wide phones: the canvas grows past 640 and the arena fills the side bars (src/view/wide.ts).
 installWide();
@@ -18,8 +19,8 @@ installWide();
 const game = new Phaser.Game({
   type: Phaser.WEBGL,
   parent: 'game',
-  width: CANVAS_W,
-  height: GAME_H,
+  width: RENDER_W,
+  height: RENDER_H,
   backgroundColor: '#05060f',
   pixelArt: true,
   roundPixels: true,
@@ -48,6 +49,12 @@ const game = new Phaser.Game({
  * It snaps to whole DEVICE pixels when that loses little, else uses the exact fit.
  */
 function fitZoom(): number {
+  // the canvas is HIRES× the game size (Sky Temple): Phaser's zoom is per canvas pixel
+  return fitGameZoom() / HIRES;
+}
+
+/** Largest zoom (screen px per GAME pixel) as described above. */
+function fitGameZoom(): number {
   const z = Math.min(window.innerWidth / CANVAS_W, window.innerHeight / GAME_H);
   if ((window as unknown as { __PRISM_MOBILE?: boolean }).__PRISM_MOBILE) {
     const dpr = window.devicePixelRatio || 1;
@@ -60,6 +67,7 @@ window.addEventListener('resize', () => game.scale.setZoom(fitZoom()));
 // Phone: swipes scroll the wheel-driven panels (gallery, deck picker, graveyard), with momentum.
 if (MOBILE) installSwipeWheel(game, ['Title', 'DeckPick', 'Duel']);
 driveWide(game);
+installHires(game);
 
 // ---------------------------------------------------------------- test hooks
 // Used by tools/shot.mjs and tools/film.mjs to capture deterministic frames.
