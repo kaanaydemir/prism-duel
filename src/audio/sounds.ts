@@ -34,6 +34,7 @@ import { UI_FLOW_RECIPES } from './v3/ui-flow';
 import { V3_KITE_RECIPES } from './v3/kite_fencer';
 import { ARENA_RECIPES } from './v3/arena';
 import { V3_FUSION_RECIPES } from './v3/fusion';
+import { NET_RECIPES } from './v3/net';
 
 export interface Recipe {
   /** Reverb send 0..1. */
@@ -1134,4 +1135,5 @@ export const RECIPES: Record<SfxName, Recipe> = {
   ...V3_KITE_RECIPES, // Uçurtma Eskrimci (kite_fencer, lane C) — ./v3/kite_fencer.ts
   ...ARENA_RECIPES, // arena v4 step 4: the reactive arena's sounds (./v3/arena.ts)
   ...V3_FUSION_RECIPES, // Prism Fusion → Trinity Crystal Wyrm, the fusion cinematic (./v3/fusion.ts)
+  ...NET_RECIPES, // online play: lobby / connection sounds (./v3/net.ts)
 };

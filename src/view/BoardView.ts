@@ -51,9 +51,13 @@ import { PAL, PLAYER_COLOR } from '../art/palette';
 import { mix, mulberry32 } from '../art/pixel';
 import type { PlayerId } from '../engine/types';
 import { TEX, shake } from '../vfx/core';
-import { BOARD_COLS, BOARD_MID_COL, BOARD_ROWS, type BoardSpot, DEPTH, GAME_H, GAME_W, isoToScreen, screenToIso, zoneCell } from './layout';
+import { BOARD_COLS, BOARD_V4, BOARD_MID_COL, BOARD_ROWS, type BoardSpot, DEPTH, GAME_H, GAME_W, isoToScreen, screenToIso, zoneCell } from './layout';
 import { BoardViewCalm } from './board-calm/BoardViewCalm';
 import { BoardViewNt } from './board-nt';
+import { BoardViewSky } from './board-sky';
+import { type ArenaId, resolveArena } from './arena-choice';
+import { setSteppedFloor } from './light/stepped';
+import { setCastLight } from '../duel/cast-shadow';
 import type { ArenaViewApi } from './board-nt/api';
 import { ARENA_NT } from './board-nt/flag';
 import type { CrowdReaction } from './board-v2/types';
@@ -195,6 +199,11 @@ export interface BoardViewOptions {
   lights?: boolean;
   /** Origin of the volcano cracks when constructed with theme 'volcano'. */
   volcanoFrom?: PlayerId | null;
+  /**
+   * The arena (additive): 'sky' = the Sky Temple (src/view/board-sky), 'neon' = the Neon Tower. Omitted: the player's
+   * choice (src/view/arena-choice.ts resolveArena: ?arena= wins). Ignored on the retired calm arena (?arena=old).
+   */
+  arena?: ArenaId;
 }
 
 let instanceCounter = 0;
@@ -203,6 +212,8 @@ export class BoardView {
   readonly scene: Phaser.Scene;
   /** The arena of the v3 look: the calm arena, or the Neon Tower (?arena=nt, docs/v3/ARENA_NEON_TOWER.md); null otherwise. */
   private readonly calm: ArenaViewApi | null = null;
+  /** Which arena this board is (the Sky Temple or the Neon Tower). */
+  readonly arena: ArenaId;
   private readonly id = ++instanceCounter;
   private readonly objs: Phaser.GameObjects.GameObject[] = [];
   private readonly rnd = mulberry32(1337);
@@ -266,7 +277,10 @@ export class BoardView {
 
   constructor(scene: Phaser.Scene, opts: BoardViewOptions = {}) {
     this.scene = scene;
-    this.calm = ARENA_NT ? new BoardViewNt(scene, opts) : new BoardViewCalm(scene, opts);
+    this.arena = ARENA_NT && BOARD_V4 ? resolveArena(opts.arena) : 'neon';
+    setSteppedFloor(this.arena === 'sky' ? 'none' : 'still');
+    setCastLight(this.arena === 'sky' ? 'sun' : 'stage');
+    this.calm = !ARENA_NT ? new BoardViewCalm(scene, opts) : this.arena === 'sky' ? new BoardViewSky(scene, opts) : new BoardViewNt(scene, opts);
     return;
   }
 

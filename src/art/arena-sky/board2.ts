@@ -113,15 +113,23 @@ interface Cell {
   u: number;
   v: number;
   owner: Owner;
-  kind: 'zone' | 'field' | 'banish' | 'deck' | 'grave';
+  kind: 'zone' | 'field' | 'fusion' | 'deck' | 'grave';
 }
+/** Game point → (u, v) of the board grid. */
+const uvOf = (x: number, y: number) => ({ u: (x - 320 + 2 * (y - 160)) / 2, v: (2 * (y - 160) - (x - 320)) / 2 });
+/**
+ * Every slot of the duel's arena-v4 board (layout.ts): 5 + 5 zones per player, the Field Spell seal, the graveyard and
+ * deck pads, and the Fusion Deck pad (layout.fusionDeckXY: P1 (140, 134), in the banish corner nudged onto the stage).
+ * The banish cells get no pad (layout.BANISH_PAD is false on this board).
+ */
 function cells(): Cell[] {
   const out: Cell[] = [];
   for (const p of [0, 1] as const) {
     const at = (c: number, r: number) => (p === 0 ? { u: COL_U[c], v: ROW_V[r] } : { u: COL_U[6 - c], v: ROW_V[4 - r] });
     for (let i = 0; i < 5; i++) for (const r of [3, 4]) out.push({ ...at(1 + i, r), owner: p, kind: 'zone' });
     out.push({ ...at(0, 3), owner: p, kind: 'field' });
-    out.push({ ...at(0, 4), owner: p, kind: 'banish' });
+    const fz = p === 0 ? uvOf(140, 134) : uvOf(500, 186);
+    out.push({ ...fz, owner: p, kind: 'fusion' });
     out.push({ ...at(6, 3), owner: p, kind: 'grave' });
     out.push({ ...at(6, 4), owner: p, kind: 'deck' });
   }
@@ -233,38 +241,50 @@ function slot(u: number, v: number, c: Cell, ax: number, ay: number): Color | nu
     const fill = du + dv < -ZONE_R * 0.8 ? ZONE_FILL2 : ZONE_FILL;
     return mix(fill, N[2], g * g * 0.85);
   }
-  // pads: octagonal stone plinths (a gold rim, the owner's glyph), a short side toward the viewer
+  // pads: raised stone plinths in the exact outline the duel's shaped highlight uses (art/arena-nt/floor.ts zoneShapeMask):
+  // the Field seal a flat hexagon (54 × 15), the deck / graveyard / Fusion Deck pads small diamonds (46 × 23). A gold rim,
+  // the owner's neon glyph inlaid in the top, a short block side toward the viewer.
   const s = scr(du, dv);
-  const oct = (x: number, y: number) => Math.max(Math.abs(x) / 2 + Math.abs(y), Math.abs(y) * 1.32, (Math.abs(x) / 2) * 1.1);
-  const r = 13;
-  const top = oct(s.x, s.y + 1.5);
-  if (top > r) {
-    if (oct(s.x, s.y) <= r) return s.y > 0 ? BLOCK[2] : null;
+  const LIFT = 1.5;
+  /** Distance (game px, y units) inside the outline; < 0 outside. */
+  const inside = (x: number, y: number): number => (c.kind === 'field' ? Math.min(7.5 - Math.abs(y), (27 - 2 * Math.abs(y) - Math.abs(x)) / 2) : 11.5 - (Math.abs(x) / 2 + Math.abs(y)));
+  const m = inside(s.x, s.y + LIFT);
+  if (m < 0) {
+    if (inside(s.x, s.y) >= 0 && s.y > 0) return inside(s.x, s.y) < 0.5 ? INK : tone(BLOCK, 0.36 + (s.x < 0 ? 0.1 : 0), ax, ay);
     return null;
   }
-  if (top > r - 0.9) return INK;
-  if (top > r - 2.1) return s.y < 0 ? GOLD[6] : GOLD[4];
-  if (top > r - 2.9) return GOLD[1];
-  const sy = s.y + 1.5;
+  if (m < 0.5) return INK;
+  if (m < 1.4) return s.y + LIFT < 0 ? GOLD[6] : GOLD[4];
+  if (m < 1.9) return GOLD[1];
+  const sy = s.y + LIFT;
   const ax2 = Math.abs(s.x);
   const ay2 = Math.abs(sy);
-  let base = tone(FLOOR, 0.62 - sy * 0.012 + (fbm(u / 6, v / 6, 2, 23) - 0.5) * 0.08, ax, ay);
-  const ring = Math.hypot(s.x / 2, sy);
+  let base = tone(FLOOR, 0.66 - sy * 0.014 + (fbm(u / 6, v / 6, 2, 23) - 0.5) * 0.08, ax, ay);
+  if (m < 2.6) base = tone(FLOOR, 0.42, ax, ay); // the dark bevel inside the gold
+  const dm = ax2 / 2 + ay2;
   if (c.kind === 'field') {
-    const dm = ax2 / 2 + ay2;
-    if (dm < 7.2 && dm > 5.8) base = N[5];
-    else if (dm < 2.4) base = N[6];
-    else if (dm < 5.8 && (ay2 < 0.6 || ax2 < 1.2)) base = N[4];
-  } else if (c.kind === 'banish') {
-    if (ring < 6.6 && ring > 5.4) base = N[5];
-    else if (ring < 3.4 && ring > 2.2) base = N[4];
-    else if (ring < 1.2) base = N[6];
+    // the seal: an inner neon hexagon, a four-point star at its heart
+    if (m > 2.6 && m < 3.4) base = N[4];
+    else if (m >= 3.4 && m < 3.9) base = N[2];
+    const star = Math.min(ax2 / 2 + ay2 * 3.2, ax2 * 1.6 + ay2 * 0.9 * 2);
+    if (star < 1.1) base = N[7];
+    else if (ax2 / 2 + ay2 < 2.2 && (ay2 < 0.55 || ax2 < 0.8)) base = N[6];
+    else if (dm < 3.2 && dm > 2.5) base = N[5];
   } else if (c.kind === 'grave') {
-    const stone = (ax2 < 4.6 && sy > -2.5 && sy < 6) || (sy <= -2.5 && (s.x * s.x) / 21 + ((sy + 2.5) * (sy + 2.5)) / 9.6 < 1);
-    if (stone) base = (ax2 < 0.8 && sy > -4.2 && sy < 3.2) || (Math.abs(sy + 0.8) < 0.6 && ax2 < 3) ? N[6] : tone(BLOCK, 0.84, ax, ay);
+    const stone = (ax2 < 3.6 && sy > -2 && sy < 4.6) || (sy <= -2 && (s.x * s.x) / 13 + ((sy + 2) * (sy + 2)) / 6 < 1);
+    if (stone) base = (ax2 < 0.7 && sy > -3.4 && sy < 2.6) || (Math.abs(sy + 0.6) < 0.5 && ax2 < 2.4) ? N[6] : tone(BLOCK, 0.84, ax, ay);
+    else if (m > 2.6 && m < 3.2) base = N[3];
+  } else if (c.kind === 'fusion') {
+    // two linked rings: the Fusion Deck
+    const r1 = Math.hypot((s.x + 3) / 2, sy);
+    const r2 = Math.hypot((s.x - 3) / 2, sy);
+    if ((r1 < 3.4 && r1 > 2.6) || (r2 < 3.4 && r2 > 2.6)) base = N[5];
+    else if (r1 < 1 || r2 < 1) base = N[6];
+    else if (m > 2.6 && m < 3.2) base = N[3];
   } else {
-    if (ring < 7 && ring > 5.8) base = N[4];
-    else if (ring < 2.4) base = N[5];
+    if (dm < 6.4 && dm > 5.6) base = N[4];
+    else if (dm < 2.2) base = N[5];
+    else if (m > 2.6 && m < 3.2) base = N[3];
   }
   return base;
 }

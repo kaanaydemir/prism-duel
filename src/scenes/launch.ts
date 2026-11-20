@@ -1,6 +1,7 @@
 // How scenes hand off to each other, plus persisted player settings.
 import type { CardId } from '../data/cards';
 import type { PlayerId } from '../engine/types';
+import { DEFAULT_ARENA, type ArenaId } from '../view/arena-choice';
 
 /** hotseat: two humans share the screen. vsBot: human (P1) vs the CPU. demo: CPU vs CPU (title attract mode / QA). */
 export type DuelMode = 'hotseat' | 'vsBot' | 'demo';
@@ -19,6 +20,11 @@ export interface DuelLaunch {
    * default (the classic 20 cards, or the ?deck=expanded sampler).
    */
   decks?: [CardId[], CardId[]];
+  /**
+   * The arena of this duel (additive). Omitted: the player's remembered choice (src/view/arena-choice.ts).
+   * A networked duel passes the host's arena here so both sides play on the same board.
+   */
+  arena?: ArenaId;
 }
 
 export interface Settings {
@@ -32,11 +38,11 @@ export interface Settings {
    * The arena: 'neon' (Neon Tower, the classic one) or 'sky' (Sky Temple, drawn at 2× density: the
    * canvas size depends on it, so changing it reloads the game — src/view/hires.ts reads it at boot).
    */
-  arena: 'neon' | 'sky';
+  arena: ArenaId;
 }
 
 const KEY = 'neon-duello:settings';
-const DEFAULTS: Settings = { speed: 1, sound: true, music: true, curtain: true, arena: 'neon' };
+const DEFAULTS: Settings = { speed: 1, sound: true, music: true, curtain: true, arena: DEFAULT_ARENA };
 
 export function loadSettings(): Settings {
   try {

@@ -56,6 +56,7 @@ const LOGO_Y = 22;
 const ENTRIES: MenuEntry[] = [
   { id: 'hotseat', label: '2 Players (Same Screen)', desc: 'Two players take turns on the same screen.', icon: TICON.duo, style: 'p1' },
   { id: 'vsBot', label: 'Versus CPU', desc: 'Duel against the CPU. You play as Player 1.', icon: TICON.bot, style: 'p2' },
+  { id: 'online', label: 'Play with a Friend', desc: 'Online duel: create a room and share the code, or join one.', icon: TICON.duo, style: 'leaf' },
   { id: 'demo', label: 'Watch (Demo)', desc: 'Two CPU players duel. Sit back and enjoy!', icon: TICON.eye, style: 'gold' },
   { id: 'deck', label: 'Deck Builder', desc: 'Build 40-80 card decks, save them, use them in duels.', icon: TICON.cards, style: 'leaf' },
   { id: 'howto', label: 'How to Play', desc: 'Phases, summoning, battle math and traps.', icon: TICON.book, style: 'spell' },
@@ -222,7 +223,7 @@ export class TitleScene extends Phaser.Scene {
 
   private buildHints(): Phaser.GameObjects.Container {
     const c = this.add.container(0, 0).setScrollFactor(0).setDepth(2000).setVisible(false);
-    const t = pixelText(this, 320, 348, '↑↓ SELECT   ·   ENTER CONFIRM   ·   1–7 SHORTCUT', { size: 'sm', align: 'center', originX: 0.5, originY: 0.5, color: PAL.steel });
+    const t = pixelText(this, 320, 348, '↑↓ SELECT   ·   ENTER CONFIRM   ·   1–8 SHORTCUT', { size: 'sm', align: 'center', originX: 0.5, originY: 0.5, color: PAL.steel });
     c.add(t);
     return c;
   }
@@ -272,7 +273,7 @@ export class TitleScene extends Phaser.Scene {
           void this.backToAttract();
           return;
       }
-      const d = /^(Digit|Numpad)([1-7])$/.exec(e.code);
+      const d = /^(Digit|Numpad)([1-8])$/.exec(e.code);
       if (d && !e.repeat) {
         this.menu.select(Number(d[2]) - 1, true);
         void this.menu.activate();
@@ -325,7 +326,7 @@ export class TitleScene extends Phaser.Scene {
       await this.launch(id);
       return;
     }
-    if (id === 'hotseat' || id === 'vsBot' || id === 'deck') {
+    if (id === 'hotseat' || id === 'vsBot' || id === 'deck' || id === 'online') {
       await this.leaveTo(id);
       return;
     }
@@ -343,7 +344,7 @@ export class TitleScene extends Phaser.Scene {
   }
 
   /** Hot-seat / vs CPU go through the deck picker ("Deste Seç"), "Deste Kur" opens the builder. */
-  private async leaveTo(id: 'hotseat' | 'vsBot' | 'deck'): Promise<void> {
+  private async leaveTo(id: 'hotseat' | 'vsBot' | 'deck' | 'online'): Promise<void> {
     this.screen = 'launch';
     this.menu.setEnabled(false);
     void this.logo.glitch(1);
@@ -353,6 +354,7 @@ export class TitleScene extends Phaser.Scene {
     const cover = await wipeOut(this);
     void cover;
     if (id === 'deck') this.scene.start('Deck', {});
+    else if (id === 'online') this.scene.start('NetLobby', {});
     else this.scene.start('DeckPick', { mode: id, step: 0 });
   }
 

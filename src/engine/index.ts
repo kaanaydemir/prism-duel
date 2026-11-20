@@ -64,3 +64,6 @@ export { isLegal } from './rules';
 
 // Expanded roster (batch 1): the numbers a battle is fought with, the Trap lock and the seal check.
 export { battleNumbers, battlePlates, plateLock, trapLocked, hasAllSeals, type BattleNumbers, type PlateStats } from './query';
+
+// Online play (src/net/): what one player may see of a game (hidden hand / deck order / face-down ids / RNG).
+export { viewFor, viewEvents, hiddenUids, MASK_MONSTER, MASK_SPELL_TRAP } from './view';

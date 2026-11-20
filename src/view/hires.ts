@@ -9,7 +9,7 @@
 // ?hires=1 forces it off. Read once at boot: switching the arena reloads the page. No Phaser import
 // here, so art modules may read it.
 
-const SETTINGS_KEY = 'neon-duello:settings';
+import { resolveArena } from './arena-choice';
 
 function detect(): 1 | 2 {
   try {
@@ -21,10 +21,10 @@ function detect(): 1 | 2 {
       if (q === '2') return 2;
       if (q === '1') return 1;
     }
-    if (typeof localStorage !== 'undefined') {
-      const raw = localStorage.getItem(SETTINGS_KEY);
-      if (raw && (JSON.parse(raw) as { arena?: string }).arena === 'sky') return 2;
-    }
+    // ?arena=old / calm: the retired calm arena (no Sky Temple there)
+    if (typeof location === 'undefined' || /[?&]arena=(old|calm)\b/.test(location.search)) return 1;
+    // the remembered arena choice (src/view/arena-choice.ts; ?arena=sky|neon wins)
+    if (resolveArena() === 'sky') return 2;
   } catch {
     /* no storage / bad JSON: off */
   }

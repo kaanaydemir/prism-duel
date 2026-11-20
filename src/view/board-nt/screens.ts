@@ -41,6 +41,7 @@ import { wait } from '../../vfx/core';
 import { NT_DEPTH, SCREENS } from './layout-nt';
 import type { NtCtx, NtLayer } from './layer';
 import { ensureNtTexture } from './textures';
+import { netOpponentName } from '../../net/active';
 
 /** Sub-depths inside NT_DEPTH.screens (11 … 12; wallLights start at 12). */
 const Z = {
@@ -83,7 +84,7 @@ function plateNames(scene: Phaser.Scene): [string, string] {
   const names: [string, string] = ['PLAYER 1', 'PLAYER 2'];
   try {
     const d = scene.sys.settings.data as { mode?: string; botPlayer?: PlayerId } | undefined;
-    if (d?.mode === 'vsBot') names[d.botPlayer ?? 1] = 'CPU';
+    if (d?.mode === 'vsBot') names[d.botPlayer ?? 1] = netOpponentName() ?? 'CPU';
   } catch {
     /* no launch data (previews): the defaults */
   }

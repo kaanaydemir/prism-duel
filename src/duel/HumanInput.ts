@@ -119,6 +119,8 @@ export class HumanInput {
   mode: InputMode = 'off';
   /** "Ana Menüye Dön" was confirmed in the düello menüsü (the controller leaves the duel). */
   onQuit: (() => void) | null = null;
+  /** Online guest (additive): the legal actions come from the host (src/net/remote.ts); null = the engine's. */
+  legalFor: ((state: GameState) => Action[] | null) | null = null;
 
   constructor(scene: Phaser.Scene, views: DuelViews) {
     this.scene = scene;
@@ -300,7 +302,7 @@ export class HumanInput {
       }
       for (;;) {
         if (token !== this.token) return null;
-        const legal = legalActions(state).filter((a) => a.player === player);
+        const legal = (this.legalFor?.(state) ?? legalActions(state)).filter((a) => a.player === player);
         this.showIdle(legal);
         const c = await new Promise<Choice>((r) => (this.onChoice = r));
         this.onChoice = null;

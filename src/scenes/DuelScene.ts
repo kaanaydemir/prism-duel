@@ -42,6 +42,9 @@ import { LANES } from '../view/layout';
 import { resetAtDuelStart } from '../duel/seeds';
 import { ensureLightLayer } from '../view/light';
 import { wideSides } from '../view/wide';
+import { LOCAL, REMOTE, type NetDuel } from '../net/remote';
+import { setNetNames } from '../net/active';
+import { attachNetOverlay } from '../net/overlay';
 
 /** Everything DuelScene accepts (DuelLaunch + QA extras). */
 export interface DuelStart extends DuelLaunch {
@@ -62,6 +65,8 @@ export interface DuelStart extends DuelLaunch {
   loop?: boolean;
   /** QA films: report ready at once and start the opening on the next freeze() (?holdIntro=1). */
   holdOpening?: boolean;
+  /** Online play (src/net/remote.ts): the other player is on another device. Runs in the vsBot screen mode. */
+  net?: NetDuel;
   /** Run a named scenario's steps (src/duel/scenarios.ts) once the duel is interactive. */
   scenario?: string;
   /** With `scenario`: start the steps on the next freeze() (deterministic films). */
@@ -149,8 +154,14 @@ export class DuelScene extends Phaser.Scene {
     if (L.loop === undefined && params.get('loop') === '1') L.loop = true;
     if (L.holdOpening === undefined && params.get('holdIntro') === '1') L.holdOpening = true;
     this.settings = loadSettings();
+    const net = L.net;
+    // online: the vs-CPU screen with the remote player in the computer's seat (the local player is 0)
+    if (net) {
+      L.mode = 'vsBot';
+      setNetNames(net.names);
+    }
     const mode: DuelMode = L.mode ?? 'hotseat';
-    const cpu: PlayerId[] = mode === 'demo' ? [0, 1] : mode === 'vsBot' ? [L.botPlayer ?? 1] : [];
+    const cpu: PlayerId[] = net ? [REMOTE] : mode === 'demo' ? [0, 1] : mode === 'vsBot' ? [L.botPlayer ?? 1] : [];
     const seed = L.seed ?? (Date.now() & 0x7fffffff);
     L.seed = seed;
 
@@ -158,8 +169,15 @@ export class DuelScene extends Phaser.Scene {
     let state: GameState;
     let events: GameEvent[] = [];
     let before: GameState;
-    const staged = !!(L.state || L.stage);
-    if (L.state) {
+    const staged = !!(L.state || L.stage || net?.resume);
+    if (net?.resume) {
+      state = structuredClone(net.resume);
+      before = state;
+    } else if (net?.opening) {
+      state = net.opening.state;
+      events = net.opening.events;
+      before = rewindNewGame(state, events);
+    } else if (L.state) {
       state = structuredClone(L.state);
       before = state;
     } else if (L.stage) {
@@ -178,7 +196,7 @@ export class DuelScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(PAL.night0);
     wideSides(this);
     const camera = new CameraRig(this);
-    const board = new BoardView(this, { active: staged ? state.activePlayer : null, lights: skipIntro });
+    const board = new BoardView(this, { active: staged ? state.activePlayer : null, lights: skipIntro, arena: L.arena });
     const field = new FieldView(this);
     const speedBase = L.speed ?? this.settings.speed;
     const hud = new HudView(this, { active: first, turn: state.turn, phase: staged ? state.phase : 'draw', speed: (Math.min(3, Math.max(1, Math.round(speedBase))) as 1 | 2 | 3), lp: [before.players[0].lp, before.players[1].lp] });
@@ -215,11 +233,24 @@ export class DuelScene extends Phaser.Scene {
       return this.director.userWait(p);
     };
     this.controller = new DuelController(this, this.views, this.director, state, {
-      cpu,
+      cpu: net ? [] : cpu,
+      remote: net?.remote,
+      onJump: (st) => this.syncAll(st, true),
       seed: seed ^ 0x5bd1e995,
       onGameOver: (w) => this.gameOver(w),
     });
     if (L.auto) this.controller.auto = true;
+    if (net) {
+      setNetNames(net.names);
+      hud.setPlayerName(LOCAL, net.names[LOCAL]);
+      hud.setPlayerName(REMOTE, net.names[REMOTE]);
+      const overlay = attachNetOverlay(this, net, () => this.controller.stop());
+      this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+        overlay.destroy();
+        setNetNames(null);
+        net.close(this.controller.state.winner !== null ? 'gameOver' : 'quit');
+      });
+    }
     this.last = { turn: -1, active: -1, phase: '', counts: ['', ''] };
     this.syncAll(before, true);
     if (staged) {
@@ -331,14 +362,15 @@ export class DuelScene extends Phaser.Scene {
     }
     // the cinematic's victory screen is up: the prompt adds only "Tekrar Oyna" / "Ana Menü"
     // (Enter / Esc) under it — no second title — and clears it when a button is pressed
-    let choice: 'replay' | 'menu' = 'replay';
+    let choice: 'replay' | 'menu' = L.net ? 'menu' : 'replay';
     try {
       choice = await this.director.userWait(v.prompt.gameOver(winner, reason, { title: false, menu: true }));
     } catch (e) {
       console.error('[duel] game-over prompt failed', e);
     }
     if (!this.sys.isActive()) return;
-    if (choice === 'menu') {
+    // online: no rematch in v1 — either button leaves for the title (the session closes on shutdown)
+    if (choice === 'menu' || L.net) {
       sfx.play('uiBack');
       this.controller?.stop();
       this.director?.dropKept();

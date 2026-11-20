@@ -35,6 +35,7 @@ import { BOARD_CENTER, DEPTH, UI, panelRect, type Rect, type XY } from '../layou
 import { ICON } from '../ui-textures';
 import { REDUCED_MOTION, settle } from './motion';
 import { bodyV3, canvasTexture, capYV3, flatTrim, glyphTexture, iconTexture, iconTones, layoutLine, trimPixels, TrimGfx, type TrimNode } from './hudSkin';
+import { netOpponentName } from '../../net/active';
 
 /** What the plate says: coloured runs of text (laid out as one line). */
 export interface PlateSegment {
@@ -129,7 +130,7 @@ export function plateBody(w: number, h: number, step: number): PixelCanvas {
  */
 export function turnPlateText(o: { mode: 'hotseat' | 'vsBot' | 'demo'; human: boolean; player: PlayerId; turn: number }): PlateSegment[] {
   const tone = (o.player === 0 ? RAMPS.cyan : RAMPS.crim)[3];
-  const name = o.mode === 'vsBot' ? (o.human ? 'YOUR TURN' : 'CPU') : `PLAYER ${o.player + 1}`;
+  const name = o.mode === 'vsBot' ? (o.human ? 'YOUR TURN' : (netOpponentName() ?? 'CPU')) : `PLAYER ${o.player + 1}`;
   return [
     { text: name, color: tone },
     { text: ' · ', color: PAL.steel },

@@ -14,7 +14,7 @@
 
 import Phaser from 'phaser';
 import { actingPlayer, apply, chooseAction, isLegal } from '../engine';
-import type { Action, GameEvent, GameState, PlayerId } from '../engine/types';
+import type { Action, ApplyResult, GameEvent, GameState, PlayerId } from '../engine/types';
 import { sfx } from '../audio/sfx';
 import { loadSettings } from '../scenes/launch';
 import { wait } from '../vfx/core';
@@ -30,9 +30,50 @@ interface Mail {
   reject: (e: unknown) => void;
 }
 
+/** A move of a player who plays over the network (online duel, src/net/remote.ts). */
+export interface RemoteMove {
+  action: Action;
+  /** Guest side: the authority already applied it (its events / state); nothing is applied locally. */
+  result?: ApplyResult;
+  /** Made by the authority itself (a disconnect timeout's surrender): no legality check. */
+  trusted?: boolean;
+  /** Guest side: the authority's snapshot replaced the state (reconnect): the views jump to it, no cinematic. */
+  jump?: GameState;
+}
+
+/**
+ * Online play (additive): the other side of the duel is a person on another device. The host's controller
+ * applies the guest's intents (checked) and reports every applied action; the guest's controller applies
+ * nothing itself (submit() returns the authority's result) and plays the host's moves as they come.
+ */
+export interface RemoteSide {
+  /** Players whose actions arrive over the network. */
+  readonly players: readonly PlayerId[];
+  /** The next move that arrived (oldest first), or null. */
+  poll(): RemoteMove | null;
+  /** Set by the controller: call when a move arrived. `urgent` interrupts a local player's input too. */
+  onArrive: ((urgent: boolean) => void) | null;
+  /** Host: why a remote move must be refused (null = apply it). Default: the engine's isLegal. */
+  check?(move: RemoteMove): string | null;
+  /** Host: a remote move was refused. */
+  rejected?(move: RemoteMove, why: string): void;
+  /** Host: an action was applied (before its cinematics play): send it to the other side. */
+  applied?(action: Action, result: ApplyResult): void;
+  /** Guest: a local action goes to the authority; resolves with its result (rejects when refused). */
+  submit?(action: Action): Promise<ApplyResult>;
+  /** Guest: the local player's legal actions on the current state (from the authority). */
+  legal?(state: GameState): Action[] | null;
+  /** The hint line while the remote player acts. */
+  waitHint?(state: GameState): string;
+}
+
 export interface ControllerOpts {
   /** Players the CPU controls. */
   cpu: PlayerId[];
+  /** Online play: the remote player (see RemoteSide). */
+  remote?: RemoteSide;
+  /** Online play: the state jumped (a resync snapshot): re-sync every view to it. */
+  onJump?: (state: GameState) => void;
   /** Seed for the CPU's tie-breaking. */
   seed: number;
   /** Called when the game is over and the result screen was dismissed. */
@@ -73,6 +114,15 @@ export class DuelController {
     // the v3 presentation tempo (docs/v3/TEMPO.md): only the show slows down, not the player's input
     views.speed.tempoWhen = () => this.busy;
     this.input.onQuit = () => this.quit();
+    const remote = opts.remote;
+    if (remote) {
+      if (remote.legal) this.input.legalFor = (st) => remote.legal!(st);
+      remote.onArrive = (urgent) => {
+        if (!urgent && !this.waitingRemote) return;
+        if (urgent) this.input.cancel();
+        this.wakeMail?.();
+      };
+    }
     views.info.onCurtain = (on) => this.input.setCurtain(on);
     // the toolbar's sound switch starts from what is actually audible
     views.hud.setSoundOn(!sfx.isMuted() && loadSettings().sound);
@@ -136,21 +186,45 @@ export class DuelController {
         await this.finish();
         return;
       }
+      // online: a move that arrived out of turn (a host update, a resync, a timeout surrender) goes first
+      const early = this.opts.remote?.poll();
+      if (early) {
+        await this.executeRemote(early);
+        continue;
+      }
       const p = actingPlayer(this.state);
       const next = await this.nextAction(p);
       if (this.stopped) return;
       if (!next) continue;
-      await this.execute(next.action, next.mail);
+      if (next.remote) await this.executeRemote(next.remote);
+      else await this.execute(next.action, next.mail);
     }
   }
 
-  private async nextAction(p: PlayerId): Promise<{ action: Action; mail: Mail | null } | null> {
+  private waitingRemote = false;
+
+  private async nextAction(p: PlayerId): Promise<{ action: Action; mail: Mail | null; remote?: RemoteMove } | null> {
     const m = this.mail.shift();
     if (m) return { action: m.action, mail: m };
     this.waitingAction = true;
     this.flushIdle();
     try {
       const mailArrived = new Promise<null>((r) => (this.wakeMail = () => r(null)));
+      const remote = this.opts.remote;
+      if (remote && remote.players.includes(p)) {
+        // online: the other device acts — wait for its move (or for QA mail / a stop)
+        this.views.hud.setButtons({ battle: false, endTurn: false, attention: null });
+        this.views.hud.setHint(remote.waitHint?.(this.state) ?? 'Opponent is playing…', { player: p });
+        const got = remote.poll();
+        if (got) return { action: got.action, mail: null, remote: got };
+        this.waitingRemote = true;
+        try {
+          await mailArrived;
+        } finally {
+          this.waitingRemote = false;
+        }
+        return null; // the loop polls again
+      }
       if (this.isCpu(p)) {
         this.views.hud.setButtons({ battle: false, endTurn: false, attention: null });
         this.cpuHint(p);
@@ -190,9 +264,55 @@ export class DuelController {
     }
   }
 
+  /** Online: play a move from the other device (host: check + apply it; guest: take the authority's result). */
+  private async executeRemote(m: RemoteMove): Promise<void> {
+    const remote = this.opts.remote!;
+    if (m.jump) {
+      this.state = m.jump;
+      this.input.setState(m.jump);
+      this.opts.onJump?.(m.jump);
+      return;
+    }
+    if (m.result) {
+      await this.play(m.action, m.result, null);
+      return;
+    }
+    const why = m.trusted ? null : remote.check ? remote.check(m) : isLegal(this.state, m.action) ? null : 'illegal action';
+    if (why) {
+      console.warn('[duel] refused a remote move', m.action, why);
+      remote.rejected?.(m, why);
+      return;
+    }
+    let res: ApplyResult;
+    try {
+      res = apply(this.state, m.action);
+    } catch (e) {
+      remote.rejected?.(m, String(e));
+      return;
+    }
+    remote.applied?.(m.action, res);
+    await this.play(m.action, res, null);
+  }
+
   private async execute(action: Action, mail: Mail | null): Promise<void> {
     const before = this.state;
-    let res;
+    const remote = this.opts.remote;
+    let res: ApplyResult;
+    if (remote?.submit && !remote.players.includes(action.player)) {
+      // online guest: the authority applies it
+      this.lock(true, action.player);
+      try {
+        res = await remote.submit(action);
+      } catch (e) {
+        console.warn('[duel] the host refused', action, e);
+        this.lock(false);
+        mail?.reject(e);
+        return;
+      }
+      if (this.stopped) return;
+      await this.play(action, res, mail);
+      return;
+    }
     try {
       if (!isLegal(before, action)) throw new Error(`illegal action ${JSON.stringify(action)}`);
       res = apply(before, action);
@@ -201,6 +321,13 @@ export class DuelController {
       mail?.reject(e);
       return;
     }
+    remote?.applied?.(action, res);
+    await this.play(action, res, mail);
+  }
+
+  /** Adopt an applied action's result and play its cinematics. */
+  private async play(action: Action, res: ApplyResult, mail: Mail | null): Promise<void> {
+    const before = this.state;
     this.state = res.state;
     this.input.setState(res.state);
     this.lastEvents = res.events;

@@ -35,8 +35,21 @@ let floor: Int32Array | null = null;
 /** Content revision of a StepPatch image (bumped on every redraw): lets readers of the composed floor (unit shadows) cache. */
 export const stepImgRev = new WeakMap<object, number>();
 
+/**
+ * Which arena's floor the stepped light reads (additive): the Neon Tower's (the still, default) or none — the Sky Temple
+ * (src/view/board-sky) paints its own floor at 2× density and is lit by the ADD pools only, so stepped stamps (opaque
+ * Neon-Tower tones) must not land on it. Set by the board view when it is built; resets the memo.
+ */
+export function setSteppedFloor(kind: 'still' | 'none'): void {
+  if (kind === floorKind) return;
+  floorKind = kind;
+  floor = null;
+}
+let floorKind: 'still' | 'none' = 'still';
+
 /** The matte pad / pile colour at a screen pixel, or null when light must not touch it. */
 export function padColorAt(x: number, y: number): Color | null {
+  if (floorKind === 'none') return null;
   if (x < 0 || y < 0 || x >= GAME_W || y >= GAME_H) return null;
   if (!floor) floor = new Int32Array(GAME_W * GAME_H).fill(-1);
   const i = y * GAME_W + x;

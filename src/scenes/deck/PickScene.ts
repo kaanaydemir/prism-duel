@@ -10,7 +10,7 @@ import Phaser from 'phaser';
 import { CARDS, ATTRIBUTE_NAMES, isMonster, type CardId } from '../../data/cards';
 import { cardArtKey } from '../../art/cards';
 import { PAL, PLAYER_COLOR } from '../../art/palette';
-import { music, sfx } from '../../audio/sfx';
+import { sfx } from '../../audio/sfx';
 import { CURVE_BUCKETS, DECK_HIGH_LEVEL, copiesOf, deckStats, presetDecks } from '../../data/decks';
 import { measureText, pixelText } from '../../ui/text';
 import { Button } from '../../view/Button';
@@ -21,6 +21,7 @@ import type { DuelLaunch, DuelMode } from '../launch';
 import { REF_CLASSIC, deckStore, matchDecks, presetRef, type DeckStore, type LastKey, type ResolvedDeck } from './store';
 import { REDUCED_MOTION, backdropTex, panelV3, fadeFromInk, fadeToInk, fitText, latticeTex, magnetTex, orbTex, thumbTex } from './ui';
 import type { PlayerId } from '../../engine/types';
+import type { ArenaPickData } from './ArenaPickScene';
 
 export interface DeckPickData {
   mode: Exclude<DuelMode, 'demo'>;
@@ -146,7 +147,7 @@ export class DeckPickScene extends Phaser.Scene {
     this.add.image(20, 12, panelV3(this, this.who === 0 ? 'p1' : 'p2', 600, 336, 20)).setOrigin(0).setDepth(3);
     const head = pixelText(this, 32, 22, this.heading, { size: 'md', color: PAL.white }).setDepth(10);
     head.setTint(PLAYER_COLOR[this.who], PLAYER_COLOR[this.who], PAL.white, PAL.white);
-    const stepNo = this.d.mode === 'hotseat' || this.d.mode === 'vsBot' ? `STEP ${this.step + 1}/2` : '';
+    const stepNo = this.d.mode === 'hotseat' || this.d.mode === 'vsBot' ? `STEP ${this.step + 1}/3` : '';
     pixelText(this, 608, 24, stepNo, { size: 'sm', color: PAL.steel, originX: 1 }).setDepth(10);
 
     this.buildOptions();
@@ -310,7 +311,7 @@ export class DeckPickScene extends Phaser.Scene {
     back.onClick = () => void this.back();
     const build = new Button(this, 116, 322, { w: 100, h: 18, label: 'DECK BUILDER', size: 'sm', style: 'spell', depth: 20 });
     build.onClick = () => void this.openBuilder();
-    this.okBtn = new Button(this, 470, 322, { w: 138, h: 18, label: this.step === 1 ? 'START DUEL' : 'PICK · NEXT', size: 'sm', style: playerStyle(this.who), depth: 20 });
+    this.okBtn = new Button(this, 470, 322, { w: 138, h: 18, label: 'PICK · NEXT', size: 'sm', style: playerStyle(this.who), depth: 20 });
     this.okBtn.onClick = () => void this.confirm();
     this.okBtn.setAttention(true);
     pixelText(this, 222, 328, '↑↓ SELECT · ←→ CARD · PGUP/PGDN · ENTER · ESC', { size: 'sm', color: PAL.steel }).setDepth(10);
@@ -511,9 +512,9 @@ export class DeckPickScene extends Phaser.Scene {
       this.busy = false;
       return;
     }
-    music.stop(500);
-    await fadeToInk(this, 200);
-    this.scene.start('Duel', launch);
+    // the last step: the arena (ArenaPickScene starts the duel; BACK comes here again)
+    await fadeToInk(this, 160);
+    this.scene.start('ArenaPick', { launch, back: { key: 'DeckPick', data: { mode: this.d.mode, step: 1, first: this.firstRef } satisfies DeckPickData } } satisfies ArenaPickData);
   }
 
   private async back(): Promise<void> {

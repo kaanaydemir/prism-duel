@@ -15,7 +15,29 @@ import { PixelCanvas } from '../art/pixel';
 import { frameRGBA } from '../art/atlas';
 
 /** Light model: length per px of height (to the right), the tilt toward the viewer, the depth squash of the body's width. */
-export const CAST = { LX: 0.9, LY: -0.4, WD: 0.42, ALPHA: 0.82, CONTACT: 5, TIP: 0.84 } as const;
+export const CAST: { LX: number; LY: number; WD: number; ALPHA: number; CONTACT: number; TIP: number } = { LX: 0.9, LY: -0.4, WD: 0.42, ALPHA: 0.82, CONTACT: 5, TIP: 0.84 };
+
+/**
+ * The arena's key light (additive). 'stage': the Neon Tower's key light at the front left (shadows lie down to the right, toward
+ * the back). 'sun': the Sky Temple's low sunset behind the far right (shadows lie down to the LEFT, a little toward the viewer,
+ * shorter and in a cooler, lighter shade — daylight with sky fill). Set by the board view when it is built.
+ */
+export type CastLight = 'stage' | 'sun';
+let light: CastLight = 'stage';
+const LIGHTS: Record<CastLight, typeof CAST & { mirror: boolean; tone: number; contact: number }> = {
+  stage: { LX: 0.9, LY: -0.4, WD: 0.42, ALPHA: 0.82, CONTACT: 5, TIP: 0.84, mirror: false, tone: PAL.night0, contact: PAL.ink },
+  sun: { LX: 0.62, LY: 0.18, WD: 0.42, ALPHA: 0.62, CONTACT: 4, TIP: 0.8, mirror: true, tone: PAL.night1, contact: PAL.night0 },
+};
+export function setCastLight(l: CastLight): void {
+  light = l;
+  const L = LIGHTS[l];
+  CAST.LX = L.LX;
+  CAST.LY = L.LY;
+  CAST.WD = L.WD;
+  CAST.ALPHA = L.ALPHA;
+  CAST.CONTACT = L.CONTACT;
+  CAST.TIP = L.TIP;
+}
 
 export interface CastTex {
   key: string;
@@ -31,7 +53,7 @@ const cache = new Map<string, CastTex | null>();
  * floor (a hovering monster's shadow starts at its feet on the floor). null when the frame has no readable pixels.
  */
 export function castShadowTex(scene: Phaser.Scene, frame: Phaser.Textures.Frame, flip: boolean, originX: number, originY: number, hover: number): CastTex | null {
-  const id = `duel:cast:${frame.texture.key}|${frame.name}|${flip ? 1 : 0}|${originX}|${originY}|${hover}`;
+  const id = `duel:cast:${light === 'stage' ? '' : `${light}:`}${frame.texture.key}|${frame.name}|${flip ? 1 : 0}|${originX}|${originY}|${hover}`;
   const hit = cache.get(id);
   if (hit !== undefined && (hit === null || scene.textures.exists(hit.key))) return hit;
   const data = frameRGBA(frame);
@@ -39,6 +61,9 @@ export function castShadowTex(scene: Phaser.Scene, frame: Phaser.Textures.Frame,
     cache.set(id, null);
     return null;
   }
+  const L = LIGHTS[light];
+  // a mirrored light (the sun at the back right): build the shadow of the mirrored sprite, then mirror the canvas
+  if (L.mirror) flip = !flip;
   const W = frame.realWidth;
   const H = frame.realHeight;
   const Fx = originX * W;
@@ -62,6 +87,7 @@ export function castShadowTex(scene: Phaser.Scene, frame: Phaser.Textures.Frame,
   const wL = Math.max(1, flip ? right + 1 - Fx : Fx - left);
   const wR = Math.max(1, flip ? Fx - left : right + 1 - Fx);
   const { LX, LY, WD, CONTACT, TIP } = CAST;
+
   const ox = 3;
   // the shadow's vertical extent for any tilt (LY < 0: it leans back, away from a light at the front left)
   const above = wL * WD + Math.max(2 * LY, -hMax * LY, 0);
@@ -84,12 +110,12 @@ export function castShadowTex(scene: Phaser.Scene, frame: Phaser.Textures.Frame,
       const k = h / hMax;
       // the penumbra at the far tip: a checker, then nothing
       if (k > TIP && (cx + cy) % 2 === 0) continue;
-      pc.set(cx, cy, h < CONTACT ? PAL.ink : PAL.night0);
+      pc.set(L.mirror ? CW - 1 - cx : cx, cy, h < CONTACT ? L.contact : L.tone);
     }
   const key = id;
   if (scene.textures.exists(key)) scene.textures.remove(key);
   scene.textures.addCanvas(key, pc.toCanvas());
-  const out = { key, ox: (ox + 0.5) / CW, oy: (oy + 0.5) / CH };
+  const out = { key, ox: L.mirror ? (CW - ox - 0.5) / CW : (ox + 0.5) / CW, oy: (oy + 0.5) / CH };
   cache.set(id, out);
   return out;
 }

@@ -35,6 +35,9 @@ vi.mock('../../src/engine/rules', () => {
 vi.mock('../../src/engine/types', () => {
   throw new Error('src/presentation must not load the engine (types)');
 });
+vi.mock('../../src/engine/view', () => {
+  throw new Error('src/presentation must not load the engine (view)');
+});
 
 const ENGINE = import.meta.glob<string>('/src/engine/**/*.ts', { query: '?raw', import: 'default', eager: true });
 const PRESENTATION = import.meta.glob<string>('/src/presentation/**/*.ts', { query: '?raw', import: 'default', eager: true });
@@ -50,7 +53,7 @@ function specifiers(src: string): string[] {
 
 describe('the presentation layer stays out of the rules (A3 §6.1)', () => {
   it('the engine module list this file mocks is complete', () => {
-    expect(ENGINE_FILES.map((p) => p.replace('/src/engine/', '').replace(/\.ts$/, '')).sort()).toEqual(['bot', 'describe', 'index', 'legal', 'query', 'rng', 'rules', 'types']);
+    expect(ENGINE_FILES.map((p) => p.replace('/src/engine/', '').replace(/\.ts$/, '')).sort()).toEqual(['bot', 'describe', 'index', 'legal', 'query', 'rng', 'rules', 'types', 'view']);
   });
 
   it('src/engine/** never imports src/presentation/**', () => {
