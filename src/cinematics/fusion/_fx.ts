@@ -108,9 +108,9 @@ export class Layer {
  */
 export function paintPrism(g: Raster, cx: number, cy: number, a: number, size: number, hot = 0): void {
   if (size <= 0.02) return;
-  const R = Math.max(1, Math.round(6 * size));
-  const hh = Math.max(1, Math.round(8 * size));
-  const tip = Math.max(1, Math.round(6 * size));
+  const R = Math.max(1, Math.round(9 * size));
+  const hh = Math.max(1, Math.round(11 * size));
+  const tip = Math.max(1, Math.round(9 * size));
   if (R <= 1) {
     g.rect(cx - 1, cy - hh, 2, hh * 2, PAL.white);
     return;
@@ -130,7 +130,12 @@ export function paintPrism(g: Raster, cx: number, cy: number, a: number, size: n
     })
     .filter((f) => f.z > -0.15)
     .sort((p, q) => p.z - q.z);
-  const tones = hot > 0.6 ? [PAL.cyan4, PAL.white, PAL.white, PAL.white] : hot > 0.25 ? [PAL.cyan3, PAL.cyan4, PAL.white, PAL.white] : [PAL.cyan2, PAL.cyan3, PAL.cyan4, PAL.white];
+  const tones =
+    hot > 0.6
+      ? [PAL.cyan4, PAL.white, PAL.white, PAL.white]
+      : hot > 0.25
+        ? [PAL.cyan3, PAL.cyan4, PAL.white, PAL.white]
+        : [PAL.cyan2, PAL.cyan3, PAL.cyan4, PAL.white];
   for (const f of faces) {
     const A = v[f.i];
     const B = v[f.j];
@@ -172,7 +177,12 @@ export function paintPrism(g: Raster, cx: number, cy: number, a: number, size: n
 const formKeys = new Map<string, string>();
 
 /** A monster frame as its light-form: value bands → white / cyan4 / cyan3 / cyan2, every rim pixel white. */
-export function formTexture(scene: Phaser.Scene, id: MonsterId, anim: AnyMonsterAnim, frame: number): { key: string; w: number; h: number; ax: number; ay: number } | null {
+export function formTexture(
+  scene: Phaser.Scene,
+  id: MonsterId,
+  anim: AnyMonsterAnim,
+  frame: number,
+): { key: string; w: number; h: number; ax: number; ay: number } | null {
   const art = monsterArt(id);
   const key = `fu:form:${id}:${anim}:${frame}`;
   const out = { key, w: art.w, h: art.h, ax: art.anchorX, ay: art.anchorY };
@@ -309,15 +319,22 @@ export class Comet {
       const u = i / n; // 0 old → 1 new
       const c = u > 0.86 ? PAL.white : u > 0.6 ? this.ramp[4] : u > 0.35 ? this.ramp[3] : this.ramp[2];
       const lv = this.lit * (u > 0.35 ? 1 : 0.35 + u * 1.8);
-      g.line(a.x, a.y, b.x, b.y, c, lv, u > 0.7 ? 2 : 1);
+      if (u > 0.55) g.line(a.x, a.y, b.x, b.y, this.ramp[2], lv * 0.6, 4);
+      g.line(a.x, a.y, b.x, b.y, c, lv, u > 0.8 ? 3 : u > 0.45 ? 2 : 1);
     }
     const h = this.head;
-    g.rect(Math.round(h.x) - 1, Math.round(h.y) - 1, 3, 3, this.ramp[4], this.lit);
-    g.px(h.x, h.y, PAL.white);
-    g.px(h.x - 2, h.y, this.ramp[3], this.lit);
-    g.px(h.x + 2, h.y, this.ramp[3], this.lit);
-    g.px(h.x, h.y - 2, this.ramp[3], this.lit);
-    g.px(h.x, h.y + 2, this.ramp[3], this.lit);
+    const hx = Math.round(h.x);
+    const hy = Math.round(h.y);
+    g.rect(hx - 2, hy - 1, 5, 3, this.ramp[4], this.lit);
+    g.rect(hx - 1, hy - 2, 3, 5, this.ramp[4], this.lit);
+    g.rect(hx - 1, hy - 1, 3, 3, PAL.white, this.lit);
+    for (const [dx, dy] of [
+      [-4, 0],
+      [4, 0],
+      [0, -4],
+      [0, 4],
+    ])
+      g.px(hx + dx, hy + dy, this.ramp[3], this.lit);
   }
 }
 
@@ -389,7 +406,10 @@ export function paintSigil(g: Raster, at: XY, r: number, p: number, spin: number
   const k = seg(p, 0.4, 1);
   const pts = [0, 1, 2].map((i) => {
     const f = spin + (i * TAU) / 3;
-    return { x: at.x + Math.cos(f) * (r - 3), y: at.y + Math.sin(f) * (r / 2 - 1.5) };
+    return {
+      x: at.x + Math.cos(f) * (r - 3),
+      y: at.y + Math.sin(f) * (r / 2 - 1.5),
+    };
   });
   for (let i = 0; i < 3; i++) {
     const a = pts[i];
