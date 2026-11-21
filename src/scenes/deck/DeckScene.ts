@@ -1238,7 +1238,7 @@ export class DeckScene extends Phaser.Scene {
   /** What to do with a deck saved under the old 80-card limit (61..80 main-deck cards): nothing is removed for the player. */
   private oversize(): string | null {
     const over = splitDeck(this.cur.cards).main.length - DECK_MAX;
-    return over > 0 ? `Deck can hold at most ${DECK_MAX} cards: ${over} too many · remove ${over} to play` : null;
+    return over > 0 ? `Deck can hold at most ${DECK_MAX} cards: remove ${over}` : null;
   }
 
   private setFocus(zone: Zone, index: number, sound: boolean): void {
@@ -1405,9 +1405,10 @@ export class DeckScene extends Phaser.Scene {
     const before = this.cur.cards.length;
     const main = splitDeck(this.cur.cards).main.length;
     // an older save above the 60-card limit: autoFillDeck would cut it to the limit, never drop a player's cards for them
-    if (main > DECK_MAX) {
-      sfx.play('uiError', { volume: 0.6 });
-      this.say(`Deck can hold at most ${DECK_MAX} cards: remove ${main - DECK_MAX} first`, 'bad');
+    const over = this.oversize();
+    if (over) {
+      sfx.play('uiError', { volume: 0.55 });
+      this.say(over, 'bad');
       return;
     }
     const seed = Math.floor(Math.random() * 0x7fffffff);
