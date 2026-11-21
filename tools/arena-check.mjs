@@ -9,7 +9,8 @@
 //   --scenario KEY   staged board (default stBoard, src/dev/previews/steam.ts)
 //   --compare LABEL  also print the change of every number against shots/arena-check/<LABEL>/report.json
 //   --settle MS      frozen game time before the capture (default 8000; the hologram statues are baked one job per tick and
-//                    then drawn in from the head down; the tool steps further, 1/60 s at a time, until both are on screen)
+//                    then drawn in from the head down; if they are not both on screen yet the tool steps on 1/60 s at a
+//                    time, then 1 s more, then until both are lit; the time used is printed in report.md)
 //   --retarget       recompute the target picture's numbers (otherwise cached in tools/arena-check.target.json)
 //
 // Capture: headless Chromium at 640×360 (scale 1), the duel restarted on the scenario under the frozen clock
@@ -29,11 +30,13 @@
 //   zone lines    zone layer pixels that are opaque and differ by > 15 luma from the zone layer's median, or that touch a
 //                 transparent pixel (the tile outline); minus cover and monsters
 //   ground ring   per monster: the pixels within 5 px (disk) of its silhouette that lie on the play surface
+//   darkest ground  the darkest mean of an 8×8 block (on a 4-px grid) that is ≥ 80 % play surface
 //   stage walls   below every down-facing edge of the stage top, the band 6..FACE_H−6 px under the edge (the side armour is
 //                 FACE_H tall, layout-nt.ts), minus stage top, cover, HUD
 //   hall floor    two rectangles beside the end caps: x [X0−60, X0−8] and [X1+8, X1+60] (X0/X1 = PLATE_X0/X1),
-//                 y [capBottom + FACE_H + 6, +34] where capBottom = the cap's lower vertex (left: PLATE_OUTLINE[0], right [5])
-//   back wall     x [farEdgeL.x − 40, farEdgeR.x + 40], y [4, farEdge.y − 6] (the far flat edge = PLATE_OUTLINE[2..3]), − HUD
+//                 y [c + FACE_H + 6, c + FACE_H + 34], c = y of the left cap's lower vertex (PLATE_OUTLINE[0])
+//   back wall     x [F.x + 20, F.x + 120], y [26, F.y + 22] − stage top − HUD, F = right end of the far flat edge
+//                 (PLATE_OUTLINE[3]): the brick wall right of the far tip, between the two portrait screens (info only)
 //   HUD           UI rects of src/view/layout.ts (phaseBar, p1Panel, p2Panel, hand, buttons, the hint line from HINT_Y)
 //                 grown by 2 px, ∪ the HUD layer's alpha > 0.05
 //   scene         everything outside the HUD
@@ -195,6 +198,20 @@ function measure(rgba, R) {
     per.push({ id: m.id, monL: ms.mean, groundL: gs.mean, groundStd: gs.std, diff: ms.mean - gs.mean, ringPx: gs.n, silPx: ms.n });
   }
   const g = stats(L, rings);
+  // the same rings with the cards under / beside the monsters counted as ground (what the feet stand on), lines still out
+  let ringsAll = mask();
+  const onStage = and(and(stage, not(R.zoneLines)), not(monGrow));
+  for (const m of R.mons) ringsAll = or(ringsAll, and(dilate(m.sil, 5), onStage));
+  const gAll = stats(L, ringsAll);
+  // darkest ground TONE: the darkest mean of an 8×8 block (4-px grid) that is ≥ 80 % play surface (single outline / gap
+  // pixels are not ground)
+  let darkBlock = Infinity;
+  for (let y0 = 0; y0 + 8 <= H; y0 += 4)
+    for (let x0 = 0; x0 + 8 <= W; x0 += 4) {
+      let n = 0, s = 0;
+      for (let y = y0; y < y0 + 8; y++) for (let x = x0; x < x0 + 8; x++) if (play[y * W + x]) { n++; s += L[y * W + x]; }
+      if (n >= 52 && s / n < darkBlock) darkBlock = s / n;
+    }
   const surf = colourOf(rgba, play);
   const monMed = stats(L, allMon).median;
   const zl = stats(L, and(R.zoneLines, and(scene, not(monGrow))));
@@ -206,7 +223,7 @@ function measure(rgba, R) {
   const ps = stats(L, play);
   const worst = per.reduce((a, b) => (b.diff < a.diff ? b : a), per[0]);
   return {
-    groundL: g.mean, groundSpread: g.std, groundPx: g.n,
+    groundL: g.mean, groundSpread: g.std, groundPx: g.n, groundInclCardsL: gAll.mean, groundInclCardsSpread: gAll.std,
     surfaceHex: surf.hex, surfaceHue: surf.hue, surfaceSat: surf.sat, surfaceL: ps.mean,
     monMinusGroundAvg: per.reduce((s, p) => s + p.diff, 0) / per.length, monMinusGroundWorst: worst.diff, worstMonster: worst.id,
     monsterMedianL: monMed, zoneLineL: zl.median, zoneLineMinusMonsters: zl.median - monMed, zoneLinePx: zl.n,
@@ -214,7 +231,7 @@ function measure(rgba, R) {
     hallL: hall.mean, hallPx: hall.n, wallL: wall.mean, wallPx: wall.n, backWallL: back.mean,
     warmPct: scSh.warm, colourfulness: colourfulness(rgba, scene),
     stageL: stageS.mean, surroundL: surround.mean, surroundMinusStage: surround.mean - stageS.mean,
-    darkestGroundP1: ps.p1, darkestGroundMin: ps.min, playSurfacePx: ps.n,
+    darkestGround: darkBlock, darkestGroundP1: ps.p1, darkestGroundMin: ps.min, playSurfacePx: ps.n,
     perMonster: per,
   };
 }
@@ -236,12 +253,13 @@ const ROWS = [
   { k: 'warmPct', name: 'Warm-light share of the scene %', goal: '≥ 15', ok: (v) => v >= 15, f: f1 },
   { k: 'colourfulness', name: 'Colourfulness of the scene', goal: '≥ 85', ok: (v) => v >= 85, f: f1 },
   { k: 'surroundMinusStage', name: 'Surround L − stage L', goal: '≥ 0', ok: (v) => v >= 0, f: f1 },
-  { k: 'darkestGroundP1', name: 'Darkest ground (1st pct of play surface)', goal: '≥ 28', ok: (v) => v >= 28, f: f1 },
+  { k: 'darkestGround', name: 'Darkest ground (darkest 8×8 block of play surface)', goal: '≥ 28', ok: (v) => v >= 28, f: f1 },
 ];
 const INFO = [
   ['surfaceHex', 'Play-surface median colour'], ['surfaceL', 'Play-surface mean L'], ['monsterMedianL', 'Monsters median L'],
   ['zoneLineL', 'Zone lines median L'], ['backWallL', 'Back wall L'], ['stageL', 'Stage top mean L'], ['surroundL', 'Surround mean L'],
-  ['darkestGroundMin', 'Darkest ground (min)'],
+  ['darkestGroundP1', 'Darkest ground pixel (1st percentile)'], ['groundInclCardsL', 'Ground L in the ring, cards counted as ground'],
+  ['groundInclCardsSpread', 'Ground spread, cards counted as ground'], ['zoneLinePx', 'Zone-line pixels measured'], ['groundPx', 'Ring pixels measured'],
 ];
 
 // ---------------------------------------------------------------- page side
@@ -253,12 +271,17 @@ async function captureInPage({ settle }) {
   const all = [];
   scenes.forEach((sc) => sc.children.list.forEach((o) => o.setVisible && all.push({ o, sc })));
   const key = (o) => (o.texture && o.texture.key) || '';
-  const holos = () => all.filter((e) => e.o.visible && e.o.type === 'Image' && /^f\d+$/.test(String(e.o.frame && e.o.frame.name)) && e.o.depth >= 12 && e.o.depth < 19);
+  // the two hologram creatures: Duel-scene Images showing a baked frame "f<n>" in the hologram depth band (12..19)
+  const holos = () => duel.children.list.filter((o) => o.visible && o.type === 'Image' && /^f\d+$/.test(String(o.frame && o.frame.name)) && o.depth >= 12 && o.depth < 19);
   // fixed game time, then 1/60 s steps until both hologram statues are on screen (they bake, materialise, and flicker)
   const t0 = performance.now();
   await N.step(settle);
   let extra = 0;
+  // (they bake one job per tick, then draw in from the head down in ~520 ms; give them 1 s more after the first sight, then
+  // step on until both are lit again: they flicker)
   while (holos().length < 2 && extra < 6000) { await N.step(1000 / 60); extra += 1000 / 60; }
+  if (extra > 0) { await N.step(1000); extra += 1000; }
+  while (holos().length < 2 && extra < 9000) { await N.step(1000 / 60); extra += 1000 / 60; }
   // re-collect (objects may have been created while stepping)
   all.length = 0;
   scenes.forEach((sc) => sc.children.list.forEach((o) => o.setVisible && all.push({ o, sc, vis: o.visible })));
@@ -433,14 +456,14 @@ function buildRegions(cap) {
   for (const wp of wallPolys) wall = or(wall, polyMask(wp));
   wall = and(wall, and(not(stageTop), not(cover)));
   const O = G.outline;
-  const capL = O[0][1], capR = O[5][1];
+  const capL = O[0][1];
   const hallRects = [
     [G.x0 - 60, capL + fh + 6, G.x0 - 8, capL + fh + 34],
-    [G.x1 + 8, capR + fh + 6, G.x1 + 60, capR + fh + 34],
+    [G.x1 + 8, capL + fh + 6, G.x1 + 60, capL + fh + 34], // same height as the left one (beside the right wall, clear of the brazier)
   ];
   const hall = and(rectMask(hallRects), not(stageTop));
-  const backRects = [[O[2][0] - 40, 4, O[3][0] + 40, O[2][1] - 6]];
-  const back = rectMask(backRects);
+  const backRects = [[O[3][0] + 20, 26, O[3][0] + 120, O[3][1] + 22]]; // the brick wall right of the far tip, between the screens
+  const back = and(rectMask(backRects), not(stageTop));
   return { hud, stageTop, cover, mons, zoneLines: zoneVis, wall, hall, back, doc: { hudRects, hallRects, backRects, wallPolys, zoneMedianL: zmed, poly: P } };
 }
 
@@ -453,13 +476,14 @@ function targetRegions(rgba, T) {
   const sv = [[], [], []];
   for (let i = 0; i < NPX; i++) if (surface[i]) for (let c = 0; c < 3; c++) sv[c].push(rgba[4 * i + c]);
   const ref = sv.map((a) => (a.sort((p, q) => p - q), a[a.length >> 1]));
+  const coverT = rectMask(T.cover);
   const mons = T.monsters.map((mm) => {
     const box = rectMask([mm.box]);
     const sil = mask();
     for (let i = 0; i < NPX; i++) {
       if (!box[i]) continue;
       const d = Math.hypot(rgba[4 * i] - ref[0], rgba[4 * i + 1] - ref[1], rgba[4 * i + 2] - ref[2]);
-      if (d > T.bodyDistance) sil[i] = 1;
+      if (d > T.bodyDistance && !coverT[i]) sil[i] = 1;
     }
     return { id: mm.id, sil };
   });

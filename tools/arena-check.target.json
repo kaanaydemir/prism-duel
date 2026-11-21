@@ -1,5 +1,5 @@
 {
- "_about": "Hand-set regions of the target picture docs/v3/ref/hedef-neon-son.png after an area box resample to 640x360 (pixel coords, rectangles are [x0,y0,x1,y1], end exclusive). Taken from the 2026-11-21 owner-brief analysis (patches.json T14, stage POLY T14) so the numbers match docs/v3/ARENA_ANALIZ.md; cover, hud and monster ids added by eye. monsters: a box per monster; its body = box pixels farther than bodyDistance (RGB) from the median colour of the surface rectangles. zone lines of the target = vivid cyan/red pixels on the stage top. cache = the numbers, computed once (node tools/arena-check.mjs --retarget recomputes).",
+ "_about": "Hand-set regions of the target picture docs/v3/ref/hedef-neon-son.png after an area box resample to 640x360 (pixel coords, rectangles are [x0,y0,x1,y1], end exclusive). Taken from the 2026-11-21 owner-brief analysis (patches.json T14, stage POLY T14) so the numbers match docs/v3/ARENA_ANALIZ.md; monster boxes (each holds the whole monster), cover (ATK/DEF labels, piles, face-down cards, side pads, duelists) and hud added by eye on the 640x360 resample. monsters: a box per monster; its body = box pixels farther than bodyDistance (RGB) from the median colour of the surface rectangles. zone lines of the target = vivid cyan/red pixels on the stage top. cache = the numbers, computed once (node tools/arena-check.mjs --retarget recomputes).",
  "stageTop": [
   [
    275,
@@ -93,109 +93,109 @@
   {
    "id": "crystal_wyrm",
    "box": [
-    230,
-    86,
-    282,
-    162
+    206,
+    72,
+    286,
+    166
    ]
   },
   {
    "id": "ember_wolf",
    "box": [
-    176,
-    101,
-    224,
-    139
+    166,
+    92,
+    232,
+    152
    ]
   },
   {
    "id": "abyss_magus",
    "box": [
-    301,
-    50,
-    342,
-    117
+    292,
+    38,
+    353,
+    127
    ]
   },
   {
    "id": "polar_sovereign",
    "box": [
-    384,
-    97,
-    442,
-    169
+    375,
+    88,
+    445,
+    173
    ]
   },
   {
    "id": "shield_titan",
    "box": [
-    310,
-    158,
-    355,
+    306,
+    157,
+    357,
     211
    ]
   },
   {
    "id": "kite_fencer",
    "box": [
-    438,
-    144,
-    477,
-    196
+    432,
+    141,
+    478,
+    200
    ]
   },
   {
    "id": "reed_heron",
    "box": [
-    352,
-    185,
-    410,
-    234
+    350,
+    170,
+    414,
+    236
    ]
   }
  ],
  "cover": [
   [
    179,
-   148,
-   218,
-   157
+   147,
+   220,
+   158
   ],
   [
-   227,
-   167,
+   226,
+   166,
    269,
-   177
+   178
   ],
   [
-   298,
-   126,
-   336,
+   296,
+   125,
+   339,
    136
   ],
   [
-   390,
-   175,
-   429,
+   387,
+   173,
+   430,
    184
   ],
   [
-   438,
-   200,
-   467,
+   436,
+   199,
+   470,
    210
   ],
   [
-   314,
-   212,
-   349,
+   313,
+   211,
+   351,
    222
   ],
   [
-   358,
-   238,
-   397,
-   247
+   357,
+   237,
+   399,
+   248
   ],
   [
    355,
@@ -294,23 +294,25 @@
   "computed": "2026-11-21",
   "source": "hedef-neon-son.png 1672×941 box→640×360",
   "metrics": {
-   "groundL": 43.96229630476522,
-   "groundSpread": 41.37663127004996,
-   "groundPx": 5802,
-   "surfaceHex": "#212135",
+   "groundL": 37.23646441109975,
+   "groundSpread": 15.039049251316442,
+   "groundPx": 6750,
+   "groundInclCardsL": 41.68827755113042,
+   "groundInclCardsSpread": 32.501684076329305,
+   "surfaceHex": "#212136",
    "surfaceHue": 240,
-   "surfaceSat": 0.3773584905660377,
-   "surfaceL": 41.51580061113967,
-   "monMinusGroundAvg": 71.67479389926844,
-   "monMinusGroundWorst": 37.79526510318977,
+   "surfaceSat": 0.38888888888888884,
+   "surfaceL": 39.89254644651324,
+   "monMinusGroundAvg": 73.68592802215427,
+   "monMinusGroundWorst": 39.63393305880315,
    "worstMonster": "abyss_magus",
-   "monsterMedianL": 111.5770034790039,
-   "zoneLineL": 90.4530029296875,
-   "zoneLineMinusMonsters": -21.124000549316406,
-   "zoneLinePx": 5149,
-   "vividCyanRedPct": 8.780005560876146,
-   "vividCyanPct": 4.754549105625753,
-   "vividRedPct": 4.025456455250394,
+   "monsterMedianL": 105.38500213623047,
+   "zoneLineL": 89.98899841308594,
+   "zoneLineMinusMonsters": -15.396003723144531,
+   "zoneLinePx": 4045,
+   "vividCyanRedPct": 6.899941741916691,
+   "vividCyanPct": 3.6593358578502766,
+   "vividRedPct": 3.2406058840664143,
    "hallL": 62.96254609413659,
    "hallPx": 3126,
    "wallL": 49.29134783409011,
@@ -321,72 +323,73 @@
    "stageL": 67.78622291030719,
    "surroundL": 72.56811247746684,
    "surroundMinusStage": 4.781889567159652,
-   "darkestGroundP1": 7.765999794006348,
-   "darkestGroundMin": 1.7009999752044678,
-   "playSurfacePx": 28757,
+   "darkestGround": 20.238677784547967,
+   "darkestGroundP1": 13.998000144958496,
+   "darkestGroundMin": 2.569999933242798,
+   "playSurfacePx": 25016,
    "perMonster": [
     {
      "id": "crystal_wyrm",
-     "monL": 158.4755815935014,
-     "groundL": 41.06416481200543,
-     "groundStd": 44.05505257894569,
-     "diff": 117.41141678149597,
-     "ringPx": 1432,
-     "silPx": 2763
+     "monL": 143.49912044823654,
+     "groundL": 32.66116827136867,
+     "groundStd": 10.993554273036699,
+     "diff": 110.83795217686787,
+     "ringPx": 2002,
+     "silPx": 4559
     },
     {
      "id": "ember_wolf",
-     "monL": 114.63914635996576,
-     "groundL": 62.034663119351954,
-     "groundStd": 63.11844055515966,
-     "diff": 52.60448324061381,
-     "ringPx": 665,
-     "silPx": 1401
+     "monL": 120.33702270118435,
+     "groundL": 34.76399578158238,
+     "groundStd": 9.321689037641551,
+     "diff": 85.57302691960197,
+     "ringPx": 718,
+     "silPx": 2557
     },
     {
      "id": "abyss_magus",
-     "monL": 81.68688386444951,
-     "groundL": 43.89161876125974,
-     "groundStd": 38.62031815515093,
-     "diff": 37.79526510318977,
-     "ringPx": 687,
-     "silPx": 2040
+     "monL": 74.84283576273718,
+     "groundL": 35.20890270393403,
+     "groundStd": 11.031929014501827,
+     "diff": 39.63393305880315,
+     "ringPx": 976,
+     "silPx": 3348
     },
     {
      "id": "polar_sovereign",
-     "monL": 106.50958619743706,
-     "groundL": 40.893316707142716,
-     "groundStd": 42.067499347066466,
-     "diff": 65.61626949029434,
-     "ringPx": 957,
-     "silPx": 3207
+     "monL": 100.318924130853,
+     "groundL": 36.79329916878772,
+     "groundStd": 8.877015606027959,
+     "diff": 63.52562496206529,
+     "ringPx": 1153,
+     "silPx": 3847
     },
     {
      "id": "shield_titan",
-     "monL": 124.7614653342479,
-     "groundL": 59.42644562873009,
-     "groundStd": 42.19156545804305,
-     "diff": 65.33501970551781,
-     "ringPx": 597,
-     "silPx": 2220
+     "monL": 124.16356398916146,
+     "groundL": 51.94717043175545,
+     "groundStd": 28.705022735422443,
+     "diff": 72.21639355740601,
+     "ringPx": 657,
+     "silPx": 2415
     },
     {
      "id": "kite_fencer",
-     "monL": 108.15605722334608,
-     "groundL": 35.33083746880581,
-     "groundStd": 22.52549720058754,
-     "diff": 72.82521975454027,
-     "ringPx": 517,
-     "silPx": 1573
+     "monL": 106.57948053709782,
+     "groundL": 37.28018887136865,
+     "groundStd": 20.25990658486047,
+     "diff": 69.29929166572917,
+     "ringPx": 635,
+     "silPx": 1644
     },
     {
      "id": "reed_heron",
-     "monL": 124.83858454263033,
-     "groundL": 34.702701323403254,
-     "groundStd": 15.754728631929368,
-     "diff": 90.13588321922708,
-     "ringPx": 1125,
-     "silPx": 1675
+     "monL": 111.96804505796204,
+     "groundL": 37.25277124335563,
+     "groundStd": 8.625068015784379,
+     "diff": 74.7152738146064,
+     "ringPx": 1224,
+     "silPx": 2133
     }
    ]
   }
