@@ -11,7 +11,7 @@ import { CARDS, ATTRIBUTE_NAMES, isMonster, type CardId } from '../../data/cards
 import { cardArtKey } from '../../art/cards';
 import { PAL, PLAYER_COLOR } from '../../art/palette';
 import { sfx } from '../../audio/sfx';
-import { CURVE_BUCKETS, DECK_HIGH_LEVEL, copiesOf, deckStats, presetDecks } from '../../data/decks';
+import { CURVE_BUCKETS, DECK_HIGH_LEVEL, DECK_MAX, copiesOf, deckStats, presetDecks } from '../../data/decks';
 import { measureText, pixelText } from '../../ui/text';
 import { Button } from '../../view/Button';
 import { GAME_H, GAME_W } from '../../view/layout';
@@ -207,7 +207,10 @@ export class DeckPickScene extends Phaser.Scene {
       }
       const tag = o.kind === 'klasik' ? 'CLASSIC' : o.kind === 'preset' ? 'PRESET' : 'SAVED';
       const bad = !o.check.ok || o.missing;
-      list.push({ ref: o.ref, deck: o, title: o.name, sub: bad ? (o.missing ? `Missing cards: ${o.missing}` : o.check.issues[0]?.text ?? 'Not playable') : this.describe(o), tag });
+      // a deck saved under the old 80-card limit: a short form that fits the row (the full reason shows on the right)
+      const over = o.check.issues[0]?.code === 'size' ? o.check.stats.size - DECK_MAX : 0;
+      const why = over > 0 ? `Too many cards (${o.check.stats.size}/${DECK_MAX}): remove ${over}` : o.check.issues[0]?.text ?? 'Not playable';
+      list.push({ ref: o.ref, deck: o, title: o.name, sub: bad ? (o.missing ? `Missing cards: ${o.missing}` : why) : this.describe(o), tag });
     }
     this.opts = list;
     this.rowH = Math.min(ROW, Math.floor((LIST_BOTTOM - LY + 2) / Math.max(1, list.length)));
