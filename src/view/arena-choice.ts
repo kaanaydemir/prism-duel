@@ -24,10 +24,17 @@ export const ARENA_INFO: Record<ArenaId, { name: string; blurb: string }> = {
 };
 
 /**
- * The default when nothing is saved. Owner request 2026-11-20: the Neon Tower reads gloomy, the Sky
- * Temple is the bright direction — it is the default now that it is playable on the real board.
+ * The arena every player gets. Owner decision 2026-11-21 (docs/v3/ARENA_ANALIZ.md section 1): one arena only,
+ * the Neon arena; the Sky Temple is shelved (its code stays, players are not offered it). Developers can still
+ * open it with ?arena=sky or an explicit DuelLaunch.arena.
  */
-export const DEFAULT_ARENA: ArenaId = 'sky';
+export const DEFAULT_ARENA: ArenaId = 'neon';
+
+/** The arenas players may pick or keep as a remembered choice (a stored 'sky' is ignored: shelved). */
+export const PLAYER_ARENAS: readonly ArenaId[] = ['neon'];
+
+/** Whether the arena chooser is offered to players (settings row, the arena-pick step). Off: one arena. */
+export const ARENA_CHOOSER = PLAYER_ARENAS.length > 1;
 
 const KEY = 'neon-duello:settings';
 
@@ -51,13 +58,13 @@ function storage(): Storage | null {
   }
 }
 
-/** The remembered arena (DEFAULT_ARENA when nothing valid is saved). */
+/** The remembered arena (DEFAULT_ARENA when nothing valid is saved, or when the saved one is shelved). */
 export function getArenaChoice(): ArenaId {
   try {
     const raw = storage()?.getItem(KEY);
     if (raw) {
       const a = (JSON.parse(raw) as { arena?: unknown }).arena;
-      if (isArenaId(a)) return a;
+      if (isArenaId(a) && PLAYER_ARENAS.includes(a)) return a;
     }
   } catch {
     /* bad JSON / no storage */
@@ -99,6 +106,7 @@ export function arenaFromUrl(): ArenaId | null {
 }
 
 /** The arena a board is built for: explicit (a networked duel) > ?arena= > the remembered choice. */
+/** A stored choice of a shelved arena (Sky Temple) falls back to DEFAULT_ARENA, so no player reaches it by accident. */
 export function resolveArena(explicit?: ArenaId | null): ArenaId {
   if (isArenaId(explicit)) return explicit;
   return arenaFromUrl() ?? getArenaChoice();

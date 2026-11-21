@@ -14,7 +14,7 @@ import { OPENING_HAND_V3, type PlayerId } from '../../engine/types';
 import { pixelText } from '../../ui/text';
 import { Button } from '../../view/Button';
 import { GAME_H, GAME_W, LANES } from '../../view/layout';
-import { getArenaChoice } from '../../view/arena-choice';
+import { resolveArena } from '../../view/arena-choice';
 import { tween } from '../../vfx/core';
 import { deckStore, type ResolvedDeck } from '../deck/store';
 import { backdropTex, fadeFromInk, fadeToInk, latticeTex, panelV3, REDUCED_MOTION } from '../deck/ui';
@@ -190,7 +190,7 @@ export class LobbyScene extends Phaser.Scene {
     const host = new NetHost(createTransport(), {
       name: 'FRIEND',
       deck: this.myDeck(),
-      arena: getArenaChoice(),
+      arena: resolveArena(), // Neon (one arena); ?arena=sky is the developer way in
       version: lobbyVersion(),
       game: { zones: LANES === 5 ? 5 : 3, startHand: OPENING_HAND_V3, firstPlayerDraws: true },
     });

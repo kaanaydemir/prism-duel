@@ -73,7 +73,7 @@ export class SettingsOverlay extends Overlay {
       { kind: 'music', title: 'Music', sub: 'Menu and duel music.' },
       { kind: 'curtain', title: 'Turn curtain', sub: 'Hides the hand between turns in same-screen play.' },
       { kind: 'arena', title: 'Arena', sub: 'Neon Tower or Sky Temple. The game restarts.' },
-    ];
+    ].filter((d) => d.kind !== 'arena' || ARENA_CHOOSER); // one arena (owner 2026-11-21): no chooser row
     defs.forEach((d, i) => {
       const y = HEADER_H + 10 + i * ROW_H;
       const title = pixelText(s, 18, y + 5, d.title.toUpperCase(), { size: 'md', color: PAL.white });
