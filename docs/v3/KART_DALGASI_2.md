@@ -23,8 +23,20 @@ anlatır.
 | 13 | Torrential Tribute | Tuzak | Bir canavar çağrılınca sahadaki bütün canavarları yok eder | |
 | 14 | Book of Moon | Büyü (hızlı) | Açık bir canavarı yüzü kapalı savunma konumuna çevirir | |
 | 15 | Seven Tools of the Bandit | Tuzak (karşı) | 1000 can puanı ödenir: bir tuzağın etkinleşmesini iptal edip yok eder | |
+| 16 | Sebek's Blessing | Büyü (hızlı) | Canavarın rakibe doğrudan saldırıp hasar verdikten hemen sonra: o hasar kadar can puanı kazanılır | üçüncü turda seçildi |
+| 17 | Gaia the Dragon Champion | Canavar (füzyon) | 2600/2100. Malzemeleri bizde var: Windmane Knight (Gaia rolü) + Venom Drake (Curse of Dragon rolü, 2000/1500) | dördüncü füzyon |
+| 18 | Catapult Turtle | Canavar | Turda bir kez: bir canavarını kurban eder, onun ATK'sinin yarısı kadar hasar verir | |
+| 19 | Morphing Jar | Canavar | Açılınca (FLIP) iki oyuncu elini atar ve 5 kart çeker | |
+| 20 | United We Stand | Büyü (kuşanma) | Kuşanan canavar, sahandaki her açık canavar için +800 ATK/DEF kazanır | |
+| 21 | Soul Exchange | Büyü | Rakibin bir canavarı bu turki kurbanlı çağırmada kurban olarak kullanılır; o tur savaş yapılamaz | |
 
-Seçilenler: 6 canavar (2'si füzyon), 3 büyü, 6 tuzak = 15. Kalan: 5 kart.
+Seçilenler: 9 canavar (4'ü füzyon), 6 büyü, 6 tuzak = 21 kart. Başlangıç hedefi 10 + 5 + 5 idi; bir canavar
+yeri daha açık (aday: Kuriboh).
+
+Kural notu (2026-11-21): resmî kuralda turda tek normal çağırma vardır ve kurbanlı çağırma da buna sayılır;
+aynı turda iki kurbanlı çağırma yapılamaz. Bizde de öyle; ikinci çağırmayı Festival Square verir. Sahip aynı
+turda birden çok kurbanlı çağırmayı hatırlıyor; istenirse bunu sağlayan bir kart eklenebilir
+(Ultimate Offering rolü: 500 can puanı karşılığı ek çağırma).
 Sahibin ikinci turda seçmedikleri: Kuriboh, Black Luster Soldier, Cyber Dragon, Buster Blader, Marshmallon,
 Lava Golem, Raigeki, Enemy Controller.
 
