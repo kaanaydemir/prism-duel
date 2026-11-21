@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { COLLECTIBLE_CARDS, DEFAULT_DECK } from '../../src/data/cards';
-import { autoFillDeck, classicDeck, copiesOf, presetDecks, validateDeck } from '../../src/data/decks';
+import { COLLECTIBLE_CARDS, DEFAULT_DECK, isFusionMonster } from '../../src/data/cards';
+import { autoFillDeck, classicDeck, copiesOf, isSingleCopy, presetDecks, validateDeck } from '../../src/data/decks';
 import { DeckStore, NAME_MAX, cleanName, SLOT_COUNT, STORE_KEY, matchDecks, parseStore, presetRef, serializeStore, slotRef, type KV } from '../../src/scenes/deck/store';
 
 class FakeKV implements KV {
@@ -181,7 +181,7 @@ describe('deck store', () => {
     const kv = new FakeKV();
     // 60 legal cards + 20 more copies: a legal 80-card deck before the official 40..60 rule
     const base = autoFillDeck([], 4, undefined, 60);
-    const extra = COLLECTIBLE_CARDS.filter((c) => !c.fusion && copiesOf(base, c.id) === 1 && !['well_pail', 'void_eye', 'sweeping_gale', 'winnow_sieve', 'dial_jester'].includes(c.id) && !c.id.startsWith('seal_')).map((c) => c.id).slice(0, 20);
+    const extra = COLLECTIBLE_CARDS.filter((c) => !isFusionMonster(c) && copiesOf(base, c.id) === 1 && !isSingleCopy(c.id)).map((c) => c.id).slice(0, 20);
     const old = [...base, ...extra];
     expect(old).toHaveLength(80);
     kv.data.set(STORE_KEY, JSON.stringify({ v: 2, slots: [{ name: 'Big One', cards: old }, null, null, null, null], last: { p1: 'slot:0' } }));
