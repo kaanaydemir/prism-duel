@@ -18,10 +18,17 @@ anlatır.
 | 8 | Black Skull Dragon | Canavar (füzyon) | 3200/2500. Malzemeleri bizde var: Grim Warden (Summoned Skull rolü) + Ashen Drake (Red-Eyes rolü) | ikinci füzyon; sinematiği özgün olmalı |
 | 9 | Dark Magician Girl | Canavar | 2000/1700; mezarlıktaki ustası başına +300 ATK. Usta rolü bizde: Abyss Magus | |
 | 10 | Mısır Tanrısı (Obelisk tarzı) | Canavar | 3 kurbanla çağrılan dev (4000/4000 sınıfı) | **coin ile alınır** (bkz. 3) |
+| 11 | Magician of Faith | Canavar | Açılınca (FLIP) mezarlıktan bir büyü ele geri alınır | ikinci turda seçildi |
+| 12 | Thousand Dragon | Canavar (füzyon) | Malzemeleri bizde var: Dial Jester (Time Wizard rolü) + Cloud Hatchling (Baby Dragon rolü) | üçüncü füzyon |
+| 13 | Torrential Tribute | Tuzak | Bir canavar çağrılınca sahadaki bütün canavarları yok eder | |
+| 14 | Book of Moon | Büyü (hızlı) | Açık bir canavarı yüzü kapalı savunma konumuna çevirir | |
+| 15 | Seven Tools of the Bandit | Tuzak (karşı) | 1000 can puanı ödenir: bir tuzağın etkinleşmesini iptal edip yok eder | |
 
-Kalan: 6 canavar + 3 büyü + 1 tuzak.
+Seçilenler: 6 canavar (2'si füzyon), 3 büyü, 6 tuzak = 15. Kalan: 5 kart.
+Sahibin ikinci turda seçmedikleri: Kuriboh, Black Luster Soldier, Cyber Dragon, Buster Blader, Marshmallon,
+Lava Golem, Raigeki, Enemy Controller.
 
-## 2. Kalan 10 için adaylar (sahip seçecek)
+## 2. Kalan kartlar için adaylar (sahip seçecek)
 
 Bizde karşılığı olmayan, sevilen klasik kartlar. Öneri sırasıyla.
 
