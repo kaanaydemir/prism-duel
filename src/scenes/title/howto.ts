@@ -266,7 +266,7 @@ const PAGES: Page[] = [
     title: 'Goal',
     lines: [
       'Each player starts with 4000 LP. Bring your opponent\'s LP to 0 to win the duel.',
-      'Each player picks a deck of 40 to 80 cards (up to 3 copies of a card) in the deck picker, or plays a preset.',
+      'Each player picks a deck of 40 to 60 cards (up to 3 copies of a card) in the deck picker, or plays a preset.',
       'Your opening hand is 5 cards; on your turn you draw a 6th. If you must draw and your deck is empty, you lose.',
       'A player who surrenders loses.',
     ],

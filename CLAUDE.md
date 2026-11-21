@@ -19,6 +19,14 @@ presentation for a signature moment; if a card's moment feels shared or flat, re
 Keep the ORIGINAL pixel language (640×360, integer scaling, 1-px outlines, clean tone bands,
 limited palette). Raise quality through craft, not resolution. (The HD trial in src/hd/ was rejected.)
 
+## Arena (owner decisions 2026-11-21) — read docs/v3/ARENA_ANALIZ.md before any arena or floor work
+- One arena: Neon. Sky Temple is shelved (code kept, not offered to players, not developed).
+- The target is frozen: docs/v3/ref/hedef-neon-son.png. It is a reference for the look only and is never shipped as an image; the arena is drawn in code from separate parts that can animate (cracks, waving banners, flames).
+- Play surface: flat cold navy, luminance 30-40 (never below 28), nothing drawn inside zones, zone lines dimmer than the monsters. Richness (light, colour, trim) lives around the board, in large shapes.
+- Light may be soft: the arena's light layers (pools, glow, reflections, rim light) are computed and need not be palette-pure or banded. Sprites and drawn pixels stay crisp and on the palette.
+- Judge every arena change on the busy board (?dev=steam&s=stBoard&look=v3) at 640x360 native, side by side with the target, with the same masks and scripts every round (docs/v3/ARENA_ANALIZ.md section 4). 3x crops are for debugging only.
+- The owner's "OK" means "continue", not "this is what I wanted". A step is closed when the owner says it matches the target.
+
 ## Stack & commands
 - Phaser 3.90 + TypeScript (strict) + Vite. No external image/audio assets: all art is drawn in code
   with `PixelCanvas` (`src/art/pixel.ts`), all sound is synthesized (WebAudio).
@@ -27,14 +35,13 @@ limited palette). Raise quality through craft, not resolution. (The HD trial in 
   - `--film 12 --every 80 --cols 4` — deterministic filmstrip (game time is frozen and stepped).
   - `--clip x,y,w,h` (game pixels) to zoom in; `--scale 3` for more detail; `--eval "js"` to drive the page.
   - Always LOOK at the PNG you produce (Read tool) — that is how you verify art and animation.
+- Branches: main (released), dev (development; commit here), mobile. Model and effort for agents: visual judgement work on the strongest model at high effort; rules, tests and measurements on a cheaper model.
 - Dev previews: `src/dev/previews/<name>.ts` (auto-discovered, opened with `?dev=<name>`).
   `?dev=monster&id=<id>` (sheet/live/board modes) and `?dev=monsters` exist already.
 
 ## Conventions
 - Resolution 640×360, `pixelArt: true`. Integer pixel positions for anything crisp.
-- UI text is Turkish (use correct letters: ç ğ ı İ ö ş ü). Code, identifiers and comments are English.
-  OWNER DECISION 2026-11-01: the WHOLE GAME switches to English (UI, card names, card text). The switch is
-  scheduled after the weekly reset (Thu 2026-11-05); until it lands keep writing Turkish UI text. See docs/YOL_HARITASI.md.
+- UI text, card names and card text are English (switched 2026-11-06; glossary: docs/ENGLISH_GLOSSARY.md). Docs for the owner are Turkish; code, identifiers and comments are English.
 - Colors only from `src/art/palette.ts` (`PAL`, `RAMPS`, `ATTRIBUTE_RAMP`, `PLAYER_COLOR`...).
 - Screen positions only via `src/view/layout.ts` (`zoneXY`, `isoToScreen`, `DEPTH`, `UI`).
 - Monsters are drawn facing RIGHT; player 2 uses flipX.

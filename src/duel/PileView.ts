@@ -147,7 +147,7 @@ export class PileView {
     if (n <= 0) return 0;
     if (V3_A6_A) {
       if (this.kind === 'deck') return n >= 4 ? V3_MAX_LAYERS : Math.min(V3_MAX_LAYERS, Math.max(3, n + 2));
-      if (this.kind === 'fusion') return Math.min(V3_MAX_LAYERS, n + 1); // 1..5 cards: one layer each over an ink contact line
+      if (this.kind === 'fusion') return Math.min(V3_MAX_LAYERS, n + 1); // one layer per card over an ink contact line, capped like every pile (the Fusion Deck holds up to 15)
       return Math.min(V3_MAX_LAYERS, n);
     }
     return Math.min(MAX_LAYERS, Math.ceil(n / 2));

@@ -4,8 +4,12 @@ Ana menüde **DESTE KUR** (3 maç kipinin altında, Nasıl Oynanır'ın üstünd
 kartlar) **çalışma anında** okunur: kart sayısı hiçbir yerde yazılı değildir; 35 kart da, 80 kart da aynı ekranda kayar. Kodlar: `src/scenes/deck/**`,
 kurallar ve hazır desteler `src/data/decks.ts`, kayıt `src/scenes/deck/store.ts`, testler `tests/deck/**`.
 
-## Kurallar (`validateDeck`, Türkçe gerekçelerle)
-- Deste **en az 40, en çok 80 kart** (`DECK_MIN`, `DECK_MAX`).
+## Kurallar (`validateDeck`) — resmi oyunun deste kurma kuralları (sahip kararı 2026-11-21)
+- Ana Deste **en az 40, en çok 60 kart** (`DECK_MIN`, `DECK_MAX`).
+- **Füzyon Destesi** (resmi oyundaki Extra Deck): **0-15 kart** (`FUSION_DECK_MAX`); Ana Deste sayısına girmez, Füzyon
+  Canavarları da 3 kopya sınırına uyar.
+- **Oran kuralı yok**: canavar / büyü / tuzak karışımı serbesttir (hiç canavarsız 40 kart da geçerli), Seviye 7+ sınırı yoktur.
+  Kurucudaki "Monsters n" ve "Spells / Traps n / n" sayaçları yalnız bilgidir, asla kırmızıya dönmez.
 - Her karttan **en çok 3 kopya** (`MAX_COPIES`); Beş Mühür parçalarından (`seal_head`, `seal_arm_r`, `seal_arm_l`, `seal_leg_r`,
   `seal_leg_l`) **her biri en çok 1** (`maxCopies`). Fazla kopya "Çok kopya: ..." diye işaretlenir.
 - **Tek kopyalık kartlar** (`SINGLE_COPY_IDS`, sahip kararı 2026-10-31): **Kuyu Kovası**, **Boşluk Gözü**, **Süpürge Rüzgarı**,
@@ -14,8 +18,13 @@ kurallar ve hazır desteler `src/data/decks.ts`, kayıt `src/scenes/deck/store.t
   `repairDeck`, hazır desteler ve `expandedDeck` ikinci kopya koymaz.
 - **Jeton** `straw_decoy_token` (Saman Korkuluk) bir kart kimliğidir ama `ALL_CARDS` / havuz dışındadır: kurucu ızgarasında,
   hazır destelerde, rastgele doldurmada ve sayımda yoktur.
-- Boyuta göre ölçeklenen oranlar (`minMonsters`, `maxHigh`; küçük deste en az 40 kart gibi sayılır): **canavar en az %40**
-  (40 kartta 16, 80 kartta 32), **Seviye 7+ canavar en çok %20** (40 kartta 8, 80 kartta 16; kurbanlı çağırma ağır).
+- Sınırlı liste (resmi oyundaki Limited listesi gibi) bizde: Beş Mühür parçaları ve tek kopyalık kartlar (yukarıda), 1'er kopya.
+- **Eski büyük kayıtlar** (61-80 kart, eski 80 sınırıyla kaydedilmiş): hiçbir kart silinmez (`repairDeck` `DECK_STORE_MAX` = 80'de
+  keser, 60'ta değil). Deste "Deck can hold at most 60 cards: n too many" gerekçesiyle geçersiz sayılır: seçicide soluk
+  ("Too many cards (72/60): remove 12"), kurucuda TASLAK; oyuncu fazla kartları çıkarıp kaydedince oynanır. AUTO-FILL böyle bir
+  desteye dokunmaz.
+- Çevrimiçi: deste kuralları sürüm parmak izine girer (`deckRulesKey` → `rulesFingerprint`); farklı kurallı iki sürüm eşleşmez
+  ("sürüm uyuşmuyor"), deste reddi yerine.
 - Bilinmeyen kart kimliği (oyundan kalkmış kart) "Eksik kart" diye işaretlenir; deste yüklenirken kart düşürülür.
 - **Emekli kartlar** (`cards.ts` içinde `retired: true`; bugün yalnız **Akşam Büyücüsü** `dusk_sorcerer`, sahip kararı): kart
   verisi ve resmi paylaşılan sözleşme olduğu için silinmez, ama hiçbir yerde sunulmaz: kurucu ızgarası, hazır desteler, CPU /
@@ -34,19 +43,20 @@ kurallar ve hazır desteler `src/data/decks.ts`, kayıt `src/scenes/deck/store.t
 - Hızlı büyüler (Burgu Mızrağı, Saman Korkuluklar) ızgarada "Hızlı" diye yazılır; Büyü süzgecinde görünür.
 - Eksik / geçersiz deste **kaydedilebilir** (taslak), ama maçta seçilemez (seçicide soluk, gerekçesi yazılı).
 - `autoFillDeck(mevcut, tohum, havuz, hedef)`: kurallara uyan, tohumlu "Rastgele doldur"; önce az kopyalı kartları seçer
-  (hedef 40..80; kurucuda hedef = en az 40, bugünkü kart sayısı büyükse o). `repairDeck`: bilinmeyenleri ve limit üstü kopyaları
-  atar, emekli kartları yerinde değiştirir (`replaced`), 80'de keser. `addBlocker`: bir kart eklenemiyorsa Türkçe nedeni.
+  (hedef 40..60, 60'ı asla aşmaz; kurucuda hedef = en az 40, bugünkü kart sayısı büyükse o; kendi tercihi olarak ~%40 canavar ve
+  az Sv7+ seçer, bu bir kural değildir). `repairDeck`: bilinmeyenleri ve limit üstü kopyaları
+  atar, emekli kartları yerinde değiştirir (`replaced`), 80'de (`DECK_STORE_MAX`) keser. `addBlocker`: bir kart eklenemiyorsa Türkçe nedeni.
 
 ## Ekranlar
 - **Kurucu** (`Deck` sahnesi, `?dev=deck`): solda oyunun kendi inspect paneli (büyük kart + metin) ve kısayol / mühür plakası;
   ortada süzgeç çipleri (Tümü / Canavar / Büyü / Tuzak, 6 element) + sıralama (Seviye / ATK / Ad) + kayan 3 sütunlu kart
-  ızgarası (44x34 resim, ad, ATK/DEF, element damlası, seviye); sağda 5 kayıt yuvası, deste adı, **sayaç `N/40-80`**
-  (40 altı / 80 üstü kırmızı, aralıkta ama kural bozuk sarı, geçerli yeşil), **kayan deste listesi** (her kart bir satır:
-  `xN` kopya sayısı, ad, Sv, ATK, satır başı **-** / **+** düğmeleri, sağda kaydırma çubuğu; 20 satır görünür, 80 kart = en
-  çok 55 farklı kart), seviye eğrisi, canavar/büyü/tuzak sayıları, kırmızı gerekçe satırları ve düğmeler (Kaydet, Rastgele,
+  ızgarası (44x34 resim, ad, ATK/DEF, element damlası, seviye); sağda 5 kayıt yuvası, deste adı, **sayaç `N/40-60`**
+  (40 altı / 60 üstü kırmızı, aralıkta ama kural bozuk sarı, geçerli yeşil), **kayan deste listesi** (her kart bir satır:
+  `xN` kopya sayısı, ad, Sv, ATK, satır başı **-** / **+** düğmeleri, sağda kaydırma çubuğu; 20 satır görünür, 60 kart = en
+  çok 60 farklı kart), seviye eğrisi, canavar/büyü/tuzak sayıları, kırmızı gerekçe satırları ve düğmeler (Kaydet, Rastgele,
   Hazır, Sıfırla, Temizle, Ad Ver).
 - Kopya ekleme: havuzda karta **tıkla = +1 kopya** (hücrede `xN` rozeti ve resmin altında **-** düğmesi var), listede **+ / -**.
-  3 kopyaya (Mühür ve tek kopyalık kartlarda 1) ulaşınca ek sınırı kırmızı mesajla söylenir. Başlık satırı: "40-80 kart · en çok 3
+  3 kopyaya (Mühür ve tek kopyalık kartlarda 1) ulaşınca ek sınırı kırmızı mesajla söylenir. Başlık satırı: "40-60 kart · en çok 3
   kopya · Mühür ve tek kopyalık kartlar 1". Fare tekerleği: solda ızgara, sağ panelde liste kayar.
 - **Deste seç** (`DeckPick` sahnesi): 2 Oyuncu'da Oyuncu 1 sonra Oyuncu 2; Bilgisayara Karşı'da sen, sonra rakip
   ("Rastgele" = hazır desteler arasından biri, ya da herhangi bir hazır deste). Liste: Klasik, 7 hazır deste, dolu yuvalar
@@ -80,7 +90,8 @@ diğerleri en çok 2).
 ## Kayıt (`DeckStore`)
 `localStorage` anahtarı `neon-duello:decks`: `{v:2, slots:[5], last:{p1,p2,cpu,edit}}`. Her erişim `try/catch` içinde; depolama
 kapalı/dolu/bozuk ise bellekte devam eder (`persisted=false`, kullanıcıya söylenir). Bozuk JSON yok sayılır. Kayıtlı deste
-yüklenirken bilinmeyen kimlikler ve limit üstü kopyalar atılır (`missing` sayılır), 80'den uzunsa kesilir.
+yüklenirken bilinmeyen kimlikler ve limit üstü kopyalar atılır (`missing` sayılır), 80'den uzunsa kesilir (61-80 kart
+olduğu gibi kalır, yalnız "60'tan fazla" diye geçersiz sayılır).
 **Eski kayıt göçü:** `v` < 2 olan (20 kartlık tek kopya) bir yuvada 10+ kart varsa deste iki katına çıkarılır (mühürler tek kalır),
 kalan boşluk tohumlu `autoFillDeck` ile 40'a tamamlanır ve `migrated` işaretlenir; sonraki kayıtta `v:2` yazılır. 10 karttan azsa taslak
 olarak kalır (geçersiz, seçilemez). Hiçbir durumda çökmez.
@@ -88,7 +99,7 @@ olarak kalır (geçersiz, seçilemez). Hiçbir durumda çökmez.
 ## Maça bağlama
 `DuelLaunch.decks?: [CardId[], CardId[]]` → `scene.start('Duel', launch)` → `DuelScene` zaten `newGame({decks})` veriyor
 (motor anlamı değişmedi). İki taraf da Klasik ise `decks` **hiç verilmez**: oyun eskisi gibi `DEFAULT_DECK` (20 kart; veya `?deck=expanded`, 40)
-ile başlar; `?mode=…` URL'leri ve tüm senaryolar zaten bu yolu kullanır (v1 filmdiff aynı). Başka bir eşleşmede (ör. Klasik'e karşı hazır deste) tam 40-80 kartlık desteler verilir. Rövanşta seçilen desteler korunur.
+ile başlar; `?mode=…` URL'leri ve tüm senaryolar zaten bu yolu kullanır (v1 filmdiff aynı). Başka bir eşleşmede (ör. Klasik'e karşı hazır deste) tam 40-60 kartlık desteler verilir. Rövanşta seçilen desteler korunur.
 
 ## Bilinen eksikler
 - Kurucu, tek seferde bir yuvayı düzenler; yuvalar arası kart kopyalama / deste dışa aktarma kodu yok.

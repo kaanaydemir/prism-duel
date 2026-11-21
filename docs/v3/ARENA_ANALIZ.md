@@ -1,6 +1,9 @@
 # Arena analizi (2026-11-21)
 
-Durum: analiz bitti, **plan sahibin onayını bekliyor**. Bu çalışmada oyun kodu değişmedi.
+Durum: **plan sahip tarafından 2026-11-21'de onaylandı.** Kesinleşen cevaplar: önizleme hedeftir; canavar çizimleri
+aynen kalır, kenar ışığı ve hafif renk canlandırma alır; arena canavarlarla aynı piksel ızgarasında kalır; kareler
+44'ten 56 piksele büyür, el yarı gizli durur (bkz. `shots/arena-analysis/layout/REPORT.md`); dokunma kareye göre,
+canavarlar yarı saydam (içinden görünür).
 Ham raporlar ve ölçüm dosyaları `shots/arena-analysis/` altında (git dışı); bu belge onların özeti.
 
 ## 1. Sahip kararları (2026-11-21)
@@ -90,7 +93,7 @@ Saha ölçütleri gerekli ama yeterli değil: 9 Kasım'daki yapı bunlara yakın
   bu henüz denenmedi ve planın ilk riskidir.
 - Önizlemedeki kusurlar: hologram figürleri yok, isim etiketleri lekeli, sahnenin üst köşesi ~4 piksel kayık.
 
-## 7. Plan (onay bekliyor)
+## 7. Plan (onaylandı 2026-11-21)
 
 Her adımın sonunda: sabit hedefle yan yana, telefon boyutunda, dolu sahada karşılaştırma + yukarıdaki ölçütler +
 telefonda deneme sürümü. "OK" yetmez; sahip "hedefle uyuşuyor" derse adım kapanır.
@@ -98,6 +101,7 @@ telefonda deneme sürümü. "OK" yetmez; sahip "hedefle uyuşuyor" derse adım k
 | Adım | İş | Kapanış ölçütü |
 |---|---|---|
 | 0 | Kayıt: bu belge, `CLAUDE.md` kurallarının güncellenmesi, varsayılan arena Neon, seçici gizli | Sahip onayı |
+| 1a | Yeni ölçüler (kare 56 piksel, el yarı gizli) — arena çiziminden önce | Sahip onayı; dokunma kareye göre |
 | 1 | Saha üstü ve canavarlar: düz lacivert zemin, ince ve loş kare çizgileri, kenar ışığı, hafif renk canlandırma | Fark ≥ +40 / ≥ +20; zemin 30–40 |
 | 2 | Sahne kenarı ve duvarları: altın/bronz kenar, aydınlık duvar panelleri | Duvar 45–55 |
 | 3 | Salon zemini: ıslak, yansıtan zemin; sıcak ve soğuk ışık havuzları | Salon 60 ± 8 |
@@ -108,10 +112,12 @@ telefonda deneme sürümü. "OK" yetmez; sahip "hedefle uyuşuyor" derse adım k
 Yöntem (Sky Temple'dan alınanlar): renkler hedeften örneklenir; ışık elle değil hesapla verilir; her parça
 ayrı katman; tek oturum sahiplenir; her turda aynı ölçüm.
 
-## 8. Açık sorular (sahibe)
+## 8. Sorular (sahibe) — 1-4 cevaplandı (2026-11-21)
 
 1. Önizleme hedef olarak doğru mu; değişmesini istediği bir şey var mı (sis, kare çizgileri, amblem)?
+   **Cevap: önizleme hedeftir.**
 2. Canavarlar: (A) çizimler aynen kalsın, yalnızca kenar ışığı ve hafif canlandırma; (B) yeniden boyansın.
-   Varsayım: A.
-3. Arena canavarlarla aynı pikselde mi kalsın (öneri), yoksa daha ince mi çizilsin?
-4. Sahayı büyütmek: eldeki kartlar yarı gizli dursun mu? Varsayım: hayır.
+   Varsayım: A. **Cevap: A** (kenar ışığı + hafif renk canlandırma).
+3. Arena canavarlarla aynı pikselde mi kalsın (öneri), yoksa daha ince mi çizilsin? **Cevap: aynı piksel ızgarası.**
+4. Sahayı büyütmek: eldeki kartlar yarı gizli dursun mu? Varsayım: hayır. **Cevap: evet** — kareler 44 → 56 piksel,
+   el yarı gizli, dokunma kareye göre, canavarlar içinden görünür (`shots/arena-analysis/layout/REPORT.md`).

@@ -51,6 +51,8 @@ import type { DuelViews } from './types';
 import { pickCard } from './CardPicker';
 import { showClock } from './showclock';
 import { shroudReject } from '../cinematics/kartc/tide_harpooner-shroud';
+import { resolvePick } from './pickRule';
+import { SeeThrough, bodyOpaqueAt } from './SeeThrough';
 
 type Choice =
   | { kind: 'battle' }
@@ -106,6 +108,10 @@ export class HumanInput {
   /** v3 (A6-B, F4): the open board pick's target corners, the selected attacker's corners. */
   private aim: AimMarks | null = null;
   private sel: SelectMark | null = null;
+  /** See-through: monsters covering the hovered / selected zone fade (src/duel/SeeThrough.ts). */
+  readonly see: SeeThrough;
+  private hoverFocus: Pick | null = null;
+  private selFocus: Pick | null = null;
   /** v3 (A6B-7): the frame the target corners last locked (their ui3Lock is that frame's sound). */
   private aimLockFrame = -1;
   /** v3 (F5): the screen point of the last board click (the reject stamp lands there). */
@@ -125,6 +131,8 @@ export class HumanInput {
   constructor(scene: Phaser.Scene, views: DuelViews) {
     this.scene = scene;
     this.views = views;
+    this.see = new SeeThrough(scene, views);
+    this.see.blocked = () => this.seeBlocked();
     const v = views;
     v.hud.onBattle = () => this.onChoice?.({ kind: 'battle' });
     v.hud.onEndTurn = () => this.onChoice?.({ kind: 'endTurn' });
@@ -325,6 +333,8 @@ export class HumanInput {
           a = null;
         } finally {
           this.unpin();
+          this.selFocus = null;
+          this.updateSee();
         }
         if (token !== this.token) return null;
         if (a) {
@@ -357,6 +367,7 @@ export class HumanInput {
     if (V3_A6_B && m !== this.mode) this.views.hud.endHintFlash();
     this.hoverPick = null;
     this.mode = m;
+    this.updateSee();
     const hud = this.views.hud;
     const p = this.player;
     switch (m) {
@@ -600,6 +611,8 @@ export class HumanInput {
 
   private async zoneFlow(ref: ZoneRef, legal: Action[]): Promise<Action | null> {
     const s = this.state!;
+    this.selFocus = { player: ref.player, spot: ref.zone, index: ref.index };
+    this.updateSee();
     const p = this.player;
     const hud = this.views.hud;
     if (ref.player !== p) {
@@ -1305,9 +1318,7 @@ export class HumanInput {
       const s = u.sprite;
       const b = s.getBounds();
       if (!b.contains(w.x, w.y)) continue;
-      const fx = Math.floor((s.flipX ? b.right - w.x : w.x - b.left) / Math.abs(s.scaleX));
-      const fy = Math.floor((w.y - b.top) / Math.abs(s.scaleY));
-      if (this.framePixelAlpha(s, fx, fy) > 0) hits.push({ player: u.player, spot: 'monster', index: u.zone });
+      if (bodyOpaqueAt(this.scene, s, w.x, w.y)) hits.push({ player: u.player, spot: 'monster', index: u.zone });
     }
     const z = this.views.board.zoneAt(w.x, w.y);
     let tile: Pick | null = z ? { player: z.player, spot: z.spot, index: z.index } : null;
@@ -1317,24 +1328,36 @@ export class HumanInput {
         const c = fusionDeckXY(fp);
         if (Math.abs(w.x - c.x) / 2 + Math.abs(w.y - (c.y - 2)) <= 13) tile = { player: fp, spot: 'banish', index: 0 };
       }
-    const valid = this.validPick();
-    if (valid) {
-      // v3: a valid body (front-most, even one partly covered by a non-valid body) first; then
-      // in a board pick the valid tile, in idle whatever body is in front (what the player sees)
-      const v = hits.find(valid);
-      if (v) return v;
-      if (tile && valid(tile) && (this.zoneHover || !hits.length)) return tile;
-    }
-    return hits[0] ?? tile;
+    // tap by tile: an occupied cell wins over a body covering it (src/duel/pickRule.ts)
+    return resolvePick({ tile, tileOccupied: !!tile && this.occupied(tile), hits, valid: this.validPick(), zonePick: !!this.zoneHover });
   }
 
-  /**
-   * Alpha of the pixel (fx, fy) of a sprite's FULL frame (realWidth × realHeight). Phaser's
-   * getPixelAlpha takes full-frame coordinates and removes a trimmed frame's offset (frame.x/y,
-   * v3 cropped atlas) itself, so the coordinates go in as they are (do not subtract it twice).
-   */
-  private framePixelAlpha(s: Phaser.GameObjects.Sprite, fx: number, fy: number): number {
-    return this.scene.textures.getPixelAlpha(fx, fy, s.texture.key, s.frame.name) ?? 0;
+  /** A monster / card lies on the zone, or its pile holds cards (what the board shows now). */
+  private occupied(z: Pick): boolean {
+    const f = this.views.field;
+    if (z.spot === 'monster' || z.spot === 'spellTrap' || z.spot === 'field') return !!f.entry(z.player, z.spot, z.index);
+    if (z.spot === 'deck' || z.spot === 'graveyard') return f.pile(z.player, z.spot).count > 0;
+    if (z.spot === 'banish') {
+      if (FUSION_ZONE) return (f.fusionPile(z.player)?.count ?? 0) > 0;
+      return (this.state?.players[z.player].banished?.length ?? 0) > 0;
+    }
+    return false;
+  }
+
+  /** See-through stays off while input is off, behind the curtain, paused, or a cinematic plays. */
+  private seeBlocked(): boolean {
+    return this.mode === 'off' || this.mode === 'curtain' || this.mode === 'pause' || this.busy();
+  }
+
+  /** Fade the monsters covering the hovered / selected zone (or bring them back). */
+  private updateSee(): void {
+    if (!this.see) return;
+    if (this.seeBlocked()) return this.see.clear(true);
+    const f: Pick[] = [];
+    if (this.hoverFocus) f.push(this.hoverFocus);
+    const sf = this.selFocus;
+    if (sf && !(this.hoverFocus && refKey(sf) === refKey(this.hoverFocus))) f.push(sf);
+    this.see.set(f);
   }
 
   /** The "is this a meaningful click right now" test used by pick(), or null. */
@@ -1362,6 +1385,8 @@ export class HumanInput {
     const mini = V3_A6_B && !inHand ? this.miniAt(sx, sy) : null;
     const h = inHand || mini !== null ? null : this.pick(sx, sy);
     this.hoverPick = !inHand && mini === null ? { x: sx, y: sy, ctx: this.zoneHover, st: this.state, mode: this.mode, hit: h } : null;
+    this.hoverFocus = h && this.occupied(h) ? h : null;
+    this.updateSee();
     // board pick feedback: the candidate under the pointer lights up white
     const zh = this.zoneHover;
     if (inHand) {

@@ -38,6 +38,30 @@ describe('arena choice', () => {
     expect(A.ARENA_IDS).toContain(A.DEFAULT_ARENA);
   });
 
+  it('gives every player the Neon arena; the chooser is off (owner decision 2026-11-21)', async () => {
+    const A = await import('../../src/view/arena-choice');
+    expect(A.DEFAULT_ARENA).toBe('neon');
+    expect(A.PLAYER_ARENAS).toEqual(['neon']);
+    expect(A.ARENA_CHOOSER).toBe(false);
+    expect(A.resolveArena()).toBe('neon');
+  });
+
+  it('ignores a stored Sky Temple choice (shelved): no reload into the 2x canvas', async () => {
+    const A = await import('../../src/view/arena-choice');
+    store.setItem(KEY, JSON.stringify({ arena: 'sky', speed: 2 }));
+    expect(A.getArenaChoice()).toBe('neon');
+    expect(A.resolveArena()).toBe('neon');
+    g.location = { search: '?dev=steam' };
+    expect(A.resolveArena()).toBe('neon');
+  });
+
+  it('still opens the Sky Temple for developers (?arena=sky, explicit DuelLaunch.arena)', async () => {
+    const A = await import('../../src/view/arena-choice');
+    expect(A.resolveArena('sky')).toBe('sky');
+    g.location = { search: '?dev=steam&arena=sky' };
+    expect(A.resolveArena()).toBe('sky');
+  });
+
   it('remembers a choice and keeps the other settings', async () => {
     const A = await import('../../src/view/arena-choice');
     store.setItem(KEY, JSON.stringify({ speed: 2, sound: false }));
@@ -46,7 +70,7 @@ describe('arena choice', () => {
     const rec = JSON.parse(store.getItem(KEY) as string);
     expect(rec).toEqual({ speed: 2, sound: false, arena: 'neon' });
     A.setArenaChoice('sky');
-    expect(A.getArenaChoice()).toBe('sky');
+    expect(A.getArenaChoice()).toBe('neon'); // saved, but shelved: players never get it back
   });
 
   it('ignores bad saved values and bad JSON', async () => {

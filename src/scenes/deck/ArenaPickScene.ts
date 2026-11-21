@@ -8,6 +8,9 @@
 //
 // The canvas resolution depends on the arena (src/view/hires.ts: the Sky Temple renders at 2×). Choosing the Sky Temple on a
 // page booted at 1× saves the choice and reloads straight into the duel (registry.ts pendingDuel), so it is drawn crisp.
+//
+// Owner decision 2026-11-21: one arena (Neon), the Sky Temple is shelved. With ARENA_CHOOSER off (src/view/arena-choice.ts)
+// this scene skips itself and starts the duel at once; the picker UI is kept for ?dev=arenapick only.
 
 import Phaser from 'phaser';
 import { PAL } from '../../art/palette';
@@ -17,7 +20,7 @@ import { Button } from '../../view/Button';
 import { BoardView } from '../../view/BoardView';
 import { GAME_H, GAME_W } from '../../view/layout';
 import { ICON, playerStyle } from '../../view/ui-textures';
-import { ARENA_IDS, ARENA_INFO, type ArenaId, getArenaChoice, setArenaChoice } from '../../view/arena-choice';
+import { ARENA_CHOOSER, ARENA_IDS, ARENA_INFO, type ArenaId, getArenaChoice, resolveArena, setArenaChoice } from '../../view/arena-choice';
 import { HIRES } from '../../view/hires';
 import { MOBILE } from '../../view/mobile';
 import { tween } from '../../vfx/core';
@@ -81,6 +84,13 @@ export class ArenaPickScene extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor(PAL.night0);
+    // One arena (owner decision 2026-11-21, docs/v3/ARENA_ANALIZ.md): players get no chooser, this step passes straight
+    // on to the duel (Neon, or ?arena=sky for developers). ?dev=arenapick still shows the picker.
+    if (!ARENA_CHOOSER && !this.d.dev) {
+      music.stop(500);
+      this.scene.start('Duel', { ...this.d.launch, arena: resolveArena(this.d.launch.arena) } satisfies DuelLaunch);
+      return;
+    }
     this.add.image(0, 0, backdropTex(this)).setOrigin(0);
     this.lattice = this.add.tileSprite(0, 0, GAME_W, GAME_H, latticeTex(this)).setOrigin(0);
     this.add.image(20, 12, panelV3(this, 'p1', 600, 336, 20)).setOrigin(0).setDepth(3);
