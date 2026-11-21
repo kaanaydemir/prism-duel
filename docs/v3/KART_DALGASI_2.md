@@ -30,8 +30,10 @@ anlatır.
 | 20 | United We Stand | Büyü (kuşanma) | Kuşanan canavar, sahandaki her açık canavar için +800 ATK/DEF kazanır | |
 | 21 | Soul Exchange | Büyü | Rakibin bir canavarı bu turki kurbanlı çağırmada kurban olarak kullanılır; o tur savaş yapılamaz | |
 
-Seçilenler: 9 canavar (4'ü füzyon), 6 büyü, 6 tuzak = 21 kart. Başlangıç hedefi 10 + 5 + 5 idi; bir canavar
-yeri daha açık (aday: Kuriboh).
+| 22 | Kuriboh | Canavar | Elden atılır: o saldırıdan gelen savaş hasarı sıfırlanır | sahip "ok, not al" dedi (2026-11-21) |
+| 23 | Ultimate Offering | Tuzak (kalıcı) | 500 can puanı ödenir: o tur bir ek normal çağırma / kurbanlı çağırma hakkı | sahibin "aynı turda iki kurbanlı çağırma" isteğini karşılar |
+
+Seçilenler: 10 canavar (4'ü füzyon), 6 büyü, 7 tuzak = 23 kart.
 
 Kural notu (2026-11-21): resmî kuralda turda tek normal çağırma vardır ve kurbanlı çağırma da buna sayılır;
 aynı turda iki kurbanlı çağırma yapılamaz. Bizde de öyle; ikinci çağırmayı Festival Square verir. Sahip aynı
