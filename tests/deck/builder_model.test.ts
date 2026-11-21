@@ -2,7 +2,7 @@
 // deck list (grid of thumbnails) with its scroll / keyboard maths, and the requirement meters.
 import { describe, expect, it } from 'vitest';
 import { CARDS, COLLECTIBLE_CARDS, isMonster, type CardId } from '../../src/data/cards';
-import { DECK_MAX, DECK_MIN, autoFillDeck, classicDeck, maxHigh, minMonsters, validateDeck } from '../../src/data/decks';
+import { DECK_MAX, DECK_MIN, autoFillDeck, classicDeck, validateDeck } from '../../src/data/decks';
 import { deckEntries, deckLines, deckSections, entryMove, lineOfEntry, linesHeight, maxLineScroll, scrollToEntry, visibleLines } from '../../src/scenes/deck/deckList';
 import { deckMeters } from '../../src/scenes/deck/meters';
 import { matchesQuery, normQuery, visibleIds } from '../../src/scenes/deck/pool';
@@ -88,12 +88,28 @@ describe('deck list (sections + grid rows)', () => {
 });
 
 describe('requirement meters', () => {
-  it('an empty deck: cards / monsters unmet, Lv7+ and copies met', () => {
-    const [cards, monsters, high, copies] = deckMeters([]);
+  it('an empty deck: cards unmet, copies met, the two counts are information only', () => {
+    const [cards, monsters, backrow, copies] = deckMeters([]);
     expect(cards).toMatchObject({ key: 'cards', value: `0/${DECK_MIN}`, met: false, fill: 0 });
-    expect(monsters).toMatchObject({ key: 'monsters', value: `0/${minMonsters(0)}`, met: false });
-    expect(high).toMatchObject({ key: 'high', met: true });
+    expect(monsters).toMatchObject({ key: 'monsters', label: 'Monsters', value: '0', met: true, info: true, fill: 0 });
+    expect(backrow).toMatchObject({ key: 'backrow', label: 'Spells / Traps', value: '0 / 0', met: true, info: true, fill: 0 });
     expect(copies).toMatchObject({ key: 'copies', met: true, fill: 1 });
+    expect(cards.tip.join(' ')).toContain('The Main Deck holds 40-60 cards.');
+  });
+
+  it('the counts never fail: no monsters, only monsters, only Lv 7+', () => {
+    const back = COLLECTIBLE_CARDS.filter((c) => !isMonster(c)).flatMap((c) => [c.id, c.id]).slice(0, 40);
+    const mons = COLLECTIBLE_CARDS.filter((c) => isMonster(c) && !c.fusion).flatMap((c) => [c.id, c.id]).slice(0, 40);
+    const high = COLLECTIBLE_CARDS.filter((c) => isMonster(c) && !c.fusion && c.level >= 7).flatMap((c) => [c.id, c.id, c.id]);
+    for (const d of [back, mons, high]) {
+      const [, monsters, backrow] = deckMeters(d);
+      const st = validateDeck(d).stats;
+      expect(monsters).toMatchObject({ value: String(st.monsters), met: true, info: true });
+      expect(backrow).toMatchObject({ value: `${st.spells} / ${st.traps}`, met: true, info: true });
+      expect(monsters.fill + backrow.fill).toBeCloseTo(1);
+    }
+    expect(deckMeters(back).every((m) => m.met)).toBe(true); // 40 spells / traps: a legal deck
+    expect(validateDeck(back).ok).toBe(true);
   });
 
   it('a legal deck meets every meter and agrees with validateDeck', () => {
@@ -109,22 +125,29 @@ describe('requirement meters', () => {
 
   it('every validateDeck issue shows up as an unmet meter with its reason in the tooltip', () => {
     const lots = Array<CardId>(4).fill('ember_wolf');
-    const high = COLLECTIBLE_CARDS.filter((c) => isMonster(c) && c.level >= 7).flatMap((c) => [c.id, c.id, c.id]).slice(0, maxHigh(DECK_MIN) + 1);
+    const high = COLLECTIBLE_CARDS.filter((c) => isMonster(c) && c.level >= 7).flatMap((c) => [c.id, c.id, c.id]).slice(0, 9);
     const deck = [...lots, ...high];
     const v = validateDeck(deck);
     const ms = deckMeters(deck);
     const byKey = Object.fromEntries(ms.map((m) => [m.key, m]));
+    expect(v.issues.length).toBeGreaterThan(0);
     for (const i of v.issues) {
-      const key = i.code === 'size' ? 'cards' : i.code === 'unknown' ? 'copies' : i.code;
+      const key = i.code === 'copies' || i.code === 'unknown' ? 'copies' : 'cards'; // 'size' and 'fusion' sit on the card meter
       expect(byKey[key].met, i.code).toBe(false);
       expect(byKey[key].tip.join(' '), i.code).toContain(i.text);
     }
     expect(byKey.copies.tip.join(' ')).toContain('Ember Wolf');
   });
 
-  it('above 40 the card meter counts against the 80 cap; missing / retired notes reach the copies tooltip', () => {
+  it('above 40 the card meter counts against the 60 cap; missing / retired notes reach the copies tooltip', () => {
     const d = autoFillDeck([], 3, undefined, 52);
     expect(deckMeters(d)[0]).toMatchObject({ value: `52/${DECK_MAX}`, met: true, fill: 1 });
+    // a deck saved under the old 80-card limit: the meter is unmet and its tooltip says what to do
+    const old = [...autoFillDeck([], 3, undefined, 60), ...classicDeck().slice(0, 12)];
+    const over = deckMeters(old)[0];
+    expect(validateDeck(old).stats.size).toBe(72);
+    expect(over).toMatchObject({ value: `72/${DECK_MAX}`, met: false });
+    expect(over.tip).toContain('Deck can hold at most 60 cards: 12 too many');
     const tip = deckMeters(d, { missing: 2, replaced: 1 })[3].tip.join(' ');
     expect(tip).toContain('Missing cards: 2');
     expect(tip).toContain('Retired cards: 1 copy');

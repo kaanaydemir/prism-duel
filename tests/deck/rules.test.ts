@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ALL_CARDS, COLLECTIBLE_CARDS, CARDS, DEFAULT_DECK, SEAL_IDS, isMonster, type CardId } from '../../src/data/cards';
 import {
-  DECK_MAX, DECK_MIN, DECK_SIZE, EXPANDED_POOL, MAX_COPIES, PRESET_DEFS, RETIRED_SUBSTITUTES, addBlocker, autoFillDeck, buildPreset, classicDeck, copiesOf, deckStats, expandedDeck, isSealCard, maxCopies, maxHigh, minMonsters, missingPins, presetById, presetDecks, repairDeck, validateDeck, splitDeck,
+  DECK_MAX, DECK_MIN, DECK_SIZE, DECK_STORE_MAX, EXPANDED_POOL, FUSION_DECK_MAX, MAX_COPIES, PRESET_DEFS, RETIRED_SUBSTITUTES, addBlocker, autoFillDeck, buildPreset, classicDeck, copiesOf, deckStats, expandedDeck, isSealCard, maxCopies, missingPins, presetById, presetDecks, repairDeck, validateDeck, splitDeck,
 } from '../../src/data/decks';
 import { newGame } from '../../src/engine';
 import { isRetired } from '../../src/data/cards';
@@ -19,10 +19,11 @@ const spread = (ids: string[], size: number, per = 2): string[] => {
   return out;
 };
 
-describe('deck rules (40..80 cards, 3 copies, seals 1)', () => {
+describe('deck rules (official deck construction: 40..60 cards, 3 copies, seals 1, no ratio rules)', () => {
   it('constants', () => {
     expect(DECK_MIN).toBe(40);
-    expect(DECK_MAX).toBe(80);
+    expect(DECK_MAX).toBe(60);
+    expect(FUSION_DECK_MAX).toBe(15);
     expect(DECK_SIZE).toBe(40);
     expect(MAX_COPIES).toBe(3);
     expect(maxCopies('seal_head')).toBe(1);
@@ -37,14 +38,17 @@ describe('deck rules (40..80 cards, 3 copies, seals 1)', () => {
     expect(DEFAULT_DECK).toHaveLength(20); // the engine default stays the original 20
   });
 
-  it('size bounds: 39 and 81 fail, 40 and 80 pass', () => {
+  it('size bounds: 39 and 61 fail, 40 and 60 pass', () => {
     const ok = (n: number) => validateDeck(spread([...low, ...back], n, 3));
     expect(ok(39).issues.map((i) => i.code)).toContain('size');
     expect(ok(40).ok).toBe(true);
-    expect(ok(80).ok).toBe(true);
-    const over = validateDeck([...spread([...low, ...back], 80, 3), low[0]]);
-    expect(over.issues.map((i) => i.code)).toContain('size');
-    expect(over.issues.find((i) => i.code === 'size')!.text).toContain(`at most ${DECK_MAX}`);
+    expect(ok(60).ok).toBe(true);
+    const over = ok(61);
+    expect(over.stats.size).toBe(61);
+    expect(over.ok).toBe(false);
+    expect(over.issues.map((i) => i.code)).toEqual(['size']);
+    expect(over.issues[0].text).toBe('Deck can hold at most 60 cards: 1 too many');
+    expect(ok(80).issues[0].text).toBe('Deck can hold at most 60 cards: 20 too many');
   });
 
   it('copy limit: 3 copies pass, a 4th fails; each seal at most 1', () => {
@@ -60,34 +64,50 @@ describe('deck rules (40..80 cards, 3 copies, seals 1)', () => {
     expect(addBlocker([low[0], low[0]], low[0])).toBeNull();
   });
 
-  it('scaled limits: >=40% monsters, Sv7+ <=20%', () => {
-    expect(minMonsters(40)).toBe(16);
-    expect(minMonsters(80)).toBe(32);
-    expect(maxHigh(40)).toBe(8);
-    expect(maxHigh(80)).toBe(16);
-    expect(minMonsters(10)).toBe(16); // judged on at least DECK_MIN
-    const noMon = validateDeck(spread(back, 40, 3).slice(0, 40));
-    expect(noMon.issues.map((i) => i.code)).toContain('monsters');
-    expect(noMon.issues.find((i) => i.code === 'monsters')!.text).toContain('at least 16 monsters');
-    // 80 cards need 32 monsters: 31 monsters + 49 others fails, 32 passes
-    const mk = (m: number) => [...spread(low, m, 3), ...spread(back, 80 - m, 3)];
-    expect(validateDeck(mk(31)).issues.map((i) => i.code)).toContain('monsters');
-    expect(validateDeck(mk(32)).issues.map((i) => i.code)).not.toContain('monsters');
+  it('no ratio rules: a deck with no monsters is legal, and so is any share of monsters', () => {
+    const noMon = spread(back, 40, 3);
+    expect(noMon).toHaveLength(40);
+    expect(deckStats(noMon).monsters).toBe(0);
+    expect(validateDeck(noMon)).toMatchObject({ ok: true, issues: [] });
+    const allMon = spread(low, 40, 3);
+    expect(allMon).toHaveLength(40);
+    expect(validateDeck(allMon).ok).toBe(true);
+    // one monster among 59 spells / traps, at the 60-card limit
+    expect(validateDeck([low[0], ...spread(back, 59, 3)]).ok).toBe(true);
   });
 
-  // the collectible pool holds 3 Sv7+ monsters today (dusk_sorcerer retired); at 3 copies each that is 9:
-  // over the 40-card cap of 8, fine at 80
-  it('rejects too many Level 7+ monsters (cap grows with the deck)', () => {
-    const tribute = spread(high, 12, 3);
-    expect(tribute.length).toBeGreaterThan(8);
-    const d40 = [...tribute, ...spread(low, 26 - tribute.length, 3), ...spread(back, 14, 3)];
-    expect(d40.length).toBe(40);
-    const r = validateDeck(d40);
-    expect(r.issues.map((i) => i.code)).toContain('high');
-    expect(r.issues.find((i) => i.code === 'high')!.text).toMatch(/Lv 7\+/);
-    expect(addBlocker(spread(high, 8, 3).concat(spread(low, 8, 1)), high[0])).toMatch(/Lv 7\+|max/i);
-    const d80 = [...tribute, ...spread(low, 24, 3), ...spread(back, 44, 3)];
-    expect(validateDeck(d80).issues.map((i) => i.code)).not.toContain('high');
+  it('no Level 7+ cap: every Lv 7+ monster at 3 copies is legal and is never refused by the builder', () => {
+    expect(high.length).toBeGreaterThan(0);
+    const tribute = spread(high, high.length * 3, 3);
+    // as many Lv 7+ monsters as the pool holds (3 copies each), topped up to 40 only when the pool is that small
+    const deck = [...tribute.slice(0, 60), ...spread(low, Math.max(0, 40 - tribute.length), 3)];
+    expect(deckStats(deck).high).toBe(Math.min(60, tribute.length));
+    expect(validateDeck(deck)).toMatchObject({ ok: true, issues: [] });
+    let d: string[] = [];
+    for (const id of high) for (let k = 0; k < 3; k++) {
+      if (d.length >= DECK_MAX) break;
+      expect(addBlocker(d, id), `${id} copy ${k + 1}`).toBeNull();
+      d = [...d, id];
+    }
+  });
+
+  it('the Fusion Deck holds 0..15 cards: 15 pass, a 16th is reported (ids repeated: the pool has too few Fusion Monsters)', () => {
+    const fusionIds = COLLECTIBLE_CARDS.filter((c) => isMonster(c) && c.fusion).map((c) => c.id);
+    expect(fusionIds.length).toBeGreaterThan(0);
+    const main = spread([...low, ...back], 40, 3);
+    const fus = (n: number) => Array.from({ length: n }, (_, i) => fusionIds[i % fusionIds.length]);
+    const at15 = validateDeck([...main, ...fus(15)]);
+    expect(at15.stats).toMatchObject({ size: 40, fusion: 15 });
+    expect(at15.issues.map((i) => i.code)).not.toContain('fusion');
+    expect(at15.issues.map((i) => i.code)).not.toContain('size');
+    const at16 = validateDeck([...main, ...fus(16)]);
+    expect(at16.issues.find((i) => i.code === 'fusion')!.text).toBe('Fusion Deck can hold at most 15 cards: 1 too many');
+    // a Fusion Monster follows the normal 3-copy limit
+    expect(validateDeck([...main, ...fus(Math.min(15, fusionIds.length * 3))]).ok).toBe(true);
+    expect(maxCopies(fusionIds[0])).toBe(3);
+    expect(addBlocker([...main, fusionIds[0], fusionIds[0], fusionIds[0]], fusionIds[0])).toMatch(/Max 3/);
+    // repairDeck (saved lists) cuts the Fusion Deck at 15, counted apart from the main deck
+    if (fusionIds.length >= 6) expect(splitDeck(repairDeck([...main, ...fus(18)]).cards).fusion).toHaveLength(15);
   });
 
   it('reports unknown ids and counts kinds / curve', () => {
@@ -101,8 +121,13 @@ describe('deck rules (40..80 cards, 3 copies, seals 1)', () => {
 
   it('addBlocker: full deck and empty deck', () => {
     expect(addBlocker([], low[0])).toBeNull();
-    const full = spread([...low, ...back], 80, 3);
-    expect(addBlocker(full, low.find((x) => copiesOf(full, x) < 3) ?? back.find((x) => copiesOf(full, x) < 3)!)).toMatch(/full|max/i);
+    const full = spread([...low, ...back], 60, 3);
+    const free = (d: string[]) => (low.find((x) => copiesOf(d, x) < 3) ?? back.find((x) => copiesOf(d, x) < 3)!) as CardId;
+    expect(addBlocker(full, free(full))).toBe('Deck is full (60/60)');
+    expect(addBlocker(full.slice(0, 59), free(full.slice(0, 59)))).toBeNull();
+    // an older 72-card save: the reason says how many cards must go
+    const old = spread([...low, ...back], 72, 3);
+    expect(addBlocker(old, free(old))).toBe('Deck can hold at most 60 cards: 12 too many');
   });
 
   it('knows the five seals', () => {
@@ -110,7 +135,7 @@ describe('deck rules (40..80 cards, 3 copies, seals 1)', () => {
     expect(isSealCard('crystal_wyrm')).toBe(false);
   });
 
-  it('repairs a deck: drops unknown ids and copies over the limit, cuts at 80, never throws', () => {
+  it('repairs a deck: drops unknown ids and copies over the limit, never cuts a 61..80-card save, never throws', () => {
     const r = repairDeck(['crystal_wyrm', 'gone_card', 'crystal_wyrm', 42, null, 'ember_wolf', 'seal_head', 'seal_head']);
     expect(r.cards).toEqual(['crystal_wyrm', 'crystal_wyrm', 'ember_wolf', 'seal_head']);
     expect(r.missing).toBe(3);
@@ -119,7 +144,12 @@ describe('deck rules (40..80 cards, 3 copies, seals 1)', () => {
     expect(four.cards).toHaveLength(3);
     expect(four.repeats).toBe(1);
     const big = repairDeck(spread([...low, ...back], 120, 3));
-    expect(big.cards.length).toBeLessThanOrEqual(DECK_MAX);
+    expect(big.cards.length).toBeLessThanOrEqual(DECK_STORE_MAX);
+    expect(DECK_STORE_MAX).toBe(80);
+    // a deck saved under the old 80-card limit keeps every card (it is reported as oversized, not trimmed)
+    const old80 = spread([...low, ...back], 80, 3);
+    expect(repairDeck(old80)).toMatchObject({ cards: old80, trimmed: 0 });
+    expect(validateDeck(repairDeck(old80).cards).issues.map((i) => i.text)).toEqual(['Deck can hold at most 60 cards: 20 too many']);
     expect(repairDeck('nonsense').cards).toEqual([]);
     expect(repairDeck(undefined).cards).toEqual([]);
   });
@@ -151,13 +181,14 @@ describe('autoFillDeck (Rastgele doldur)', () => {
     expect(validateDeck(d).ok).toBe(true);
   });
 
-  it('fills to a bigger target (up to 80) and spreads copies', () => {
-    for (const target of [40, 55, 80]) {
+  it('fills to a bigger target (up to 60) and spreads copies', () => {
+    for (const target of [40, 55, 60]) {
       const d = autoFillDeck([], target, COLLECTIBLE_CARDS, target);
       expect(d).toHaveLength(target);
       expect(validateDeck(d).ok, `${target}`).toBe(true);
     }
-    expect(autoFillDeck([], 1, COLLECTIBLE_CARDS, 500)).toHaveLength(80); // clamped
+    expect(autoFillDeck([], 1, COLLECTIBLE_CARDS, 500)).toHaveLength(60); // clamped
+    for (let seed = 0; seed < 30; seed++) expect(splitDeck(autoFillDeck(classicDeck(), seed, COLLECTIBLE_CARDS, 80)).main).toHaveLength(60); // never above the limit
     expect(autoFillDeck([], 1, COLLECTIBLE_CARDS, 5)).toHaveLength(40);
     const four = autoFillDeck(['crystal_wyrm', 'crystal_wyrm'], 5);
     expect(four.filter((x) => x === 'crystal_wyrm').length).toBeGreaterThanOrEqual(2);

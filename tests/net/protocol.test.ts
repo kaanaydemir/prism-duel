@@ -4,7 +4,8 @@ import { newGame } from '../../src/engine';
 import { MAX_MESSAGE_BYTES, PROTOCOL_VERSION, ProtocolError, decode, encode, gameVersion, rulesFingerprint, type NetMessage } from '../../src/net/protocol';
 import { CODE_ALPHABET, CODE_LENGTH, formatRoomCode, newRoomCode, normalizeRoomCode } from '../../src/net/roomCode';
 import { roomIdFor } from '../../src/net/config';
-import { classicDeck } from '../../src/data/decks';
+import { classicDeck, deckRulesKey } from '../../src/data/decks';
+import { CARDS } from '../../src/data/cards';
 
 describe('net protocol', () => {
   const g = newGame({ seed: 3 });
@@ -53,6 +54,27 @@ describe('net protocol', () => {
     expect(rulesFingerprint()).toBe(rulesFingerprint());
     expect(rulesFingerprint('lanes5')).not.toBe(rulesFingerprint('lanes3'));
     expect(gameVersion()).toMatch(/^\d+\.\d+\.\d+\+[0-9a-z]+$/);
+  });
+
+  it('versions: the deck-construction rules are part of the fingerprint (builds with other deck rules do not pair)', () => {
+    expect(deckRulesKey()).toBe('main40-60|copies3|seal1|single:dial_jester,sweeping_gale,void_eye,well_pail,winnow_sieve|fusion15|ratios:none');
+    // the fingerprint of a build that hashes the same cards but not the deck rules (every build before the 40..60 rule)
+    let h = 0x811c9dc5;
+    const feed = (s: string) => {
+      for (let i = 0; i < s.length; i++) {
+        h ^= s.charCodeAt(i);
+        h = Math.imul(h, 0x01000193) >>> 0;
+      }
+    };
+    for (const id of Object.keys(CARDS).sort()) {
+      const c = CARDS[id as keyof typeof CARDS] as unknown as Record<string, unknown>;
+      feed(id);
+      for (const k of ['type', 'atk', 'def', 'level', 'effect', 'spellType', 'trapType', 'attribute', 'fusion']) feed(`|${k}=${JSON.stringify(c[k] ?? null)}`);
+    }
+    const cardsOnly = h.toString(36);
+    feed(`|deckRules=${deckRulesKey()}`);
+    expect(rulesFingerprint()).toBe(h.toString(36));
+    expect(rulesFingerprint()).not.toBe(cardsOnly);
   });
 });
 

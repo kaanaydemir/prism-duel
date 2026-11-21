@@ -216,7 +216,7 @@ describe('deck builder rules for the Fusion Deck', () => {
     ...Array.from({ length: 3 }, () => 'mirror_barrier' as const),
     'chasm_trap',
   ];
-  it('Fusion Monsters do not count toward the 40..80 main deck; 0..5 of them are legal; a 6th is refused', () => {
+  it('Fusion Monsters do not count toward the 40..60 main deck; 0..15 of them are legal; a 16th is refused', () => {
     expect(main40).toHaveLength(40);
     expect(validateDeck(main40).ok).toBe(true);
     const with3 = [...main40, 'trinity_crystal_wyrm', 'trinity_crystal_wyrm', 'trinity_crystal_wyrm'];
@@ -227,12 +227,17 @@ describe('deck builder rules for the Fusion Deck', () => {
     expect(validateDeck(with3).ok).toBe(true);
     // the Fusion Deck alone never makes a 39-card main deck legal
     expect(validateDeck([...main40.slice(1), 'trinity_crystal_wyrm']).issues.map((i) => i.code)).toContain('size');
-    // copy limit 3 and the 5-card cap (a second Fusion Monster id does not exist yet: the copy limit trips first)
+    // copy limit 3 and the 15-card cap (a second Fusion Monster id does not exist yet: the copy limit trips first)
     expect(addBlocker(with3, 'trinity_crystal_wyrm')).toMatch(/Max 3/);
     expect(addBlocker([...main40, 'trinity_crystal_wyrm'], 'trinity_crystal_wyrm')).toBeNull();
-    expect(FUSION_DECK_MAX).toBe(5);
-    // a full 80-card main deck still takes a Fusion Monster
-    const full = [...main40, ...main40];
+    expect(FUSION_DECK_MAX).toBe(15);
+    // the cap itself, with the one id repeated: 15 are within it, a 16th is reported (the copy issue aside)
+    const many = (n: number) => validateDeck([...main40, ...Array.from({ length: n }, () => 'trinity_crystal_wyrm')]).issues.map((i) => i.code);
+    expect(many(15)).not.toContain('fusion');
+    expect(many(16)).toContain('fusion');
+    // a full 60-card main deck still takes a Fusion Monster (it can only be reached with other cards: 3 copies each)
+    const full = [...main40, ...main40.slice(0, 20)];
+    expect(deckStats(full).size).toBe(60);
     expect(addBlocker(full, 'trinity_crystal_wyrm')).toBeNull();
   });
 

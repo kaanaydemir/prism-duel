@@ -177,6 +177,28 @@ describe('deck store', () => {
     }
   });
 
+  it('a deck saved under the old 80-card limit keeps every card, is listed as not playable and says why', () => {
+    const kv = new FakeKV();
+    // 60 legal cards + 20 more copies: a legal 80-card deck before the official 40..60 rule
+    const base = autoFillDeck([], 4, undefined, 60);
+    const extra = COLLECTIBLE_CARDS.filter((c) => !c.fusion && copiesOf(base, c.id) === 1 && !['well_pail', 'void_eye', 'sweeping_gale', 'winnow_sieve', 'dial_jester'].includes(c.id) && !c.id.startsWith('seal_')).map((c) => c.id).slice(0, 20);
+    const old = [...base, ...extra];
+    expect(old).toHaveLength(80);
+    kv.data.set(STORE_KEY, JSON.stringify({ v: 2, slots: [{ name: 'Big One', cards: old }, null, null, null, null], last: { p1: 'slot:0' } }));
+    const s = new DeckStore(kv);
+    expect(s.slot(0)).toEqual({ name: 'Big One', cards: old, missing: 0 });
+    const r = s.resolve(slotRef(0))!;
+    expect(r.check.ok).toBe(false);
+    expect(r.check.issues.map((i) => i.text)).toEqual(['Deck can hold at most 60 cards: 20 too many']);
+    expect(s.options().find((o) => o.ref === 'slot:0')!.cards).toHaveLength(80);
+    // any later write (here: the last-used choice) stores the 80 cards again, untouched
+    s.setLast('p2', 'klasik');
+    expect(JSON.parse(kv.data.get(STORE_KEY)!).slots[0].cards).toEqual(old);
+    // once the player has removed 20 cards and saved, it is playable
+    s.setSlot(0, { name: 'Big One', cards: old.slice(0, 60) });
+    expect(new DeckStore(kv).resolve(slotRef(0))!.check.ok).toBe(true);
+  });
+
   it('cleanName strips control characters (incl. U+0000) and collapses whitespace', () => {
     expect(cleanName('Ate\u0000ş\u0007  Dev\n', 'x')).toBe('Ate ş Dev');
     expect(cleanName('\u0000\u0001', 'Deste 1')).toBe('Deste 1');

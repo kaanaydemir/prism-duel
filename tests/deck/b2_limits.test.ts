@@ -46,7 +46,7 @@ describe('single-copy cards', () => {
   it('autoFillDeck never adds a second copy (draw engine + seal deck), over many seeds and sizes', () => {
     const seed0: CardId[] = ['seal_head', 'seal_arm_r', 'seal_arm_l', 'seal_leg_r', 'seal_leg_l', 'well_pail', 'winnow_sieve'];
     for (let seed = 1; seed <= 25; seed++)
-      for (const target of [40, 60, 80]) {
+      for (const target of [40, 50, 60]) {
         const d = autoFillDeck(seed0, seed, COLLECTIBLE_CARDS, target);
         for (const id of SINGLES) expect(copiesOf(d, id), `${id} seed ${seed}`).toBeLessThanOrEqual(1);
         expect(validateDeck(d).ok, `seed ${seed} target ${target}`).toBe(true);
