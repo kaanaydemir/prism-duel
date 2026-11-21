@@ -6,7 +6,8 @@
 //   &q=text   search text   &zone=search|deck   &list=grid|strip (deck list view; strip = the mock)
 //   &help=1   the keyboard overlay   &tip=0..3   a requirement meter's tooltip   &dscroll=N   deck list line
 //   &hover=1  (with &zone=deck) the focused entry shows its - / +
-//   &fill=long   a long 80-card deck (many distinct cards: the deck list scrolls)
+//   &fill=long   a long 60-card deck (many distinct cards: the deck list scrolls)
+//   &fill=over   a 72-card deck saved under the old 80-card limit (now 12 too many: the builder must say so)
 import { ALL_CARDS, isMonster, type Attribute, type CardId } from '../../data/cards';
 import { autoFillDeck, classicDeck, presetById } from '../../data/decks';
 import { DeckScene } from '../../scenes/deck/DeckScene';
@@ -21,15 +22,19 @@ function fillFor(kind: string | null): CardId[] | undefined {
   if (kind === 'partial') return autoFillDeck([], 3).slice(0, 9);
   if (kind === 'legal') return autoFillDeck([], 11);
   if (kind === 'illegal') {
-    // 20 cards but only 4 monsters: too few canavar
+    // 12 cards: too few (the mix of kinds is never a rule)
     const monsters = ALL_CARDS.filter(isMonster).slice(0, 4).map((c) => c.id);
     const rest = ALL_CARDS.filter((c) => !isMonster(c)).map((c) => c.id);
     return [...monsters, ...rest].slice(0, 12);
   }
   if (kind === 'long') {
-    // every collectible card once (seals / single-copy cards are 1 anyway), then fill to 80
+    // every collectible card once (seals / single-copy cards are 1 anyway), then fill to the 60-card limit
     const ids = ALL_CARDS.filter((c) => !c.retired).map((c) => c.id).slice(0, 56);
-    return autoFillDeck(ids, 5, undefined, 80);
+    return autoFillDeck(ids, 5, undefined, 60);
+  }
+  if (kind === 'over') {
+    const full = autoFillDeck([], 5, undefined, 60);
+    return [...full, ...classicDeck().filter((id) => full.filter((x) => x === id).length < 2).slice(0, 12)];
   }
   if (kind.startsWith('preset:')) return presetById(kind.slice(7))?.cards;
   return undefined;

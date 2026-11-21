@@ -4,7 +4,9 @@
 // longer exists is repaired on load (the id is dropped and counted in `missing`; a retired card such as
 // dusk_sorcerer is swapped for a substitute instead, counted in `replaced`, so the deck keeps its size and
 // stays legal); copies over the limit are
-// dropped too, and an old 20-card save is migrated to a 40-card deck (`migrated`).
+// dropped too, and an old 20-card save is migrated to a 40-card deck (`migrated`). A deck saved under the old 80-card
+// limit (61..80 main-deck cards) is kept whole: it resolves with a 'size' issue ("Deck can hold at most 60 cards: n too
+// many"), so the pickers list it as not playable and the builder asks the player to remove cards (never trimmed here).
 //
 //   const store = deckStore();                 // the game-wide singleton
 //   store.setSlot(0, { name: 'Benim', cards });
@@ -16,7 +18,7 @@ import { DECK_MIN, autoFillDeck, classicDeck, detectDeckPool, presetById, preset
 export const SLOT_COUNT = 5;
 export const NAME_MAX = 14;
 export const STORE_KEY = 'neon-duello:decks';
-/** v1: 20-card singleton saves. v2: 40..80 cards, up to 3 copies (older saves are migrated on load). */
+/** v1: 20-card singleton saves. v2: 40..80 cards (40..60 since the official deck rules), up to 3 copies (older saves are migrated on load). */
 const VERSION = 2;
 
 /** 'klasik' | 'preset:<id>' | 'slot:<n>' */
@@ -222,7 +224,7 @@ export function resetDeckStore(): void {
 /**
  * The decks a match starts with. Both sides on the classic deck -> undefined, so the engine keeps
  * its own default (the original 20-card DEFAULT_DECK, or the ?deck=expanded sampler): the untouched default
- * flow (?mode= URLs, scenarios, v1 identity). Any other pairing passes full decks (40..80 cards).
+ * flow (?mode= URLs, scenarios, v1 identity). Any other pairing passes full decks (40..60 cards).
  * With ?deck=expanded a picked classic deck is always passed explicitly.
  */
 export function matchDecks(a: ResolvedDeck | null, b: ResolvedDeck | null): [CardId[], CardId[]] | undefined {

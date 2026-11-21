@@ -1,11 +1,12 @@
-// Pure model of the builder's requirement meters (the bar under the title): one meter per rule of
-// validateDeck — deck size, monster share, Lv7+ share, copy limits — with a fill, a met flag and the
-// detailed reasons for the meter's tooltip. No Phaser here: tests/deck/builder_model.test.ts.
+// Pure model of the builder's meters (the bar under the title): the two rules of validateDeck — deck size and
+// copy limits — with a fill, a met flag and the detailed reasons for the meter's tooltip, and between them two
+// plain counts (monsters, spells / traps) that are information only: no rule limits the mix, so they never fail.
+// No Phaser here: tests/deck/builder_model.test.ts.
 
 import { CARDS, type CardId } from '../../data/cards';
-import { DECK_HIGH_LEVEL, DECK_MAX, DECK_MIN, MAX_COPIES, MAX_HIGH_RATIO, MIN_MONSTER_RATIO, maxHigh, minMonsters, validateDeck } from '../../data/decks';
+import { DECK_MAX, DECK_MIN, FUSION_DECK_MAX, MAX_COPIES, validateDeck } from '../../data/decks';
 
-export type MeterKey = 'cards' | 'monsters' | 'high' | 'copies';
+export type MeterKey = 'cards' | 'monsters' | 'backrow' | 'copies';
 
 export interface Meter {
   key: MeterKey;
@@ -16,6 +17,8 @@ export interface Meter {
   /** 0..1 */
   fill: number;
   met: boolean;
+  /** A plain count, not a requirement: always `met`, drawn without the check mark. */
+  info?: boolean;
   /** Tooltip lines: the rule, then what is wrong (if anything). */
   tip: string[];
 }
@@ -42,27 +45,35 @@ export function deckMeters(cards: readonly string[], extra: MeterExtra = {}): Me
     value: n <= DECK_MIN ? `${n}/${DECK_MIN}` : `${n}/${DECK_MAX}`,
     fill: n <= DECK_MIN ? clamp01(n / DECK_MIN) : 1,
     met: sizeMet,
-    tip: [`A deck holds ${DECK_MIN}-${DECK_MAX} cards.`, ...issue('size'), ...(sizeMet ? [`${n} cards: OK.`] : [])],
+    tip: [
+      `The Main Deck holds ${DECK_MIN}-${DECK_MAX} cards.`,
+      ...issue('size'),
+      ...(sizeMet ? [`${n} cards: OK.`] : []),
+      `The Fusion Deck holds 0-${FUSION_DECK_MAX} Fusion Monsters (now ${st.fusion}).`,
+      ...issue('fusion'),
+    ],
   };
 
-  const need = minMonsters(n);
+  // information only: the bar is the share of the main deck
   const monsters: Meter = {
     key: 'monsters',
     label: 'Monsters',
-    value: `${st.monsters}/${need}`,
-    fill: clamp01(st.monsters / need),
-    met: st.monsters >= need,
-    tip: [`At least ${Math.round(MIN_MONSTER_RATIO * 100)}% monsters (${minMonsters(DECK_MIN)} in ${DECK_MIN} cards, ${minMonsters(DECK_MAX)} in ${DECK_MAX}).`, ...issue('monsters')],
+    value: String(st.monsters),
+    fill: n ? clamp01(st.monsters / n) : 0,
+    met: true,
+    info: true,
+    tip: [`Monsters in the Main Deck: ${st.monsters}.`, 'No minimum and no maximum: any mix of monsters, spells and traps is legal.'],
   };
 
-  const cap = maxHigh(n);
-  const high: Meter = {
-    key: 'high',
-    label: `Lv${DECK_HIGH_LEVEL}+`,
-    value: `${st.high}/${cap}`,
-    fill: clamp01(st.high / cap),
-    met: st.high <= cap,
-    tip: [`At most ${Math.round(MAX_HIGH_RATIO * 100)}% monsters of Lv ${DECK_HIGH_LEVEL}+ (${maxHigh(DECK_MIN)} in ${DECK_MIN} cards).`, ...issue('high')],
+  const back = st.spells + st.traps;
+  const backrow: Meter = {
+    key: 'backrow',
+    label: 'Spells / Traps',
+    value: `${st.spells} / ${st.traps}`,
+    fill: n ? clamp01(back / n) : 0,
+    met: true,
+    info: true,
+    tip: [`Spells: ${st.spells}. Traps: ${st.traps}.`, 'No minimum and no maximum: any mix of monsters, spells and traps is legal.'],
   };
 
   const distinct = Object.keys(st.counts).length;
@@ -78,12 +89,12 @@ export function deckMeters(cards: readonly string[], extra: MeterExtra = {}): Me
     fill: bad ? clamp01((distinct - st.over.length) / Math.max(1, distinct + st.unknown.length)) : 1,
     met: bad === 0,
     tip: [
-      `Max ${MAX_COPIES} copies of a card. Seals and single-copy cards: 1.`,
+      `Max ${MAX_COPIES} copies of a card, Fusion Monsters too. Seals and single-copy cards: 1.`,
       ...issue('copies'),
       ...(overNames.length > 2 ? [`All of them: ${overNames.join(', ')}`] : []),
       ...issue('unknown'),
       ...lost,
     ],
   };
-  return [cards1, monsters, high, copies];
+  return [cards1, monsters, backrow, copies];
 }

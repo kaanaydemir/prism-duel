@@ -2,7 +2,7 @@
 // docs/v3/ref/hedef-deste-kurucu.png, notes docs/DESTE_KURMA.md).
 //
 //   top        title + crystal, the deck's name (pencil = rename), save slots 1-5, BACK
-//   meters     one progress meter per rule (cards, monsters, Lv7+, copies); hover = the detailed reasons
+//   meters     the two rules (cards, copies) and two plain counts (monsters, spells / traps); hover = the details
 //   left       the collection (hero): search, kind chips, element chips, sort dropdown, a 5×4 grid of the
 //              real cards (48×60, art + level + ATK/DEF) with an "n/max" badge; at the limit: veiled + lock
 //   middle     the focused card: art at 2×, name, level, type line, ATK/DEF, the effect text, its deck note
@@ -429,7 +429,9 @@ export class DeckScene extends Phaser.Scene {
     this.showDetail();
     if (qa?.help) this.setHelp(true);
     if (qa?.tip !== undefined) this.showTip(qa.tip);
-    if (MOBILE) this.say(this.cur.cards.length ? 'Tap: see a card · drag in / out: add / remove' : 'Empty deck: drag cards onto it, or try AUTO-FILL / PRESETS.', 'info');
+    const over = this.oversize();
+    if (over) this.say(over, 'bad');
+    else if (MOBILE) this.say(this.cur.cards.length ? 'Tap: see a card · drag in / out: add / remove' : 'Empty deck: drag cards onto it, or try AUTO-FILL / PRESETS.', 'info');
     else this.say(this.cur.cards.length ? 'Left click adds a card, right click removes it.' : 'Empty deck: click cards, or try AUTO-FILL / PRESETS.', 'info');
 
     const onKey = (e: KeyboardEvent) => {
@@ -538,7 +540,7 @@ export class DeckScene extends Phaser.Scene {
   private buildMeters(): void {
     this.add.rectangle(0, REQ_Y, GAME_W, REQ_H, PAL.night1).setOrigin(0).setDepth(3);
     this.add.rectangle(0, REQ_Y + REQ_H, GAME_W, 1, PAL.night2).setOrigin(0).setDepth(3);
-    const keys = ['cards', 'monsters', 'high', 'copies'] as const;
+    const keys = ['cards', 'monsters', 'backrow', 'copies'] as const;
     keys.forEach((k, i) => {
       const x = METER_X + i * METER_PITCH;
       if (i) this.add.rectangle(x - 6, REQ_Y + 4, 1, REQ_H - 8, PAL.night3).setOrigin(0).setDepth(4);
@@ -562,13 +564,15 @@ export class DeckScene extends Phaser.Scene {
       const v = this.meters[i];
       v.label.setText(m.label);
       const lw = Math.ceil(measureText(m.label, 'sm').w);
-      v.value.setText(m.value).setX(v.x + 17 + lw + 4).setTint(m.met ? PAL.gold3 : PAL.cyan4);
+      // a plain count (m.info) is not a requirement: no check mark, no gold "met" tone
+      const met = m.met && !m.info;
+      v.value.setText(m.value).setX(v.x + 17 + lw + 4).setTint(m.info ? PAL.white : met ? PAL.gold3 : PAL.cyan4);
       const vw = m.value ? Math.ceil(measureText(m.value, 'sm').w) + 4 : 0;
-      v.check.setVisible(m.met).setPosition(v.x + 17 + lw + 4 + vw, REQ_Y + 3);
+      v.check.setVisible(met).setPosition(v.x + 17 + lw + 4 + vw, REQ_Y + 3);
       v.icon.setAlpha(1);
       const w = Math.max(m.fill > 0 ? 1 : 0, Math.round((METER_W - 17) * m.fill));
-      v.fill.setVisible(w > 0).setSize(w, 3).setFillStyle(m.met ? PAL.gold2 : PAL.cyan1);
-      v.shine.setVisible(w > 0).setSize(w, 1).setFillStyle(m.met ? PAL.gold4 : PAL.cyan2);
+      v.fill.setVisible(w > 0).setSize(w, 3).setFillStyle(met ? PAL.gold2 : PAL.cyan1);
+      v.shine.setVisible(w > 0).setSize(w, 1).setFillStyle(met ? PAL.gold4 : PAL.cyan2);
       v.label.setTint(m.met ? PAL.white : PAL.mist);
     });
     if (this.tipIndex >= 0) this.showTip(this.tipIndex);
@@ -1226,7 +1230,15 @@ export class DeckScene extends Phaser.Scene {
     sfx.play('uiClick', { volume: 0.55, pitch: 1.05 });
     this.renderAll();
     this.showDetail();
-    this.say(`Slot ${i + 1}: ${this.store.slot(i) ? this.cur.name : 'empty slot'}`, 'info');
+    const over = this.oversize();
+    if (over) this.say(over, 'bad');
+    else this.say(`Slot ${i + 1}: ${this.store.slot(i) ? this.cur.name : 'empty slot'}`, 'info');
+  }
+
+  /** What to do with a deck saved under the old 80-card limit (61..80 main-deck cards): nothing is removed for the player. */
+  private oversize(): string | null {
+    const over = splitDeck(this.cur.cards).main.length - DECK_MAX;
+    return over > 0 ? `Deck can hold at most ${DECK_MAX} cards: ${over} too many · remove ${over} to play` : null;
   }
 
   private setFocus(zone: Zone, index: number, sound: boolean): void {
@@ -1311,7 +1323,8 @@ export class DeckScene extends Phaser.Scene {
   }
 
   private countLabel(): string {
-    return `${this.cur.cards.length}/${this.cur.cards.length <= DECK_MIN ? DECK_MIN : DECK_MAX}`;
+    const n = splitDeck(this.cur.cards).main.length; // the Fusion Deck is counted on its own
+    return `${n}/${n <= DECK_MIN ? DECK_MIN : DECK_MAX}`;
   }
 
   /** Where entry `id` sits on screen now (null: scrolled away / not in the deck). */
@@ -1390,13 +1403,20 @@ export class DeckScene extends Phaser.Scene {
   private randomFill(): void {
     if (this.editing) this.setEditing(false);
     const before = this.cur.cards.length;
+    const main = splitDeck(this.cur.cards).main.length;
+    // an older save above the 60-card limit: autoFillDeck would cut it to the limit, never drop a player's cards for them
+    if (main > DECK_MAX) {
+      sfx.play('uiError', { volume: 0.6 });
+      this.say(`Deck can hold at most ${DECK_MAX} cards: remove ${main - DECK_MAX} first`, 'bad');
+      return;
+    }
     const seed = Math.floor(Math.random() * 0x7fffffff);
-    this.cur.cards = autoFillDeck(this.cur.cards, seed, undefined, Math.max(DECK_MIN, this.cur.cards.length));
+    this.cur.cards = autoFillDeck(this.cur.cards, seed, undefined, Math.max(DECK_MIN, main));
     sfx.play('uiConfirm', { volume: 0.55, pitch: 1.2 });
     this.afterEdit();
     this.fx.bulk('auto');
     const added = this.cur.cards.length - before;
-    this.say(added > 0 ? `${added} card${added === 1 ? '' : 's'} added · ${this.countLabel()}` : this.cur.cards.length >= DECK_MIN ? 'The deck is already full' : 'No legal card left to add', added > 0 ? 'ok' : 'bad');
+    this.say(added > 0 ? `${added} card${added === 1 ? '' : 's'} added · ${this.countLabel()}` : main >= DECK_MIN ? 'The deck is already full' : 'No legal card left to add', added > 0 ? 'ok' : 'bad');
   }
 
   private nextPreset(): void {
@@ -1760,7 +1780,7 @@ export class DeckScene extends Phaser.Scene {
     this.updateCaret();
     // header
     const v = validateDeck(d.cards);
-    // the Fusion Deck is not part of the main deck's count (its section shows n/5)
+    // the Fusion Deck is not part of the main deck's count (its section shows n/15)
     const n = splitDeck(d.cards).main.length;
     this.deckTitle.setText(`DECK ${this.slot + 1} · ${n} / ${n <= DECK_MIN ? DECK_MIN : DECK_MAX}`).setTint(v.ok ? PAL.gold3 : PAL.white);
     this.deckState.setText(n === 0 ? 'EMPTY' : v.ok ? 'READY' : 'DRAFT').setTint(v.ok ? PAL.gold3 : PAL.steel);

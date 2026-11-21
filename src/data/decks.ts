@@ -5,9 +5,10 @@
 // Selecting the pool (v3 look only; with the v1 look the classic deck is always used):
 //   URL  ?deck=expanded          globalThis.__NEON_DECK = 'expanded'
 //
-// Deck BUILDER rules (validateDeck, docs/DESTE_KURMA.md): DECK_MIN..DECK_MAX cards (40..80), at most 3 copies
-// of a card (the five seal pieces and the SINGLE_COPY_IDS: 1 each), monsters >= 40% of the deck, Sv7+ monsters
-// <= 20% of the deck.
+// Deck BUILDER rules (validateDeck, docs/DESTE_KURMA.md), the official deck construction rules: a Main Deck of
+// DECK_MIN..DECK_MAX cards (40..60), at most 3 copies of a card (our Limited list, the five seal pieces and the
+// SINGLE_COPY_IDS: 1 each), a Fusion Deck (Extra Deck) of 0..FUSION_DECK_MAX cards (15). No ratio rules: any mix
+// of monsters / spells / traps is legal, even a deck without monsters.
 // These rules apply to the builder / pickers only: the engine still starts a game with ANY deck.
 
 import { ALL_CARDS, CARDS, COLLECTIBLE_CARDS, DEFAULT_DECK, SEAL_IDS, fusionMaterials, isFusionMonster, isMonster, isRetired, type Attribute, type CardDef, type CardId, type MonsterCardDef } from './cards';
@@ -17,7 +18,12 @@ export type DeckPool = 'default' | 'expanded';
 
 /** Smallest / largest legal builder deck. */
 export const DECK_MIN = 40;
-export const DECK_MAX = 80;
+export const DECK_MAX = 60;
+/**
+ * The longest main-deck list a save may carry (the limit before the official 40..60 rule): repairDeck cuts there, not
+ * at DECK_MAX, so an old 61..80-card save loads whole and is reported as oversized (never silently trimmed).
+ */
+export const DECK_STORE_MAX = 80;
 /** The default size: presets, the classic doubled deck, the CPU sampler and "Rastgele doldur". */
 export const DECK_SIZE = DECK_MIN;
 /** Copies of one card allowed (the five seals: 1). */
@@ -27,9 +33,9 @@ export const SEAL_COPIES = 1;
 export const DECK_MONSTERS = 24;
 /**
  * The Fusion Deck (Extra Deck): 0..FUSION_DECK_MAX Fusion Monsters, kept in the same saved list as the main deck but never
- * counted in its size / ratios (the engine routes them to PlayerState.fusionDeck).
+ * counted in its size (the engine routes them to PlayerState.fusionDeck). A Fusion Monster follows the normal copy limit.
  */
-export const FUSION_DECK_MAX = 5;
+export const FUSION_DECK_MAX = 15;
 
 /** A deck list split into its main deck and its Fusion Deck (order kept). */
 export function splitDeck<T extends string>(ids: readonly T[]): { main: T[]; fusion: T[] } {
@@ -142,35 +148,32 @@ export function decksFor(pool: DeckPool, seed: number): [CardId[], CardId[]] | u
 }
 
 // ======================================================================== deck builder rules
-// A builder deck (docs/DESTE_KURMA.md): DECK_MIN..DECK_MAX cards, every id at most maxCopies(id) times,
-// monsters >= 40% of the deck and monsters of Level >= DECK_HIGH_LEVEL <= 20% (tribute-heavy).
-// Both ratios are measured on max(size, DECK_MIN) so a half-built deck is not judged on a tiny size.
+// A builder deck (docs/DESTE_KURMA.md): DECK_MIN..DECK_MAX main-deck cards, every id at most maxCopies(id) times,
+// at most FUSION_DECK_MAX Fusion Monsters. There is no rule about the mix of card kinds or levels.
 // The pool is COLLECTIBLE_CARDS (ALL_CARDS minus retired cards): nothing here counts cards. A retired card
 // (cards.ts `retired`, e.g. dusk_sorcerer) counts as "not in the pool": validateDeck reports it as missing,
 // addBlocker refuses it and repairDeck (saved decks) swaps each copy for a RETIRED_SUBSTITUTES card.
 
+/** Two-tribute monsters (Level 7+): display only (the level curve's colour) and a preference of the samplers, never a rule. */
 export const DECK_HIGH_LEVEL = 7;
-export const MIN_MONSTER_RATIO = 0.4;
-export const MAX_HIGH_RATIO = 0.2;
-/** Monsters a deck of `size` cards needs. */
-export function minMonsters(size: number): number {
-  return Math.ceil(Math.max(size, DECK_MIN) * MIN_MONSTER_RATIO);
+/** What the samplers aim for (auto-fill, presets): a preference that keeps a random deck playable, never a rule. */
+const FILL_MONSTER_SHARE = 0.4;
+const FILL_HIGH_SHARE = 0.2;
+/**
+ * The deck-construction rules as one string: part of the online version check (net/protocol.ts rulesFingerprint), so two
+ * builds with different deck rules report a version mismatch instead of refusing each other's decks.
+ */
+export function deckRulesKey(): string {
+  return `main${DECK_MIN}-${DECK_MAX}|copies${MAX_COPIES}|seal${SEAL_COPIES}|single:${[...SINGLE_COPY_IDS].sort().join(',')}|fusion${FUSION_DECK_MAX}|ratios:none`;
 }
-/** Sv7+ monsters a deck of `size` cards may hold. */
-export function maxHigh(size: number): number {
-  return Math.floor(Math.max(size, DECK_MIN) * MAX_HIGH_RATIO);
-}
-/** The limits at the smallest legal deck (kept for the UI / tests that quote them). */
-export const DECK_MIN_MONSTERS = minMonsters(DECK_MIN);
-export const DECK_MAX_HIGH = maxHigh(DECK_MIN);
 /** Level-curve buckets: levels 1..7 and "8+". */
 export const CURVE_BUCKETS = 8;
 
-export type DeckIssueCode = 'size' | 'copies' | 'unknown' | 'monsters' | 'high' | 'fusion';
+export type DeckIssueCode = 'size' | 'copies' | 'unknown' | 'fusion';
 
 export interface DeckIssue {
   code: DeckIssueCode;
-  /** Turkish reason shown in the builder. */
+  /** The reason shown in the builder. */
   text: string;
 }
 
@@ -214,7 +217,7 @@ export function deckStats(ids: readonly string[]): DeckStats {
     if (st.counts[id] > maxCopies(id) && !st.over.includes(id)) st.over.push(id);
     const d = CARDS[id];
     if (isFusionMonster(d)) {
-      // the Fusion Deck: counted on its own, never in the main deck's size / ratios
+      // the Fusion Deck: counted on its own, never in the main deck's size
       st.fusion++;
       st.size--;
     } else if (isMonster(d)) {
@@ -246,15 +249,11 @@ export function validateDeck(ids: readonly string[]): DeckCheck {
   }
   if (stats.size < DECK_MIN) issues.push({ code: 'size', text: `Deck needs at least ${DECK_MIN} cards: ${DECK_MIN - stats.size} short` });
   else if (stats.size > DECK_MAX) issues.push({ code: 'size', text: `Deck can hold at most ${DECK_MAX} cards: ${stats.size - DECK_MAX} too many` });
-  const need = minMonsters(stats.size);
-  if (stats.monsters < need) issues.push({ code: 'monsters', text: `Needs at least ${need} monsters (now ${stats.monsters})` });
-  const cap = maxHigh(stats.size);
-  if (stats.high > cap) issues.push({ code: 'high', text: `At most ${cap} monsters of Lv ${DECK_HIGH_LEVEL}+ (now ${stats.high})` });
   if (stats.fusion > FUSION_DECK_MAX) issues.push({ code: 'fusion', text: `Fusion Deck can hold at most ${FUSION_DECK_MAX} cards: ${stats.fusion - FUSION_DECK_MAX} too many` });
   return { ok: issues.length === 0, issues, stats };
 }
 
-/** Would adding `id` to `ids` break a rule that adding more cards can never fix (copies / full / high cap)? */
+/** Would adding `id` to `ids` break a rule that adding more cards can never fix (copies / full)? */
 export function addBlocker(ids: readonly string[], id: CardId): string | null {
   if (isRetired(id)) return 'This card is no longer in the game';
   const have = copiesOf(ids, id);
@@ -264,18 +263,16 @@ export function addBlocker(ids: readonly string[], id: CardId): string | null {
     const f = ids.filter((x) => isFusionMonster(x)).length;
     return f >= FUSION_DECK_MAX ? `Fusion Deck is full (${FUSION_DECK_MAX}/${FUSION_DECK_MAX})` : null;
   }
-  if (ids.length - ids.filter((x) => isFusionMonster(x)).length >= DECK_MAX) return `Deck is full (${DECK_MAX}/${DECK_MAX})`;
-  const d = CARDS[id];
-  if (d && isMonster(d) && d.level >= DECK_HIGH_LEVEL) {
-    const cap = maxHigh(ids.length + 1);
-    if (deckStats(ids).high >= cap) return `At most ${cap} monsters of Lv ${DECK_HIGH_LEVEL}+`;
-  }
+  const main = ids.length - ids.filter((x) => isFusionMonster(x)).length;
+  // an older, larger save (61..DECK_STORE_MAX cards): say how many must go instead of "60/60"
+  if (main > DECK_MAX) return `Deck can hold at most ${DECK_MAX} cards: ${main - DECK_MAX} too many`;
+  if (main >= DECK_MAX) return `Deck is full (${DECK_MAX}/${DECK_MAX})`;
   return null;
 }
 
 /**
  * Stand-ins for retired cards, best first (same element / level band, so a saved deck keeps its size, its
- * monster count and its Sv7+ count). When all of them are at their copy limit, any collectible card of the
+ * monster count and its Lv 7+ count). When all of them are at their copy limit, any collectible card of the
  * same kind and level band is used.
  */
 export const RETIRED_SUBSTITUTES: Partial<Record<CardId, readonly CardId[]>> = {
@@ -294,7 +291,8 @@ export function retiredSubstitute(id: CardId, have: Readonly<Record<string, numb
 /**
  * Drops unknown ids and copies beyond maxCopies from anything that claims to be a deck (saved JSON),
  * swaps every copy of a retired card for a substitute (retiredSubstitute; counted in `replaced`, or in
- * `missing` when nothing fits) and cuts the list at DECK_MAX. Order is kept (a substitute takes the
+ * `missing` when nothing fits) and cuts the list at DECK_STORE_MAX (a 61..80-card save from before the 60-card rule
+ * is kept whole: validateDeck then reports it as oversized and the player removes cards). Order is kept (a substitute takes the
  * retired card's place); the deck's own copies of a substitute card always win over the stand-ins.
  */
 export function repairDeck(raw: unknown): { cards: CardId[]; missing: number; repeats: number; trimmed: number; replaced: number } {
@@ -329,10 +327,10 @@ export function repairDeck(raw: unknown): { cards: CardId[]; missing: number; re
       replaced++;
       id = sub;
     }
-    // the main deck is cut at DECK_MAX, the Fusion Deck at FUSION_DECK_MAX (each counted on its own)
+    // the main deck is cut at DECK_STORE_MAX, the Fusion Deck at FUSION_DECK_MAX (each counted on its own)
     const fusion = isFusionMonster(id);
     const n = cards.filter((x) => isFusionMonster(x) === fusion).length;
-    if (n >= (fusion ? FUSION_DECK_MAX : DECK_MAX)) trimmed++;
+    if (n >= (fusion ? FUSION_DECK_MAX : DECK_STORE_MAX)) trimmed++;
     else cards.push(id);
   }
   return { cards, missing, repeats, trimmed, replaced };
@@ -351,10 +349,11 @@ function shuffled<T>(list: readonly T[], seed: number): T[] {
 
 /**
  * "Rastgele doldur": keeps the cards already in `current` and adds seeded random ones until the deck holds
- * `target` cards (default DECK_SIZE, clamped to DECK_MIN..DECK_MAX) without breaking a rule. Monsters first
- * (up to the monster minimum, low levels), then about a third spells / traps, never above the high-level cap.
- * Cards with the fewest copies are preferred, so the deck spreads over the pool before it repeats.
- * Returns the new list (the pool may be too small to fill: then as many as fit).
+ * `target` cards (default DECK_SIZE, clamped to DECK_MIN..DECK_MAX) without breaking a rule. Its own taste (not a
+ * rule): low-level monsters first (about 40% of the deck), then about a third spells / traps, then monsters with at
+ * most ~20% of Level 7+ while the pool allows. Cards with the fewest copies are preferred, so the deck spreads over
+ * the pool before it repeats. Returns the new list (the pool may be too small to fill: then as many as fit).
+ * A main deck longer than the goal is CUT to it: callers that edit a player's deck check the size first.
  */
 export function autoFillDeck(current: readonly string[], seed: number, pool: readonly CardDef[] = COLLECTIBLE_CARDS, target: number = DECK_SIZE): CardId[] {
   const goal = Math.max(DECK_MIN, Math.min(DECK_MAX, Math.floor(target)));
@@ -373,11 +372,12 @@ export function autoFillDeck(current: readonly string[], seed: number, pool: rea
     }
     return false;
   };
-  const need = minMonsters(goal);
+  const need = Math.ceil(goal * FILL_MONSTER_SHARE);
+  const highCap = Math.floor(goal * FILL_HIGH_SHARE);
   while (deck.length < goal && st().monsters < need) if (!take((c) => isMonster(c) && c.level < DECK_HIGH_LEVEL)) break;
   const backRows = Math.max(0, Math.round(goal / 3) - (st().spells + st().traps));
   for (let k = 0; k < backRows && deck.length < goal; k++) if (!take((c) => !isMonster(c))) break;
-  while (deck.length < goal) if (!take((c) => isMonster(c))) break;
+  while (deck.length < goal) if (!take((c) => isMonster(c) && (c.level < DECK_HIGH_LEVEL || st().high < highCap))) break;
   while (deck.length < goal) if (!take(() => true)) break;
   return [...deck, ...split.fusion];
 }

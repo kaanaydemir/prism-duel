@@ -42,7 +42,7 @@ const LIST_BOTTOM = 320;
 const RX = 250;
 /** Two clicks on the same deck row within this time (ms) confirm it (a single click only selects). */
 const DOUBLE_CLICK_MS = 400;
-/** Thumbnails: 5 columns x 4 rows visible; a deck of up to 80 cards shows its distinct cards (xN badge) and scrolls. */
+/** Thumbnails: 5 columns x 4 rows visible; a deck of up to 60 cards shows its distinct cards (xN badge) and scrolls. */
 const T_COLS = 5;
 const T_ROWS = 4;
 

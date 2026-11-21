@@ -176,13 +176,13 @@ export function checkIcon(scene: Phaser.Scene, on = true): string {
   return icon(scene, on ? 'check' : 'checkoff', ['.......W', '......WW', 'W....WW.', 'WW..WW..', '.WWWW...', '..WW....'], { W: on ? PAL.gold3 : PAL.night4 });
 }
 
-/** Meter icons, 13×13: card fan, monster head, Lv7+ star, copy stack. */
-export function meterIcon(scene: Phaser.Scene, key: 'cards' | 'monsters' | 'high' | 'copies'): string {
+/** Meter icons, 13×13: card fan, monster head, spell + trap pair, copy stack. */
+export function meterIcon(scene: Phaser.Scene, key: 'cards' | 'monsters' | 'backrow' | 'copies'): string {
   const C = { a: PAL.cyan4, b: PAL.cyan3, c: PAL.cyan2, d: PAL.cyan1, k: PAL.ink, W: PAL.white };
   const art: Record<typeof key, string[]> = {
     cards: ['...aaaaaa..', '..abbbbbba.', '.cabccccba.', '.cabcWWcba.', '.cabcWWcba.', '.cabccccba.', '.cabccccba.', '.cabbbbbba.', '.cdaaaaaa..', '.cccccccd..', '..dddddd...'],
     monsters: ['a.......a..', 'ab.....ba..', 'abbbbbbba..', 'bbbbbbbbb..', 'bkWbbbWkb..', 'bbkbbbkbb..', '.bbbbbbb...', '.bckckcb...', '..bbbbb....', '...ccc.....', '...........'],
-    high: ['....a......', '....a......', '...aba.....', 'aaabWbaaa..', '.abbbbba...', '..abbba....', '..abcba....', '.abc.cba...', '.ac...ca...', '...........', '...........'],
+    backrow: ['aaaaa......', 'abbba......', 'abWba.aaaaa', 'abWba.accca', 'abbba.ackca', 'abbba.accca', 'aaaaa.accca', '......accca', '......aaaaa', '...........', '...........'],
     copies: ['..aaaaaa...', '..abbbba...', 'aaaaaaba...', 'abbbbaba...', 'abccbaba...', 'abcWbaba...', 'abccbaaa...', 'abccba.....', 'abbbba.....', 'aaaaaa.....', '...........'],
   };
   return icon(scene, `m:${key}`, art[key], C);

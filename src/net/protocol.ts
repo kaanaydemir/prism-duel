@@ -22,6 +22,7 @@
 // built from it, so a hidden card can never make the guest's client offer a different set of moves.
 
 import { CARDS, type CardId } from '../data/cards';
+import { deckRulesKey } from '../data/decks';
 import type { Action, GameEvent, GameState, PlayerId } from '../engine/types';
 
 /** Bumped on any incompatible change of the messages below. */
@@ -151,7 +152,8 @@ export function decode(raw: unknown): NetMessage {
 }
 
 /**
- * A short fingerprint of the card data both sides play with (ids, stats, effects): two builds whose cards differ
+ * A short fingerprint of the card data both sides play with (ids, stats, effects) and of the deck-construction rules
+ * (decks.ts deckRulesKey: the host validates the guest's deck with them): two builds whose cards or deck rules differ
  * refuse each other even when APP_VERSION was not bumped. FNV-1a over the canonical JSON.
  */
 export function rulesFingerprint(extra = ''): string {
@@ -168,6 +170,7 @@ export function rulesFingerprint(extra = ''): string {
     feed(id);
     for (const k of ['type', 'atk', 'def', 'level', 'effect', 'spellType', 'trapType', 'attribute', 'fusion']) feed(`|${k}=${JSON.stringify(c[k] ?? null)}`);
   }
+  feed(`|deckRules=${deckRulesKey()}`);
   feed(extra);
   return h.toString(36);
 }
